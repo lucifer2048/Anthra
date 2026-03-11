@@ -2,10 +2,23 @@
   "expo": {
     "name": "Anthra",
     "slug": "anthra",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "icon": "./assets/icons/icon.png",
+    "notification": {
+      "icon": "./assets/icons/adaptive-icon-foreground.png",
+      "color": "#2F7DDE"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icons/adaptive-icon-foreground.png",
+          "color": "#2F7DDE"
+        }
+      ]
+    ],
     "android": {
       "package": "com.anthra.timer",
       "adaptiveIcon": {

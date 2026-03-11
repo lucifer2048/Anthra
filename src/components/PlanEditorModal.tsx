@@ -10,6 +10,7 @@ import {
   TextInput,
   View
 } from "react-native";
+import { Pencil, Trash2 } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { WEEKDAY_OPTIONS, formatDays, normalizeDays } from "../constants/schedule";
@@ -53,22 +54,13 @@ function makeLocalId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function defaultExercise(): EditableExercise {
-  return {
-    localId: makeLocalId(),
-    name: "",
-    workSecondsText: "40",
-    restSecondsText: "20"
-  };
-}
-
 function defaultSection(index = 0): EditableSection {
   return {
     localId: makeLocalId(),
     name: `Set ${index + 1}`,
     loopsText: "1",
     restSecondsText: "30",
-    exercises: [defaultExercise()]
+    exercises: []
   };
 }
 
@@ -89,8 +81,7 @@ function toEditableSection(section: WorkoutSection, index: number): EditableSect
     name: section.name || `Set ${index + 1}`,
     loopsText: String(section.loops),
     restSecondsText: String(section.restSeconds),
-    exercises:
-      section.exercises.length > 0 ? section.exercises.map(toEditableExercise) : [defaultExercise()]
+    exercises: section.exercises.map(toEditableExercise)
   };
 }
 
@@ -162,7 +153,7 @@ function coerceDraftSection(candidate: unknown, index: number): EditableSection 
       typeof source?.restSecondsText === "string" && source.restSecondsText.length > 0
         ? source.restSecondsText
         : "30",
-    exercises: exercises.length > 0 ? exercises : [defaultExercise()]
+    exercises
   };
 }
 
@@ -195,9 +186,20 @@ export function PlanEditorModal({
   const [sections, setSections] = useState<EditableSection[]>([defaultSection()]);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [setModalVisible, setSetModalVisible] = useState(false);
+  const [setModalMode, setSetModalMode] = useState<"add" | "edit">("add");
+  const [editingSetLocalId, setEditingSetLocalId] = useState<string | null>(null);
   const [newSetName, setNewSetName] = useState("");
   const [newSetLoopsText, setNewSetLoopsText] = useState("1");
   const [newSetRestSecondsText, setNewSetRestSecondsText] = useState("30");
+  const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
+  const [exerciseModalMode, setExerciseModalMode] = useState<"add" | "edit">("add");
+  const [editingExerciseSectionLocalId, setEditingExerciseSectionLocalId] = useState<string | null>(null);
+  const [editingExerciseLocalId, setEditingExerciseLocalId] = useState<string | null>(null);
+  const [newExerciseName, setNewExerciseName] = useState("");
+  const [newExerciseWorkSecondsText, setNewExerciseWorkSecondsText] = useState("40");
+  const [newExerciseRestSecondsText, setNewExerciseRestSecondsText] = useState("20");
+  const editIconColor = "#05AED5";
+  const deleteIconColor = "#FF6E7F";
 
   const activePlanId = initialPlan?.id ?? null;
 
@@ -232,6 +234,7 @@ export function PlanEditorModal({
     if (!visible) {
       setDraftHydrated(false);
       setSetModalVisible(false);
+      setExerciseModalVisible(false);
       return;
     }
 
@@ -303,14 +306,24 @@ export function PlanEditorModal({
     });
   };
 
-  const openSetModal = () => {
-    setNewSetName(`Set ${sections.length + 1}`);
-    setNewSetLoopsText("1");
-    setNewSetRestSecondsText("30");
+  const openSetModal = (section?: EditableSection, sectionIndex?: number) => {
+    if (section) {
+      setSetModalMode("edit");
+      setEditingSetLocalId(section.localId);
+      setNewSetName(section.name);
+      setNewSetLoopsText(section.loopsText);
+      setNewSetRestSecondsText(section.restSecondsText);
+    } else {
+      setSetModalMode("add");
+      setEditingSetLocalId(null);
+      setNewSetName(`Set ${(sectionIndex ?? sections.length) + 1}`);
+      setNewSetLoopsText("1");
+      setNewSetRestSecondsText("30");
+    }
     setSetModalVisible(true);
   };
 
-  const createSetFromModal = () => {
+  const saveSetFromModal = () => {
     const loops = parseStrictWholeNumber(newSetLoopsText);
     if (loops == null || loops < MIN_SECTION_LOOPS || loops > MAX_SECTION_LOOPS) {
       Alert.alert(
@@ -328,16 +341,31 @@ export function PlanEditorModal({
       return;
     }
 
-    setSections((prev) => [
-      ...prev,
-      {
-        localId: makeLocalId(),
-        name: newSetName.trim() || `Set ${prev.length + 1}`,
-        loopsText: String(loops),
-        restSecondsText: String(restSeconds),
-        exercises: [defaultExercise()]
-      }
-    ]);
+    if (setModalMode === "edit" && editingSetLocalId) {
+      setSections((prev) =>
+        prev.map((section) =>
+          section.localId === editingSetLocalId
+            ? {
+                ...section,
+                name: newSetName.trim() || section.name,
+                loopsText: String(loops),
+                restSecondsText: String(restSeconds)
+              }
+            : section
+        )
+      );
+    } else {
+      setSections((prev) => [
+        ...prev,
+        {
+          localId: makeLocalId(),
+          name: newSetName.trim() || `Set ${prev.length + 1}`,
+          loopsText: String(loops),
+          restSecondsText: String(restSeconds),
+          exercises: []
+        }
+      ]);
+    }
     setSetModalVisible(false);
   };
 
@@ -348,27 +376,29 @@ export function PlanEditorModal({
     });
   };
 
-  const updateSection = (sectionLocalId: string, patch: Partial<EditableSection>) => {
-    setSections((prev) =>
-      prev.map((section) => (section.localId === sectionLocalId ? { ...section, ...patch } : section))
-    );
-  };
-
-  const addExercise = (sectionLocalId: string) => {
-    setSections((prev) =>
-      prev.map((section) =>
-        section.localId === sectionLocalId
-          ? { ...section, exercises: [...section.exercises, defaultExercise()] }
-          : section
-      )
-    );
+  const openExerciseModal = (sectionLocalId: string, exercise?: EditableExercise) => {
+    if (exercise) {
+      setExerciseModalMode("edit");
+      setEditingExerciseSectionLocalId(sectionLocalId);
+      setEditingExerciseLocalId(exercise.localId);
+      setNewExerciseName(exercise.name);
+      setNewExerciseWorkSecondsText(exercise.workSecondsText);
+      setNewExerciseRestSecondsText(exercise.restSecondsText);
+    } else {
+      setExerciseModalMode("add");
+      setEditingExerciseSectionLocalId(sectionLocalId);
+      setEditingExerciseLocalId(null);
+      setNewExerciseName("");
+      setNewExerciseWorkSecondsText("40");
+      setNewExerciseRestSecondsText("20");
+    }
+    setExerciseModalVisible(true);
   };
 
   const removeExercise = (sectionLocalId: string, exerciseLocalId: string) => {
     setSections((prev) =>
       prev.map((section) => {
         if (section.localId !== sectionLocalId) return section;
-        if (section.exercises.length <= 1) return section;
         return {
           ...section,
           exercises: section.exercises.filter((exercise) => exercise.localId !== exerciseLocalId)
@@ -377,22 +407,67 @@ export function PlanEditorModal({
     );
   };
 
-  const updateExercise = (
-    sectionLocalId: string,
-    exerciseLocalId: string,
-    patch: Partial<EditableExercise>
-  ) => {
+  const saveExerciseFromModal = () => {
+    if (!editingExerciseSectionLocalId) return;
+    if (!newExerciseName.trim()) {
+      Alert.alert("Missing name", "Exercise name is required.");
+      return;
+    }
+
+    const workSeconds = parseStrictWholeNumber(newExerciseWorkSecondsText);
+    if (workSeconds == null || workSeconds < MIN_WORK_SECONDS || workSeconds > MAX_WORK_SECONDS) {
+      Alert.alert(
+        "Invalid work",
+        `Work must be a whole number between ${MIN_WORK_SECONDS} and ${MAX_WORK_SECONDS} seconds.`
+      );
+      return;
+    }
+
+    const restSeconds = parseStrictWholeNumber(newExerciseRestSecondsText);
+    if (restSeconds == null || restSeconds < MIN_REST_SECONDS || restSeconds > MAX_REST_SECONDS) {
+      Alert.alert(
+        "Invalid rest",
+        `Rest must be between ${MIN_REST_SECONDS} and ${MAX_REST_SECONDS} seconds.`
+      );
+      return;
+    }
+
     setSections((prev) =>
       prev.map((section) => {
-        if (section.localId !== sectionLocalId) return section;
+        if (section.localId !== editingExerciseSectionLocalId) return section;
+
+        if (exerciseModalMode === "edit" && editingExerciseLocalId) {
+          return {
+            ...section,
+            exercises: section.exercises.map((exercise) =>
+              exercise.localId === editingExerciseLocalId
+                ? {
+                    ...exercise,
+                    name: newExerciseName.trim(),
+                    workSecondsText: String(workSeconds),
+                    restSecondsText: String(restSeconds)
+                  }
+                : exercise
+            )
+          };
+        }
+
         return {
           ...section,
-          exercises: section.exercises.map((exercise) =>
-            exercise.localId === exerciseLocalId ? { ...exercise, ...patch } : exercise
-          )
+          exercises: [
+            ...section.exercises,
+            {
+              localId: makeLocalId(),
+              name: newExerciseName.trim(),
+              workSecondsText: String(workSeconds),
+              restSecondsText: String(restSeconds)
+            }
+          ]
         };
       })
     );
+
+    setExerciseModalVisible(false);
   };
 
   const discardDraft = () => {
@@ -508,19 +583,19 @@ export function PlanEditorModal({
 
   return (
     <Modal animationType="slide" visible={visible} onRequestClose={onClose}>
-      <SafeAreaView className="flex-1 bg-ink" edges={["top", "bottom"]}>
+      <SafeAreaView className="flex-1 bg-ink dark:bg-[#050505]" edges={["top", "bottom"]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1 bg-ink"
+          className="flex-1 bg-ink dark:bg-[#050505]"
         >
           <View className="flex-row items-center justify-between px-6 pb-4 pt-4">
-            <Text className="text-2xl font-bold text-white">{isEditing ? "Edit Plan" : "New Plan"}</Text>
+            <Text className="text-2xl font-bold text-[#08364A] dark:text-white">{isEditing ? "Edit Plan" : "New Plan"}</Text>
             <View className="flex-row items-center gap-4">
               <Pressable onPress={discardDraft}>
-                <Text className="text-sm font-semibold text-white/60">Discard Draft</Text>
+                <Text className="text-sm font-semibold text-[#4A8FA2] dark:text-white/60">Discard Draft</Text>
               </Pressable>
               <Pressable onPress={onClose}>
-                <Text className="text-base font-semibold text-white/70">Close</Text>
+                <Text className="text-base font-semibold text-[#34768B] dark:text-white/70">Close</Text>
               </Pressable>
             </View>
           </View>
@@ -531,18 +606,18 @@ export function PlanEditorModal({
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
-            <Text className="mb-2 mt-2 text-sm font-semibold text-white/70">Plan Name</Text>
+            <Text className="mb-2 mt-2 text-sm font-semibold text-[#34768B] dark:text-white/70">Plan Name</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Upper Body Burn"
               placeholderTextColor="#7A7A7A"
-              className="rounded-2xl border border-white/10 bg-panel px-4 py-4 text-lg font-semibold text-white"
+              className="rounded-2xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] px-4 py-4 text-lg font-semibold text-[#08364A] dark:text-white"
             />
 
-            <View className="mt-6 rounded-2xl border border-white/10 bg-panel p-4">
-              <Text className="text-sm font-semibold uppercase tracking-[2px] text-white/60">Workout Days</Text>
-              <Text className="mt-2 text-sm text-white/70">
+            <View className="mt-6 rounded-2xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-4">
+              <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">Workout Days</Text>
+              <Text className="mt-2 text-sm text-[#34768B] dark:text-white/70">
                 {formatDays(workoutDays)}. Leave all days off to allow this plan any day.
               </Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
@@ -553,12 +628,12 @@ export function PlanEditorModal({
                       key={day.value}
                       onPress={() => toggleWorkoutDay(day.value)}
                       className={`rounded-full border px-3 py-2 ${
-                        active ? "border-neon-blue bg-neon-blue/25" : "border-white/20 bg-ink"
+                        active ? "border-neon-blue bg-neon-blue/25" : "border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505]"
                       }`}
                     >
                       <Text
                         className={`text-xs font-bold uppercase ${
-                          active ? "text-neon-blue" : "text-white/75"
+                          active ? "text-neon-blue" : "text-[#2A6A80] dark:text-white/75"
                         }`}
                       >
                         {day.short}
@@ -569,118 +644,90 @@ export function PlanEditorModal({
               </View>
             </View>
 
-            <Text className="mt-6 text-xl font-bold text-white">Sets</Text>
-            <Text className="mt-1 text-sm text-white/70">
+            <Text className="mt-6 text-xl font-bold text-[#08364A] dark:text-white">Sets</Text>
+            <Text className="mt-1 text-sm text-[#34768B] dark:text-white/70">
               Example: Warm Up, Main, Finisher. Each set runs in order.
             </Text>
 
             {sections.map((section, sectionIndex) => (
-              <View key={section.localId} className="mt-4 rounded-2xl border border-white/10 bg-panel p-4">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-base font-semibold text-white">Set #{sectionIndex + 1}</Text>
-                  <Pressable onPress={() => removeSection(section.localId)}>
-                    <Text className="font-semibold text-neon-red">Remove</Text>
-                  </Pressable>
-                </View>
-
-                <TextInput
-                  value={section.name}
-                  onChangeText={(value) => updateSection(section.localId, { name: value })}
-                  placeholder="Warm Up"
-                  placeholderTextColor="#7A7A7A"
-                  className="mt-3 rounded-xl border border-white/10 bg-ink px-3 py-3 text-base font-medium text-white"
-                />
-
-                <View className="mt-3 flex-row gap-3">
-                  <View className="flex-1">
-                    <Text className="mb-1 text-xs font-semibold text-white/60">Loops (1-20)</Text>
-                    <TextInput
-                      value={section.loopsText}
-                      onChangeText={(value) =>
-                        updateSection(section.localId, { loopsText: digitsOnly(value) })
-                      }
-                      keyboardType="number-pad"
-                      className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-base font-medium text-white"
-                    />
+              <View key={section.localId} className="mt-4 rounded-2xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-4">
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-[#08364A] dark:text-white">Set #{sectionIndex + 1}</Text>
+                    <Text className="mt-1 text-lg font-black text-[#08364A] dark:text-white">{section.name}</Text>
+                    <Text className="mt-1 text-sm text-[#2A6A80] dark:text-white/75">
+                      {section.loopsText} loop(s) • {section.restSecondsText}s set rest
+                    </Text>
                   </View>
-                  <View className="flex-1">
-                    <Text className="mb-1 text-xs font-semibold text-white/60">Set Rest (0-600 sec)</Text>
-                    <TextInput
-                      value={section.restSecondsText}
-                      onChangeText={(value) =>
-                        updateSection(section.localId, { restSecondsText: digitsOnly(value) })
-                      }
-                      keyboardType="number-pad"
-                      className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-base font-medium text-white"
-                    />
+                  <View className="items-end gap-1">
+                    <Pressable onPress={() => openSetModal(section)} className="h-9 w-9 items-center justify-center">
+                      <Pencil size={16} color={editIconColor} />
+                    </Pressable>
+                    <Pressable onPress={() => removeSection(section.localId)} className="h-9 w-9 items-center justify-center">
+                      <Trash2 size={16} color={deleteIconColor} />
+                    </Pressable>
                   </View>
                 </View>
 
-                <Text className="mt-4 text-sm font-semibold text-white/75">Exercises</Text>
+                <Text className="mt-4 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Exercises</Text>
+
+                {section.exercises.length === 0 && (
+                  <View className="mt-3 rounded-xl border border-dashed border-[#05AED5]/28 dark:border-white/15 bg-ink dark:bg-[#050505] px-3 py-4">
+                    <Text className="text-sm text-[#34768B] dark:text-white/70">
+                      No exercises yet. Add one to build this set.
+                    </Text>
+                  </View>
+                )}
 
                 {section.exercises.map((exercise, exerciseIndex) => (
-                  <View key={exercise.localId} className="mt-3 rounded-xl border border-white/10 bg-ink p-3">
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-semibold text-white/80">#{exerciseIndex + 1}</Text>
-                      <Pressable onPress={() => removeExercise(section.localId, exercise.localId)}>
-                        <Text className="font-semibold text-neon-red">Remove</Text>
-                      </Pressable>
-                    </View>
-
-                    <TextInput
-                      value={exercise.name}
-                      onChangeText={(value) =>
-                        updateExercise(section.localId, exercise.localId, { name: value })
-                      }
-                      placeholder="Exercise name"
-                      placeholderTextColor="#7A7A7A"
-                      className="mt-3 rounded-xl border border-white/10 bg-panel px-3 py-3 text-base font-medium text-white"
-                    />
-
-                    <View className="mt-3 flex-row gap-3">
-                      <View className="flex-1">
-                        <Text className="mb-1 text-xs font-semibold text-white/60">Work (1-3600 sec)</Text>
-                        <TextInput
-                          value={exercise.workSecondsText}
-                          onChangeText={(value) =>
-                            updateExercise(section.localId, exercise.localId, {
-                              workSecondsText: digitsOnly(value)
-                            })
-                          }
-                          keyboardType="number-pad"
-                          className="rounded-xl border border-white/10 bg-panel px-3 py-3 text-base font-medium text-white"
-                        />
+                  <View key={exercise.localId} className="mt-3 rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] p-3">
+                    <View className="flex-row items-start justify-between">
+                      <View className="flex-1 pr-3">
+                        <Text className="text-sm font-semibold text-[#1E5B71] dark:text-white/80">#{exerciseIndex + 1}</Text>
+                        <Text className="mt-1 text-base font-black text-[#08364A] dark:text-white">{exercise.name || "Unnamed"}</Text>
+                        <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#34768B] dark:text-white/70">
+                          Work {exercise.workSecondsText}s • Rest {exercise.restSecondsText}s
+                        </Text>
                       </View>
-                      <View className="flex-1">
-                        <Text className="mb-1 text-xs font-semibold text-white/60">Rest (0-600 sec)</Text>
-                        <TextInput
-                          value={exercise.restSecondsText}
-                          onChangeText={(value) =>
-                            updateExercise(section.localId, exercise.localId, {
-                              restSecondsText: digitsOnly(value)
-                            })
-                          }
-                          keyboardType="number-pad"
-                          className="rounded-xl border border-white/10 bg-panel px-3 py-3 text-base font-medium text-white"
-                        />
+                      <View className="items-end gap-1">
+                        <Pressable
+                          onPress={() => openExerciseModal(section.localId, exercise)}
+                          className="h-9 w-9 items-center justify-center"
+                        >
+                          <Pencil size={16} color={editIconColor} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => removeExercise(section.localId, exercise.localId)}
+                          className="h-9 w-9 items-center justify-center"
+                        >
+                          <Trash2 size={16} color={deleteIconColor} />
+                        </Pressable>
                       </View>
                     </View>
                   </View>
                 ))}
 
-                <Pressable
-                  onPress={() => addExercise(section.localId)}
-                  className="mt-4 items-center rounded-xl bg-neon-blue px-4 py-3"
-                >
-                  <Text className="font-bold text-ink">Add Exercise</Text>
-                </Pressable>
+                <View className="mt-4 flex-row gap-3">
+                  <Pressable
+                    onPress={() => openExerciseModal(section.localId)}
+                    className="flex-1 items-center rounded-xl bg-neon-blue px-4 py-3"
+                  >
+                    <Text className="font-bold text-ink">Add Exercise</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => openSetModal(section)}
+                    className="flex-1 items-center rounded-xl border border-neon-blue/40 bg-neon-blue/15 px-4 py-3"
+                  >
+                    <Text className="font-bold text-neon-blue">Edit Set</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </ScrollView>
 
-          <View className="border-t border-white/10 bg-ink px-6 pb-4 pt-3">
+          <View className="border-t border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-6 pb-4 pt-3">
             <View className="flex-row gap-3">
-              <Pressable onPress={openSetModal} className="flex-1 items-center rounded-2xl bg-neon-blue py-4">
+              <Pressable onPress={() => openSetModal()} className="flex-1 items-center rounded-2xl bg-neon-blue py-4">
                 <Text className="text-base font-black text-ink">Add Set</Text>
               </Pressable>
               <Pressable
@@ -704,13 +751,15 @@ export function PlanEditorModal({
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             className="flex-1 justify-center bg-black/70 px-5"
           >
-            <View className="rounded-3xl border border-white/10 bg-panel p-5">
-              <Text className="text-xl font-black text-white">Add Set</Text>
-              <Text className="mt-1 text-sm text-white/70">
+            <View className="rounded-3xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-5">
+              <Text className="text-xl font-black text-[#08364A] dark:text-white">
+                {setModalMode === "edit" ? "Edit Set" : "Add Set"}
+              </Text>
+              <Text className="mt-1 text-sm text-[#34768B] dark:text-white/70">
                 Add the set details in a focused popup so typing stays visible above the keyboard.
               </Text>
 
-              <Text className="mb-1 mt-4 text-xs font-semibold uppercase tracking-[1.2px] text-white/60">
+              <Text className="mb-1 mt-4 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
                 Set Name
               </Text>
               <TextInput
@@ -718,30 +767,30 @@ export function PlanEditorModal({
                 onChangeText={setNewSetName}
                 placeholder="Main"
                 placeholderTextColor="#7A7A7A"
-                className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-base font-medium text-white"
+                className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
               />
 
               <View className="mt-3 flex-row gap-3">
                 <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-white/60">
+                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
                     Loops (1-20)
                   </Text>
                   <TextInput
                     value={newSetLoopsText}
                     onChangeText={(value) => setNewSetLoopsText(digitsOnly(value))}
                     keyboardType="number-pad"
-                    className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-base font-medium text-white"
+                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-white/60">
+                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
                     Rest (0-600)
                   </Text>
                   <TextInput
                     value={newSetRestSecondsText}
                     onChangeText={(value) => setNewSetRestSecondsText(digitsOnly(value))}
                     keyboardType="number-pad"
-                    className="rounded-xl border border-white/10 bg-ink px-3 py-3 text-base font-medium text-white"
+                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
                   />
                 </View>
               </View>
@@ -749,15 +798,91 @@ export function PlanEditorModal({
               <View className="mt-5 flex-row gap-3">
                 <Pressable
                   onPress={() => setSetModalVisible(false)}
-                  className="flex-1 items-center rounded-xl border border-white/20 bg-ink py-3"
+                  className="flex-1 items-center rounded-xl border border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505] py-3"
                 >
-                  <Text className="font-semibold text-white/80">Cancel</Text>
+                  <Text className="font-semibold text-[#1E5B71] dark:text-white/80">Cancel</Text>
                 </Pressable>
                 <Pressable
-                  onPress={createSetFromModal}
+                  onPress={saveSetFromModal}
                   className="flex-1 items-center rounded-xl bg-neon-green py-3"
                 >
-                  <Text className="font-black text-ink">Create Set</Text>
+                  <Text className="font-black text-ink">
+                    {setModalMode === "edit" ? "Save Set" : "Create Set"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        <Modal
+          visible={exerciseModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setExerciseModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1 justify-center bg-black/70 px-5"
+          >
+            <View className="rounded-3xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-5">
+              <Text className="text-xl font-black text-[#08364A] dark:text-white">
+                {exerciseModalMode === "edit" ? "Edit Exercise" : "Add Exercise"}
+              </Text>
+              <Text className="mt-1 text-sm text-[#34768B] dark:text-white/70">
+                Keep exercise edits in this popup so the keyboard never hides your fields.
+              </Text>
+
+              <Text className="mb-1 mt-4 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
+                Exercise Name
+              </Text>
+              <TextInput
+                value={newExerciseName}
+                onChangeText={setNewExerciseName}
+                placeholder="Jump Squats"
+                placeholderTextColor="#7A7A7A"
+                className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
+              />
+
+              <View className="mt-3 flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
+                    Work (1-3600)
+                  </Text>
+                  <TextInput
+                    value={newExerciseWorkSecondsText}
+                    onChangeText={(value) => setNewExerciseWorkSecondsText(digitsOnly(value))}
+                    keyboardType="number-pad"
+                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
+                    Rest (0-600)
+                  </Text>
+                  <TextInput
+                    value={newExerciseRestSecondsText}
+                    onChangeText={(value) => setNewExerciseRestSecondsText(digitsOnly(value))}
+                    keyboardType="number-pad"
+                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
+                  />
+                </View>
+              </View>
+
+              <View className="mt-5 flex-row gap-3">
+                <Pressable
+                  onPress={() => setExerciseModalVisible(false)}
+                  className="flex-1 items-center rounded-xl border border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505] py-3"
+                >
+                  <Text className="font-semibold text-[#1E5B71] dark:text-white/80">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={saveExerciseFromModal}
+                  className="flex-1 items-center rounded-xl bg-neon-green py-3"
+                >
+                  <Text className="font-black text-ink">
+                    {exerciseModalMode === "edit" ? "Save Exercise" : "Create Exercise"}
+                  </Text>
                 </Pressable>
               </View>
             </View>

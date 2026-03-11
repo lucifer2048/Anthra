@@ -9,6 +9,6 @@ module.exports = function (api) {
   }
 
   return {
-    presets: [expoPreset, "nativewind/babel"]
+    presets: [[expoPreset, { jsxImportSource: "nativewind" }], "nativewind/babel"]
   };
 };

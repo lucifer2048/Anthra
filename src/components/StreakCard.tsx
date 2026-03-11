@@ -5,13 +5,14 @@ type StreakCardProps = {
   streakWeeks: number;
   weekCompleted: number;
   weekGoal: number;
+  accentColor?: string;
 };
 
-const GREEN = "#B8FF4F";
+const DEFAULT_ACCENT = "#B8FF4F";
 export const STREAK_CARD_WIDTH = 1080;
 export const STREAK_CARD_HEIGHT = 2160;
 
-function MotionStreaks() {
+function MotionStreaks({ accentColor }: { accentColor: string }) {
   const streaks = [
     { top: 220, left: -220, width: 1550, height: 10, opacity: 0.05 },
     { top: 620, left: -180, width: 1450, height: 8, opacity: 0.04 },
@@ -32,7 +33,7 @@ function MotionStreaks() {
             left: s.left,
             width: s.width,
             height: s.height,
-            backgroundColor: GREEN,
+            backgroundColor: accentColor,
             opacity: s.opacity,
             transform: [{ rotate: "-8deg" }],
           }}
@@ -42,7 +43,7 @@ function MotionStreaks() {
   );
 }
 
-export function StreakCard({ streakDays, streakWeeks, weekCompleted, weekGoal }: StreakCardProps) {
+export function StreakCard({ streakDays, streakWeeks, weekCompleted, weekGoal, accentColor = DEFAULT_ACCENT }: StreakCardProps) {
   const clampedGoal = Math.max(1, weekGoal);
   const progress = Math.min(100, Math.round((Math.max(0, weekCompleted) / clampedGoal) * 100));
 
@@ -62,7 +63,7 @@ export function StreakCard({ streakDays, streakWeeks, weekCompleted, weekGoal }:
         overflow: "hidden",
       }}
     >
-      <MotionStreaks />
+      <MotionStreaks accentColor={accentColor} />
 
       {/* ── TOP BAR ── */}
       <View
@@ -144,7 +145,7 @@ export function StreakCard({ streakDays, streakWeeks, weekCompleted, weekGoal }:
           style={{
             fontSize: 420,
             fontWeight: "900",
-            color: GREEN,
+            color: accentColor,
             lineHeight: 380,
             letterSpacing: -20,
             textAlign: "center",
@@ -158,7 +159,7 @@ export function StreakCard({ streakDays, streakWeeks, weekCompleted, weekGoal }:
           style={{
             width: 100,
             height: 3,
-            backgroundColor: GREEN,
+            backgroundColor: accentColor,
             opacity: 0.6,
             marginTop: 64,
             marginBottom: 64,
@@ -258,7 +259,7 @@ export function StreakCard({ streakDays, streakWeeks, weekCompleted, weekGoal }:
               style={{
                 fontSize: 80,
                 fontWeight: "900",
-                color: GREEN,
+                color: accentColor,
                 lineHeight: 80,
               }}
             >

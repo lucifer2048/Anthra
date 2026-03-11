@@ -15,11 +15,17 @@ type NotificationModule = {
     HIGH?: number;
     MAX?: number;
   };
-  SchedulableTriggerInputTypes?: {
-    WEEKLY?: string;
-  };
   getPermissionsAsync?: () => Promise<PermissionResponse>;
   requestPermissionsAsync?: () => Promise<PermissionResponse>;
+  getAllScheduledNotificationsAsync?: () => Promise<
+    {
+      identifier: string;
+      content?: {
+        data?: Record<string, unknown>;
+      };
+    }[]
+  >;
+  cancelScheduledNotificationAsync?: (identifier: string) => Promise<void>;
   cancelAllScheduledNotificationsAsync?: () => Promise<void>;
   setNotificationChannelAsync?: (
     channelId: string,
@@ -31,7 +37,8 @@ type NotificationModule = {
       lightColor?: string;
       description?: string;
     }
-  ) => Promise<void>;
+  ) => Promise<unknown>;
+  getNotificationChannelAsync?: (channelId: string) => Promise<{ id?: string | null } | null>;
   scheduleNotificationAsync?: (request: {
     content: {
       title: string;
@@ -39,15 +46,23 @@ type NotificationModule = {
       sound?: boolean;
       channelId?: string;
       color?: string;
+      data?: Record<string, unknown>;
     };
-    trigger: {
-      type: string;
-      weekday: number;
-      hour: number;
-      minute: number;
-      repeats: boolean;
-      channelId?: string;
-    };
+    trigger:
+      | Date
+      | {
+          type: string;
+          date: Date;
+          channelId?: string;
+        }
+      | {
+          type: string;
+          weekday: number;
+          hour: number;
+          minute: number;
+          repeats: boolean;
+          channelId?: string;
+        };
   }) => Promise<string>;
   setNotificationHandler?: (handler: {
     handleNotification: () => Promise<{
@@ -67,6 +82,10 @@ export type ReminderSyncResult = {
 };
 
 const ANDROID_CHANNEL_ID = "workout-reminders";
+const WORKOUT_REMINDER_SOURCE = "workout-buddy";
+const IST_OFFSET_MINUTES = 330;
+const WORKOUT_SCHEDULE_HORIZON_DAYS = 56;
+const MAX_SCHEDULED_WORKOUT_NOTIFICATIONS = 320;
 let notificationHandlerConfigured = false;
 
 const REMINDER_MESSAGES = [
@@ -103,34 +122,34 @@ function isExpoGoClient(): boolean {
   return appOwnership === "expo" || executionEnvironment === "storeClient";
 }
 
-function toExpoWeekday(jsWeekday: number): number {
-  return jsWeekday === 0 ? 1 : jsWeekday + 1;
+function toIstDayParts(baseMs: number, dayOffset: number): {
+  year: number;
+  month: number;
+  day: number;
+  weekday: number;
+} {
+  const shifted = baseMs + IST_OFFSET_MINUTES * 60_000;
+  const baseIstDate = new Date(shifted);
+  const utcMs = Date.UTC(
+    baseIstDate.getUTCFullYear(),
+    baseIstDate.getUTCMonth(),
+    baseIstDate.getUTCDate() + dayOffset,
+    0,
+    0,
+    0,
+    0
+  );
+  const dayDate = new Date(utcMs);
+  return {
+    year: dayDate.getUTCFullYear(),
+    month: dayDate.getUTCMonth() + 1,
+    day: dayDate.getUTCDate(),
+    weekday: dayDate.getUTCDay()
+  };
 }
 
-function toReminderSlot(
-  day: number,
-  hour: number,
-  minute: number,
-  leadMinutes: number
-): { day: number; hour: number; minute: number } {
-  let dayCursor = day;
-  let minuteOffset = hour * 60 + minute - leadMinutes;
-
-  while (minuteOffset < 0) {
-    minuteOffset += 24 * 60;
-    dayCursor = (dayCursor + 6) % 7;
-  }
-
-  while (minuteOffset >= 24 * 60) {
-    minuteOffset -= 24 * 60;
-    dayCursor = (dayCursor + 1) % 7;
-  }
-
-  return {
-    day: dayCursor,
-    hour: Math.floor(minuteOffset / 60),
-    minute: minuteOffset % 60
-  };
+function istToUtcTimestamp(year: number, month: number, day: number, hour: number, minute: number): number {
+  return Date.UTC(year, month - 1, day, hour, minute, 0, 0) - IST_OFFSET_MINUTES * 60_000;
 }
 
 function isGranted(response: PermissionResponse | null | undefined): boolean {
@@ -156,18 +175,45 @@ function ensureNotificationHandler(notifications: NotificationModule): void {
   notificationHandlerConfigured = true;
 }
 
-async function ensureAndroidChannel(notifications: NotificationModule): Promise<void> {
-  if (Platform.OS !== "android") return;
-  if (typeof notifications.setNotificationChannelAsync !== "function") return;
+async function ensureAndroidChannel(notifications: NotificationModule): Promise<string | undefined> {
+  if (Platform.OS !== "android") return undefined;
+  if (typeof notifications.setNotificationChannelAsync !== "function") return undefined;
 
-  await notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: "Motivation reminders",
-    description: "Workout reminders to keep your streak and training routine on track.",
-    importance: notifications.AndroidImportance?.HIGH ?? notifications.AndroidImportance?.DEFAULT,
-    sound: "default",
-    vibrationPattern: [0, 350, 180, 350],
-    lightColor: "#52B7FF"
-  });
+  try {
+    await notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: "Motivation reminders",
+      description: "Workout reminders to keep your streak and training routine on track.",
+      importance: notifications.AndroidImportance?.HIGH ?? notifications.AndroidImportance?.DEFAULT,
+      sound: "default",
+      vibrationPattern: [0, 350, 180, 350],
+      lightColor: "#52B7FF"
+    });
+
+    if (typeof notifications.getNotificationChannelAsync !== "function") {
+      return ANDROID_CHANNEL_ID;
+    }
+
+    const channel = await notifications.getNotificationChannelAsync(ANDROID_CHANNEL_ID).catch(() => null);
+    return channel?.id === ANDROID_CHANNEL_ID ? ANDROID_CHANNEL_ID : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function clearExistingWorkoutNotifications(notifications: NotificationModule): Promise<void> {
+  if (
+    typeof notifications.getAllScheduledNotificationsAsync !== "function" ||
+    typeof notifications.cancelScheduledNotificationAsync !== "function"
+  ) {
+    await notifications.cancelAllScheduledNotificationsAsync?.();
+    return;
+  }
+
+  const scheduled = await notifications.getAllScheduledNotificationsAsync();
+  const owned = scheduled.filter((item) => item.content?.data?.source === WORKOUT_REMINDER_SOURCE);
+  await Promise.all(
+    owned.map((item) => notifications.cancelScheduledNotificationAsync?.(item.identifier).catch(() => undefined))
+  );
 }
 
 export async function syncWorkoutReminders(settings: UserSettings): Promise<ReminderSyncResult> {
@@ -188,10 +234,7 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
     };
   }
 
-  if (
-    typeof notifications.cancelAllScheduledNotificationsAsync !== "function" ||
-    typeof notifications.scheduleNotificationAsync !== "function"
-  ) {
+  if (typeof notifications.scheduleNotificationAsync !== "function") {
     return {
       supported: false,
       scheduledCount: 0,
@@ -200,7 +243,7 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
   }
 
   try {
-    await notifications.cancelAllScheduledNotificationsAsync();
+    await clearExistingWorkoutNotifications(notifications);
 
     if (!settings.notificationsEnabled) {
       return {
@@ -224,60 +267,75 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
     }
 
     ensureNotificationHandler(notifications);
-    await ensureAndroidChannel(notifications);
+    const channelId = await ensureAndroidChannel(notifications);
 
+    const nowMs = Date.now();
     const sourceDays = normalizeDays(settings.workoutDays);
     const scheduledDays = sourceDays.length > 0 ? sourceDays : [0, 1, 2, 3, 4, 5, 6];
-    const weeklyTriggerType = notifications.SchedulableTriggerInputTypes?.WEEKLY ?? "weekly";
     const leadMinutesList = settings.reminderLeadMinutes
       .map((value) => Math.max(0, Math.floor(Number(value) || 0)))
       .filter((value) => Number.isFinite(value))
       .slice(0, 3);
-    const effectiveLeadMinutes = leadMinutesList.length > 0 ? leadMinutesList : [60];
+    const effectiveLeadMinutes = Array.from(new Set(leadMinutesList.length > 0 ? leadMinutesList : [60]));
+    const daySet = new Set<number>(scheduledDays);
+    const hour = Math.min(23, Math.max(0, Math.floor(Number(settings.reminderHour) || 0)));
+    const minute = Math.min(59, Math.max(0, Math.floor(Number(settings.reminderMinute) || 0)));
 
-    const seenTriggers = new Set<string>();
-    let scheduledCount = 0;
+    const seenTimestamps = new Set<number>();
+    const candidates: { timestamp: number; messageIndex: number }[] = [];
 
-    for (const day of scheduledDays) {
+    for (let dayOffset = 0; dayOffset <= WORKOUT_SCHEDULE_HORIZON_DAYS; dayOffset += 1) {
+      const slot = toIstDayParts(nowMs, dayOffset);
+      if (!daySet.has(slot.weekday)) continue;
+
+      const workoutTimestamp = istToUtcTimestamp(slot.year, slot.month, slot.day, hour, minute);
       for (let leadIndex = 0; leadIndex < effectiveLeadMinutes.length; leadIndex += 1) {
         const lead = effectiveLeadMinutes[leadIndex];
-        const slot = toReminderSlot(
-          day,
-          Math.min(23, Math.max(0, settings.reminderHour)),
-          Math.min(59, Math.max(0, settings.reminderMinute)),
-          lead
-        );
-
-        const triggerKey = `${slot.day}-${slot.hour}-${slot.minute}`;
-        if (seenTriggers.has(triggerKey)) continue;
-        seenTriggers.add(triggerKey);
-
-        const message = REMINDER_MESSAGES[(day + leadIndex) % REMINDER_MESSAGES.length];
-        await notifications.scheduleNotificationAsync({
-          content: {
-            title: message.title,
-            body: message.body,
-            sound: true,
-            color: "#52B7FF",
-            ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL_ID } : {})
-          },
-          trigger: {
-            type: weeklyTriggerType,
-            weekday: toExpoWeekday(slot.day),
-            hour: slot.hour,
-            minute: slot.minute,
-            repeats: true,
-            ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL_ID } : {})
-          }
+        const reminderTimestamp = workoutTimestamp - lead * 60_000;
+        if (reminderTimestamp <= nowMs + 5_000) continue;
+        if (seenTimestamps.has(reminderTimestamp)) continue;
+        seenTimestamps.add(reminderTimestamp);
+        candidates.push({
+          timestamp: reminderTimestamp,
+          messageIndex: (slot.weekday + leadIndex) % REMINDER_MESSAGES.length
         });
-        scheduledCount += 1;
+        if (candidates.length >= MAX_SCHEDULED_WORKOUT_NOTIFICATIONS) {
+          break;
+        }
       }
+      if (candidates.length >= MAX_SCHEDULED_WORKOUT_NOTIFICATIONS) {
+        break;
+      }
+    }
+
+    candidates.sort((a, b) => a.timestamp - b.timestamp);
+    let scheduledCount = 0;
+    for (const candidate of candidates) {
+      const message = REMINDER_MESSAGES[candidate.messageIndex];
+      await notifications.scheduleNotificationAsync({
+        content: {
+          title: message.title,
+          body: message.body,
+          sound: true,
+          color: "#52B7FF",
+          data: { source: WORKOUT_REMINDER_SOURCE, timezone: "Asia/Kolkata" }
+        },
+        trigger: {
+          type: "date",
+          date: new Date(candidate.timestamp),
+          ...(channelId ? { channelId } : {})
+        }
+      });
+      scheduledCount += 1;
     }
 
     return {
       supported: true,
       scheduledCount,
-      message: scheduledCount > 0 ? `Scheduled ${scheduledCount} reminders.` : "No reminders scheduled."
+      message:
+        scheduledCount > 0
+          ? `Scheduled ${scheduledCount} reminders in IST (Asia/Kolkata).`
+          : "No reminders scheduled."
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "Unknown reminder error.";

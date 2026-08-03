@@ -15,6 +15,10 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
+import com.anthra.timer.alarm.AnthraAlarmPackage
+import com.anthra.timer.activity.AnthraActivityPackage
+import com.anthra.timer.activity.StepCounterManager
+import com.anthra.timer.activity.StepTrackingService
 
 class MainApplication : Application(), ReactApplication {
 
@@ -24,7 +28,8 @@ class MainApplication : Application(), ReactApplication {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
-              // add(MyReactNativePackage())
+              add(AnthraAlarmPackage())
+              add(AnthraActivityPackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
@@ -47,6 +52,10 @@ class MainApplication : Application(), ReactApplication {
     }
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+    val stepCounter = StepCounterManager(applicationContext)
+    if (stepCounter.isTrackingEnabled() && stepCounter.hasPermission() && stepCounter.hasStepCounter()) {
+      runCatching { StepTrackingService.start(applicationContext) }
+    }
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

@@ -1,21 +1,40 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View
 } from "react-native";
-import { Pencil, Trash2 } from "lucide-react-native";
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  Clock3,
+  Copy,
+  Dumbbell,
+  Layers3,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+  X
+} from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { WEEKDAY_OPTIONS, formatDays, normalizeDays } from "../constants/schedule";
 import { clearPlanEditorDraft, getPlanEditorDraft, savePlanEditorDraft } from "../db";
+import { useAnthraTheme } from "../design-system";
+import {
+  estimateWorkoutDurationSeconds,
+  formatWorkoutDuration
+} from "../features/workout/workoutTimeline";
 import type { Exercise, WorkoutPlan, WorkoutPlanInput, WorkoutSection } from "../types";
+import { Button, IconButton, KeyboardAwareScrollView, Surface, TextField } from "./ui";
 
 type EditableExercise = {
   id?: number;
@@ -41,6 +60,8 @@ type PlanEditorDraft = {
   workoutDays: number[];
   sections: EditableSection[];
 };
+
+type DraftSaveStatus = "idle" | "saving" | "saved" | "error";
 
 type PlanEditorModalProps = {
   visible: boolean;
@@ -116,6 +137,88 @@ const MAX_WORK_SECONDS = 3600;
 const MIN_REST_SECONDS = 0;
 const MAX_REST_SECONDS = 600;
 
+type PlanTemplate = {
+  name: string;
+  exercises: Array<{ name: string; work: number; rest: number }>;
+};
+
+const PLAN_TEMPLATES: PlanTemplate[] = [
+  {
+    name: "7-Minute Starter",
+    exercises: [
+      { name: "Jumping jacks", work: 40, rest: 20 },
+      { name: "Bodyweight squats", work: 40, rest: 20 },
+      { name: "Push-ups", work: 40, rest: 20 },
+      { name: "Mountain climbers", work: 40, rest: 20 },
+      { name: "Plank", work: 40, rest: 20 },
+      { name: "Reverse lunges", work: 40, rest: 20 },
+      { name: "High knees", work: 40, rest: 20 }
+    ]
+  },
+  {
+    name: "Quick Mobility",
+    exercises: [
+      { name: "Arm circles", work: 45, rest: 10 },
+      { name: "Hip openers", work: 45, rest: 10 },
+      { name: "World's greatest stretch", work: 60, rest: 10 },
+      { name: "Cat-cow", work: 45, rest: 10 }
+    ]
+  },
+  {
+    name: "Core Express",
+    exercises: [
+      { name: "Dead bug", work: 40, rest: 20 },
+      { name: "Plank", work: 40, rest: 20 },
+      { name: "Bicycle crunches", work: 40, rest: 20 },
+      { name: "Side plank", work: 40, rest: 20 }
+    ]
+  }
+];
+
+type WorkoutChoiceRowProps = {
+  label: string;
+  choices: Array<{ label: string; value: string }>;
+  selectedValue?: string;
+  onSelect: (value: string) => void;
+};
+
+function WorkoutChoiceRow({ label, choices, selectedValue, onSelect }: WorkoutChoiceRowProps) {
+  const theme = useAnthraTheme();
+
+  return (
+    <View style={{ marginTop: theme.spacing.lg }}>
+      <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>
+        {label}
+      </Text>
+      <View className="flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
+        {choices.map((choice) => {
+          const selected = choice.value === selectedValue;
+          return (
+            <Pressable
+              key={choice.value}
+              onPress={() => onSelect(choice.value)}
+              accessibilityRole="button"
+              accessibilityLabel={choice.label}
+              accessibilityState={{ selected }}
+              className="min-h-[44px] min-w-[58px] items-center justify-center border px-3"
+              style={({ pressed }) => ({
+                borderRadius: theme.radii.md,
+                borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
+                backgroundColor: selected ? theme.colors.brandSoft : theme.colors.surface,
+                opacity: pressed ? 0.78 : 1
+              })}
+            >
+              <Text style={[theme.typography.label, { color: selected ? theme.colors.brand : theme.colors.textPrimary }]}>
+                {choice.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function coerceDraftExercise(candidate: unknown): EditableExercise {
   const source = candidate as Partial<EditableExercise> | null;
   return {
@@ -179,12 +282,17 @@ export function PlanEditorModal({
   onClose,
   onSave
 }: PlanEditorModalProps) {
+  const theme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const shouldStackControls = width < 420 || fontScale >= 1.2;
   const isEditing = useMemo(() => Boolean(initialPlan), [initialPlan]);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [workoutDays, setWorkoutDays] = useState<number[]>([]);
   const [sections, setSections] = useState<EditableSection[]>([defaultSection()]);
   const [draftHydrated, setDraftHydrated] = useState(false);
+  const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatus>("idle");
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
   const [setModalVisible, setSetModalVisible] = useState(false);
   const [setModalMode, setSetModalMode] = useState<"add" | "edit">("add");
   const [editingSetLocalId, setEditingSetLocalId] = useState<string | null>(null);
@@ -198,10 +306,100 @@ export function PlanEditorModal({
   const [newExerciseName, setNewExerciseName] = useState("");
   const [newExerciseWorkSecondsText, setNewExerciseWorkSecondsText] = useState("40");
   const [newExerciseRestSecondsText, setNewExerciseRestSecondsText] = useState("20");
-  const editIconColor = "#05AED5";
-  const deleteIconColor = "#FF6E7F";
+  const setNameInputRef = useRef<TextInput>(null);
+  const setLoopsInputRef = useRef<TextInput>(null);
+  const setRestInputRef = useRef<TextInput>(null);
+  const exerciseNameInputRef = useRef<TextInput>(null);
+  const exerciseWorkInputRef = useRef<TextInput>(null);
+  const exerciseRestInputRef = useRef<TextInput>(null);
+  const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDraftJsonRef = useRef<string | null>(null);
+  const pendingDraftRef = useRef(false);
+  const mountedRef = useRef(true);
+  const closeFlushInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!setModalVisible) return;
+    const focusTimer = setTimeout(() => setNameInputRef.current?.focus(), 220);
+    return () => clearTimeout(focusTimer);
+  }, [setModalVisible]);
+
+  useEffect(() => {
+    if (!exerciseModalVisible) return;
+    const focusTimer = setTimeout(() => exerciseNameInputRef.current?.focus(), 220);
+    return () => clearTimeout(focusTimer);
+  }, [exerciseModalVisible]);
 
   const activePlanId = initialPlan?.id ?? null;
+
+  const clearPendingDraftTimer = useCallback(() => {
+    if (!draftSaveTimeoutRef.current) return;
+    clearTimeout(draftSaveTimeoutRef.current);
+    draftSaveTimeoutRef.current = null;
+  }, []);
+
+  const persistDraftJson = useCallback(async (json: string): Promise<boolean> => {
+    if (mountedRef.current && latestDraftJsonRef.current === json) {
+      setDraftSaveStatus("saving");
+    }
+
+    try {
+      await savePlanEditorDraft(json);
+      if (latestDraftJsonRef.current === json) {
+        pendingDraftRef.current = false;
+        if (mountedRef.current) {
+          setDraftSaveStatus("saved");
+          setDraftSaveError(null);
+        }
+      }
+      return true;
+    } catch {
+      if (latestDraftJsonRef.current === json) {
+        pendingDraftRef.current = true;
+        if (mountedRef.current) {
+          setDraftSaveStatus("error");
+          setDraftSaveError("Your latest changes are still in this editor. Retry before closing to keep them for later.");
+        }
+      }
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearPendingDraftTimer();
+      const latestDraft = latestDraftJsonRef.current;
+      if (pendingDraftRef.current && latestDraft) {
+        void persistDraftJson(latestDraft);
+      }
+    };
+  }, [clearPendingDraftTimer, persistDraftJson]);
+
+  const estimatedDurationSeconds = useMemo(
+    () =>
+      estimateWorkoutDurationSeconds({
+        loops: 1,
+        exercises: [],
+        sections: sections.map((section, index) => ({
+          name: section.name.trim() || `Set ${index + 1}`,
+          loops: normalizePositiveInt(section.loopsText, 1),
+          restSeconds: normalizeNonNegativeInt(section.restSecondsText, 0),
+          exercises: section.exercises.map((exercise) => ({
+            name: exercise.name,
+            workSeconds: normalizePositiveInt(exercise.workSecondsText, 1),
+            restSeconds: normalizeNonNegativeInt(exercise.restSecondsText, 0)
+          }))
+        }))
+      }),
+    [sections]
+  );
+
+  const estimatedDurationLabel = useMemo(() => {
+    if (estimatedDurationSeconds <= 0) return "Add exercises to see duration";
+    return `About ${formatWorkoutDuration(estimatedDurationSeconds)}`;
+  }, [estimatedDurationSeconds]);
 
   const resetFromPlan = useCallback(
     (plan: WorkoutPlan | null) => {
@@ -232,6 +430,11 @@ export function PlanEditorModal({
 
   useEffect(() => {
     if (!visible) {
+      clearPendingDraftTimer();
+      const latestDraft = latestDraftJsonRef.current;
+      if (pendingDraftRef.current && latestDraft) {
+        void persistDraftJson(latestDraft);
+      }
       setDraftHydrated(false);
       setSetModalVisible(false);
       setExerciseModalVisible(false);
@@ -240,6 +443,8 @@ export function PlanEditorModal({
 
     let active = true;
     setDraftHydrated(false);
+    setDraftSaveStatus("idle");
+    setDraftSaveError(null);
 
     const hydrate = async () => {
       resetFromPlan(initialPlan);
@@ -285,17 +490,41 @@ export function PlanEditorModal({
     return () => {
       active = false;
     };
-  }, [activePlanId, initialPlan, resetFromPlan, visible]);
+  }, [activePlanId, clearPendingDraftTimer, initialPlan, persistDraftJson, resetFromPlan, visible]);
 
   useEffect(() => {
     if (!visible || !draftHydrated) return;
-    const timeout = setTimeout(() => {
-      const payload = toDraftPayload(activePlanId, name, workoutDays, sections);
-      savePlanEditorDraft(JSON.stringify(payload)).catch(() => undefined);
-    }, 350);
+    clearPendingDraftTimer();
+    const payload = toDraftPayload(activePlanId, name, workoutDays, sections);
+    const json = JSON.stringify(payload);
+    latestDraftJsonRef.current = json;
+    pendingDraftRef.current = true;
+    setDraftSaveStatus("saving");
 
-    return () => clearTimeout(timeout);
-  }, [activePlanId, draftHydrated, name, sections, visible, workoutDays]);
+    const timeout = setTimeout(() => {
+      if (draftSaveTimeoutRef.current === timeout) {
+        draftSaveTimeoutRef.current = null;
+      }
+      void persistDraftJson(json);
+    }, 350);
+    draftSaveTimeoutRef.current = timeout;
+
+    return () => {
+      if (draftSaveTimeoutRef.current === timeout) {
+        clearTimeout(timeout);
+        draftSaveTimeoutRef.current = null;
+      }
+    };
+  }, [
+    activePlanId,
+    clearPendingDraftTimer,
+    draftHydrated,
+    name,
+    persistDraftJson,
+    sections,
+    visible,
+    workoutDays
+  ]);
 
   const toggleWorkoutDay = (day: number) => {
     setWorkoutDays((prev) => {
@@ -374,6 +603,98 @@ export function PlanEditorModal({
       if (prev.length <= 1) return prev;
       return prev.filter((section) => section.localId !== sectionLocalId);
     });
+  };
+
+  const moveSection = (sectionIndex: number, direction: -1 | 1) => {
+    setSections((prev) => {
+      const targetIndex = sectionIndex + direction;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[sectionIndex], next[targetIndex]] = [next[targetIndex], next[sectionIndex]];
+      return next;
+    });
+  };
+
+  const duplicateSection = (sectionIndex: number) => {
+    setSections((prev) => {
+      const source = prev[sectionIndex];
+      if (!source) return prev;
+      const duplicate: EditableSection = {
+        ...source,
+        id: undefined,
+        localId: makeLocalId(),
+        name: `${source.name} Copy`,
+        exercises: source.exercises.map((exercise) => ({
+          ...exercise,
+          id: undefined,
+          localId: makeLocalId()
+        }))
+      };
+      const next = [...prev];
+      next.splice(sectionIndex + 1, 0, duplicate);
+      return next;
+    });
+  };
+
+  const moveExercise = (sectionLocalId: string, exerciseIndex: number, direction: -1 | 1) => {
+    setSections((prev) =>
+      prev.map((section) => {
+        if (section.localId !== sectionLocalId) return section;
+        const targetIndex = exerciseIndex + direction;
+        if (targetIndex < 0 || targetIndex >= section.exercises.length) return section;
+        const exercises = [...section.exercises];
+        [exercises[exerciseIndex], exercises[targetIndex]] = [exercises[targetIndex], exercises[exerciseIndex]];
+        return { ...section, exercises };
+      })
+    );
+  };
+
+  const duplicateExercise = (sectionLocalId: string, exerciseIndex: number) => {
+    setSections((prev) =>
+      prev.map((section) => {
+        if (section.localId !== sectionLocalId) return section;
+        const source = section.exercises[exerciseIndex];
+        if (!source) return section;
+        const exercises = [...section.exercises];
+        exercises.splice(exerciseIndex + 1, 0, {
+          ...source,
+          id: undefined,
+          localId: makeLocalId(),
+          name: `${source.name} Copy`
+        });
+        return { ...section, exercises };
+      })
+    );
+  };
+
+  const applyTemplate = (template: PlanTemplate) => {
+    const apply = () => {
+      setName(template.name);
+      setSections([
+        {
+          localId: makeLocalId(),
+          name: "Main",
+          loopsText: "1",
+          restSecondsText: "0",
+          exercises: template.exercises.map((exercise) => ({
+            localId: makeLocalId(),
+            name: exercise.name,
+            workSecondsText: String(exercise.work),
+            restSecondsText: String(exercise.rest)
+          }))
+        }
+      ]);
+    };
+
+    const hasWork = name.trim().length > 0 || sections.some((section) => section.exercises.length > 0);
+    if (!hasWork) {
+      apply();
+      return;
+    }
+    Alert.alert("Use this starter?", "This replaces the plan currently in the editor.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Use Starter", onPress: apply }
+    ]);
   };
 
   const openExerciseModal = (sectionLocalId: string, exercise?: EditableExercise) => {
@@ -477,8 +798,13 @@ export function PlanEditorModal({
         text: "Discard",
         style: "destructive",
         onPress: async () => {
+          clearPendingDraftTimer();
+          pendingDraftRef.current = false;
+          latestDraftJsonRef.current = null;
           await clearPlanEditorDraft().catch(() => undefined);
           resetFromPlan(initialPlan);
+          setDraftSaveStatus("idle");
+          setDraftSaveError(null);
         }
       }
     ]);
@@ -490,6 +816,13 @@ export function PlanEditorModal({
     try {
       for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
         const section = sections[sectionIndex];
+        if (section.exercises.length === 0) {
+          Alert.alert(
+            "Set needs an exercise",
+            `Set ${sectionIndex + 1} is empty. Add an exercise or delete the set before saving.`
+          );
+          return;
+        }
         const loops = parseStrictWholeNumber(section.loopsText);
         if (loops == null || loops < MIN_SECTION_LOOPS || loops > MAX_SECTION_LOOPS) {
           Alert.alert(
@@ -514,7 +847,13 @@ export function PlanEditorModal({
 
         for (let exerciseIndex = 0; exerciseIndex < section.exercises.length; exerciseIndex += 1) {
           const exercise = section.exercises[exerciseIndex];
-          if (!exercise.name.trim()) continue;
+          if (!exercise.name.trim()) {
+            Alert.alert(
+              "Exercise needs a name",
+              `Set ${sectionIndex + 1}, Exercise ${exerciseIndex + 1} is missing a name.`
+            );
+            return;
+          }
 
           const workSeconds = parseStrictWholeNumber(exercise.workSecondsText);
           if (
@@ -574,6 +913,9 @@ export function PlanEditorModal({
 
       const saved = await onSave(payload);
       if (saved) {
+        clearPendingDraftTimer();
+        pendingDraftRef.current = false;
+        latestDraftJsonRef.current = null;
         await clearPlanEditorDraft().catch(() => undefined);
       }
     } finally {
@@ -581,311 +923,495 @@ export function PlanEditorModal({
     }
   };
 
+  const flushLatestDraft = useCallback(async (): Promise<boolean> => {
+    if (!visible || !draftHydrated) return true;
+    clearPendingDraftTimer();
+    const json = JSON.stringify(toDraftPayload(activePlanId, name, workoutDays, sections));
+    latestDraftJsonRef.current = json;
+    pendingDraftRef.current = true;
+    return persistDraftJson(json);
+  }, [
+    activePlanId,
+    clearPendingDraftTimer,
+    draftHydrated,
+    name,
+    persistDraftJson,
+    sections,
+    visible,
+    workoutDays
+  ]);
+
+  const handleClose = useCallback(async () => {
+    if (closeFlushInFlightRef.current) return;
+    closeFlushInFlightRef.current = true;
+    const flushed = await flushLatestDraft();
+    closeFlushInFlightRef.current = false;
+
+    if (flushed) {
+      onClose();
+      return;
+    }
+
+    Alert.alert(
+      "Draft not saved",
+      "Anthra could not store your latest edits. Keep editing and retry, or close and lose the changes made since the last successful save.",
+      [
+        { text: "Keep Editing", style: "cancel" },
+        { text: "Close Anyway", style: "destructive", onPress: onClose }
+      ]
+    );
+  }, [flushLatestDraft, onClose]);
+
+  const exerciseCount = sections.reduce((sum, section) => sum + section.exercises.length, 0);
+  const draftStatusLabel =
+    draftSaveStatus === "saving"
+      ? "Saving draft…"
+      : draftSaveStatus === "saved"
+        ? "Draft saved"
+        : draftSaveStatus === "error"
+          ? "Draft not saved"
+          : "Draft ready";
+
   return (
-    <Modal animationType="slide" visible={visible} onRequestClose={onClose}>
-      <SafeAreaView className="flex-1 bg-ink dark:bg-[#050505]" edges={["top", "bottom"]}>
+    <Modal animationType="slide" visible={visible} onRequestClose={handleClose}>
+      <SafeAreaView className="flex-1" style={{ backgroundColor: theme.colors.canvas }} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1 bg-ink dark:bg-[#050505]"
+          className="flex-1"
+          style={{ backgroundColor: theme.colors.canvas }}
         >
-          <View className="flex-row items-center justify-between px-6 pb-4 pt-4">
-            <Text className="text-2xl font-bold text-[#08364A] dark:text-white">{isEditing ? "Edit Plan" : "New Plan"}</Text>
-            <View className="flex-row items-center gap-4">
-              <Pressable onPress={discardDraft}>
-                <Text className="text-sm font-semibold text-[#4A8FA2] dark:text-white/60">Discard Draft</Text>
-              </Pressable>
-              <Pressable onPress={onClose}>
-                <Text className="text-base font-semibold text-[#34768B] dark:text-white/70">Close</Text>
-              </Pressable>
+          <View
+            className="flex-row items-center px-5 pb-3 pt-2"
+            style={{
+              width: "100%",
+              maxWidth: theme.layout.contentMaxWidth,
+              alignSelf: "center",
+              gap: theme.spacing.md,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.divider
+            }}
+          >
+            <View className="min-w-0 flex-1">
+              <Text style={[theme.typography.label, { color: theme.colors.brand }]}>WORKOUT PLAN</Text>
+              <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: 2 }]}>
+                {isEditing ? "Edit plan" : "Create a plan"}
+              </Text>
+              <Text
+                style={[
+                  theme.typography.caption,
+                  {
+                    color: draftSaveStatus === "error" ? theme.colors.danger : theme.colors.textSecondary,
+                    marginTop: 2
+                  }
+                ]}
+              >
+                {draftStatusLabel}
+              </Text>
             </View>
+            <IconButton icon={RotateCcw} onPress={discardDraft} accessibilityLabel="Discard draft" variant="ghost" />
+            <IconButton icon={X} onPress={handleClose} accessibilityLabel="Close plan editor" variant="standard" />
           </View>
 
-          <ScrollView
+          <KeyboardAwareScrollView
             className="flex-1"
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}
+            contentContainerStyle={{
+              width: "100%",
+              maxWidth: theme.layout.contentMaxWidth,
+              alignSelf: "center",
+              paddingHorizontal: theme.layout.screenPadding,
+              paddingBottom: theme.spacing["3xl"]
+            }}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            showsVerticalScrollIndicator={false}
           >
-            <Text className="mb-2 mt-2 text-sm font-semibold text-[#34768B] dark:text-white/70">Plan Name</Text>
-            <TextInput
+            {draftSaveError && (
+              <Surface
+                variant="danger"
+                padding="medium"
+                radius="medium"
+                bordered
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+                style={{ marginTop: theme.spacing.lg }}
+              >
+                <Text style={[theme.typography.bodyStrong, { color: theme.colors.danger }]}>Draft not saved</Text>
+                <Text style={[theme.typography.body, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>
+                  {draftSaveError}
+                </Text>
+                <Button
+                  label="Retry draft save"
+                  onPress={() => {
+                    void flushLatestDraft();
+                  }}
+                  variant="danger"
+                  size="small"
+                  style={{ marginTop: theme.spacing.md }}
+                />
+              </Surface>
+            )}
+
+            <TextField
+              label="Plan name"
               value={name}
               onChangeText={setName}
               placeholder="Upper Body Burn"
-              placeholderTextColor="#7A7A7A"
-              className="rounded-2xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] px-4 py-4 text-lg font-semibold text-[#08364A] dark:text-white"
+              leadingIcon={Dumbbell}
+              required
+              containerStyle={{ marginTop: theme.spacing.xl }}
             />
 
-            <View className="mt-6 rounded-2xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-4">
-              <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">Workout Days</Text>
-              <Text className="mt-2 text-sm text-[#34768B] dark:text-white/70">
-                {formatDays(workoutDays)}. Leave all days off to allow this plan any day.
+            {!isEditing && (
+              <Surface
+                variant="subtle"
+                padding="medium"
+                radius="large"
+                bordered
+                style={{ marginTop: theme.spacing.lg }}
+              >
+                <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Start from a proven structure</Text>
+                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Choose a starter, then adjust every interval to fit your training.</Text>
+                <View className="mt-3 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
+                  {PLAN_TEMPLATES.map((template) => (
+                    <Pressable
+                      key={template.name}
+                      onPress={() => applyTemplate(template)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Use ${template.name} template`}
+                      className="min-h-[44px] justify-center border px-3"
+                      style={({ pressed }) => ({
+                        borderRadius: theme.radii.full,
+                        borderColor: theme.colors.brandBorder,
+                        backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.brandSoft
+                      })}
+                    >
+                      <Text style={[theme.typography.label, { color: theme.colors.brand }]}>{template.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </Surface>
+            )}
+
+            <Surface
+              variant="brand"
+              padding="medium"
+              radius="large"
+              bordered
+              className="flex-row items-center"
+              style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md }}
+            >
+              <View
+                className="items-center justify-center rounded-full"
+                style={{ width: 44, height: 44, backgroundColor: theme.colors.surface }}
+              >
+                <Clock3 accessible={false} color={theme.colors.brand} size={21} />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>Estimated duration</Text>
+                <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: 2 }]}>{estimatedDurationLabel}</Text>
+              </View>
+              <View className="items-end">
+                <Text style={[theme.typography.titleMedium, { color: theme.colors.brand }]}>{exerciseCount}</Text>
+                <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>exercises</Text>
+              </View>
+            </Surface>
+
+            <Surface
+              variant="default"
+              padding="medium"
+              radius="large"
+              bordered
+              style={{ marginTop: theme.spacing.lg }}
+            >
+              <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
+                <CalendarDays accessible={false} color={theme.colors.brand} size={20} />
+                <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Training days</Text>
+              </View>
+              <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.sm }]}>
+                {formatDays(workoutDays)}. Leave every day off to keep this plan available any day.
               </Text>
-              <View className="mt-3 flex-row flex-wrap gap-2">
+              <View className="mt-3 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
                 {WEEKDAY_OPTIONS.map((day) => {
                   const active = workoutDays.includes(day.value);
                   return (
                     <Pressable
                       key={day.value}
                       onPress={() => toggleWorkoutDay(day.value)}
-                      className={`rounded-full border px-3 py-2 ${
-                        active ? "border-neon-blue bg-neon-blue/25" : "border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505]"
-                      }`}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={day.label}
+                      accessibilityState={{ checked: active }}
+                      className="min-h-[48px] items-center justify-center border px-2"
+                      style={({ pressed }) => ({
+                        width: width < 520 || fontScale >= 1.2 ? "22%" : "12%",
+                        borderRadius: theme.radii.md,
+                        borderColor: active ? theme.colors.brand : theme.colors.borderStrong,
+                        backgroundColor: active ? theme.colors.brandSoft : theme.colors.surface,
+                        opacity: pressed ? 0.78 : 1
+                      })}
                     >
-                      <Text
-                        className={`text-xs font-bold uppercase ${
-                          active ? "text-neon-blue" : "text-[#2A6A80] dark:text-white/75"
-                        }`}
-                      >
-                        {day.short}
-                      </Text>
+                      <Text style={[theme.typography.label, { color: active ? theme.colors.brand : theme.colors.textSecondary }]}>{day.short}</Text>
                     </Pressable>
                   );
                 })}
               </View>
+            </Surface>
+
+            <View className="mt-6 flex-row items-end" style={{ gap: theme.spacing.md }}>
+              <View className="min-w-0 flex-1">
+                <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>Sets</Text>
+                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>They run from top to bottom, including every loop and rest.</Text>
+              </View>
+              <View className="flex-row items-center" style={{ gap: theme.spacing.xs }}>
+                <Layers3 accessible={false} color={theme.colors.brand} size={19} />
+                <Text style={[theme.typography.label, { color: theme.colors.brand }]}>{sections.length}</Text>
+              </View>
             </View>
 
-            <Text className="mt-6 text-xl font-bold text-[#08364A] dark:text-white">Sets</Text>
-            <Text className="mt-1 text-sm text-[#34768B] dark:text-white/70">
-              Example: Warm Up, Main, Finisher. Each set runs in order.
-            </Text>
-
             {sections.map((section, sectionIndex) => (
-              <View key={section.localId} className="mt-4 rounded-2xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-4">
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-base font-semibold text-[#08364A] dark:text-white">Set #{sectionIndex + 1}</Text>
-                    <Text className="mt-1 text-lg font-black text-[#08364A] dark:text-white">{section.name}</Text>
-                    <Text className="mt-1 text-sm text-[#2A6A80] dark:text-white/75">
-                      {section.loopsText} loop(s) • {section.restSecondsText}s set rest
-                    </Text>
+              <Surface
+                key={section.localId}
+                variant="default"
+                padding="medium"
+                radius="large"
+                bordered
+                style={{ marginTop: theme.spacing.lg }}
+              >
+                <Text style={[theme.typography.label, { color: theme.colors.brand }]}>SET {sectionIndex + 1}</Text>
+                <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{section.name}</Text>
+                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>
+                  {section.loopsText} {section.loopsText === "1" ? "loop" : "loops"} · {section.restSecondsText}s set rest
+                </Text>
+
+                <View
+                  className="mt-3 flex-row items-center justify-between border-t pt-2"
+                  style={{ gap: theme.spacing.md, borderColor: theme.colors.divider }}
+                >
+                  <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                    <IconButton icon={ArrowUp} onPress={() => moveSection(sectionIndex, -1)} disabled={sectionIndex === 0} accessibilityLabel={`Move ${section.name} up`} variant="ghost" size="small" />
+                    <IconButton icon={ArrowDown} onPress={() => moveSection(sectionIndex, 1)} disabled={sectionIndex === sections.length - 1} accessibilityLabel={`Move ${section.name} down`} variant="ghost" size="small" />
                   </View>
-                  <View className="items-end gap-1">
-                    <Pressable onPress={() => openSetModal(section)} className="h-9 w-9 items-center justify-center">
-                      <Pencil size={16} color={editIconColor} />
-                    </Pressable>
-                    <Pressable onPress={() => removeSection(section.localId)} className="h-9 w-9 items-center justify-center">
-                      <Trash2 size={16} color={deleteIconColor} />
-                    </Pressable>
+                  <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                    <IconButton icon={Copy} onPress={() => duplicateSection(sectionIndex)} accessibilityLabel={`Duplicate ${section.name}`} variant="ghost" size="small" />
+                    <IconButton icon={Pencil} onPress={() => openSetModal(section)} accessibilityLabel={`Edit ${section.name}`} variant="ghost" size="small" />
+                    <IconButton icon={Trash2} onPress={() => removeSection(section.localId)} disabled={sections.length <= 1} accessibilityLabel={`Delete ${section.name}`} variant="danger" size="small" />
                   </View>
                 </View>
 
-                <Text className="mt-4 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Exercises</Text>
+                <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }]}>Exercises</Text>
 
                 {section.exercises.length === 0 && (
-                  <View className="mt-3 rounded-xl border border-dashed border-[#05AED5]/28 dark:border-white/15 bg-ink dark:bg-[#050505] px-3 py-4">
-                    <Text className="text-sm text-[#34768B] dark:text-white/70">
-                      No exercises yet. Add one to build this set.
-                    </Text>
+                  <View
+                    className="mt-3 border border-dashed px-3 py-4"
+                    style={{ borderRadius: theme.radii.md, borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.surfaceSubtle }}
+                  >
+                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>No exercises yet. Add one to build this set.</Text>
                   </View>
                 )}
 
                 {section.exercises.map((exercise, exerciseIndex) => (
-                  <View key={exercise.localId} className="mt-3 rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] p-3">
-                    <View className="flex-row items-start justify-between">
-                      <View className="flex-1 pr-3">
-                        <Text className="text-sm font-semibold text-[#1E5B71] dark:text-white/80">#{exerciseIndex + 1}</Text>
-                        <Text className="mt-1 text-base font-black text-[#08364A] dark:text-white">{exercise.name || "Unnamed"}</Text>
-                        <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#34768B] dark:text-white/70">
-                          Work {exercise.workSecondsText}s • Rest {exercise.restSecondsText}s
-                        </Text>
+                  <Surface
+                    key={exercise.localId}
+                    variant="subtle"
+                    padding="small"
+                    radius="medium"
+                    bordered
+                    style={{ marginTop: theme.spacing.md }}
+                  >
+                    <Text style={[theme.typography.caption, { color: theme.colors.brand }]}>EXERCISE {exerciseIndex + 1}</Text>
+                    <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: 2 }]}>{exercise.name || "Unnamed"}</Text>
+                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>Work {exercise.workSecondsText}s · Rest {exercise.restSecondsText}s</Text>
+                    <View className="mt-2 flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
+                      <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                        <IconButton icon={ArrowUp} onPress={() => moveExercise(section.localId, exerciseIndex, -1)} disabled={exerciseIndex === 0} accessibilityLabel={`Move ${exercise.name} up`} variant="ghost" size="small" />
+                        <IconButton icon={ArrowDown} onPress={() => moveExercise(section.localId, exerciseIndex, 1)} disabled={exerciseIndex === section.exercises.length - 1} accessibilityLabel={`Move ${exercise.name} down`} variant="ghost" size="small" />
                       </View>
-                      <View className="items-end gap-1">
-                        <Pressable
-                          onPress={() => openExerciseModal(section.localId, exercise)}
-                          className="h-9 w-9 items-center justify-center"
-                        >
-                          <Pencil size={16} color={editIconColor} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => removeExercise(section.localId, exercise.localId)}
-                          className="h-9 w-9 items-center justify-center"
-                        >
-                          <Trash2 size={16} color={deleteIconColor} />
-                        </Pressable>
+                      <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                        <IconButton icon={Copy} onPress={() => duplicateExercise(section.localId, exerciseIndex)} accessibilityLabel={`Duplicate ${exercise.name}`} variant="ghost" size="small" />
+                        <IconButton icon={Pencil} onPress={() => openExerciseModal(section.localId, exercise)} accessibilityLabel={`Edit ${exercise.name}`} variant="ghost" size="small" />
+                        <IconButton icon={Trash2} onPress={() => removeExercise(section.localId, exercise.localId)} accessibilityLabel={`Delete ${exercise.name}`} variant="danger" size="small" />
                       </View>
                     </View>
-                  </View>
+                  </Surface>
                 ))}
 
-                <View className="mt-4 flex-row gap-3">
-                  <Pressable
-                    onPress={() => openExerciseModal(section.localId)}
-                    className="flex-1 items-center rounded-xl bg-neon-blue px-4 py-3"
-                  >
-                    <Text className="font-bold text-ink">Add Exercise</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => openSetModal(section)}
-                    className="flex-1 items-center rounded-xl border border-neon-blue/40 bg-neon-blue/15 px-4 py-3"
-                  >
-                    <Text className="font-bold text-neon-blue">Edit Set</Text>
-                  </Pressable>
+                <View
+                  className="mt-4"
+                  style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}
+                >
+                  <Button label="Add exercise" icon={Plus} onPress={() => openExerciseModal(section.localId)} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
+                  <Button label="Edit set" icon={Pencil} onPress={() => openSetModal(section)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
                 </View>
-              </View>
+              </Surface>
             ))}
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
-          <View className="border-t border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-6 pb-4 pt-3">
-            <View className="flex-row gap-3">
-              <Pressable onPress={() => openSetModal()} className="flex-1 items-center rounded-2xl bg-neon-blue py-4">
-                <Text className="text-base font-black text-ink">Add Set</Text>
-              </Pressable>
-              <Pressable
-                onPress={save}
-                className="flex-1 items-center rounded-2xl bg-neon-green py-4"
-                disabled={saving}
-              >
-                <Text className="text-base font-black text-ink">{saving ? "Saving..." : "Save Plan"}</Text>
-              </Pressable>
+          <View
+            className="border-t px-5 pb-3 pt-3"
+            style={{ borderColor: theme.colors.divider, backgroundColor: theme.colors.surface }}
+          >
+            <View
+              style={{
+                width: "100%",
+                maxWidth: theme.layout.contentMaxWidth,
+                alignSelf: "center",
+                flexDirection: shouldStackControls ? "column" : "row",
+                gap: theme.spacing.md
+              }}
+            >
+              <Button label="Add set" icon={Plus} onPress={() => openSetModal()} variant="outline" size="large" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
+              <Button label="Save plan" onPress={save} loading={saving} variant="primary" size="large" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
             </View>
           </View>
         </KeyboardAvoidingView>
 
-        <Modal
-          visible={setModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSetModalVisible(false)}
-        >
+        <Modal visible={setModalVisible} transparent animationType="fade" onRequestClose={() => setSetModalVisible(false)}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-5"
+            className="flex-1"
+            style={{ backgroundColor: theme.colors.scrim }}
           >
-            <View className="rounded-3xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-5">
-              <Text className="text-xl font-black text-[#08364A] dark:text-white">
-                {setModalMode === "edit" ? "Edit Set" : "Add Set"}
-              </Text>
-              <Text className="mt-1 text-sm text-[#34768B] dark:text-white/70">
-                Add the set details in a focused popup so typing stays visible above the keyboard.
-              </Text>
+            <KeyboardAwareScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: "center",
+                paddingHorizontal: theme.spacing.xl,
+                paddingVertical: theme.spacing.xl
+              }}
+            >
+              <Surface
+                variant="elevated"
+                padding="large"
+                radius="xlarge"
+                bordered
+                accessibilityViewIsModal
+                style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
+              >
+              <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+                <View className="min-w-0 flex-1">
+                  <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>{setModalMode === "edit" ? "Edit set" : "Add a set"}</Text>
+                  <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Define its loop count and the recovery before the next set.</Text>
+                </View>
+                <IconButton icon={X} onPress={() => setSetModalVisible(false)} accessibilityLabel="Close set editor" variant="ghost" />
+              </View>
 
-              <Text className="mb-1 mt-4 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                Set Name
-              </Text>
-              <TextInput
+              <TextField
+                ref={setNameInputRef}
+                label="Set name"
                 value={newSetName}
                 onChangeText={setNewSetName}
                 placeholder="Main"
-                placeholderTextColor="#7A7A7A"
-                className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
+                autoFocus
+                selectTextOnFocus
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => setLoopsInputRef.current?.focus()}
+                required
+                containerStyle={{ marginTop: theme.spacing.lg }}
+              />
+              <View className="mt-3" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
+                <TextField ref={setLoopsInputRef} label="Loops (1–20)" value={newSetLoopsText} onChangeText={(value) => setNewSetLoopsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => setRestInputRef.current?.focus()} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
+                <TextField ref={setRestInputRef} label="Rest (0–600s)" value={newSetRestSecondsText} onChangeText={(value) => setNewSetRestSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="done" onSubmitEditing={saveSetFromModal} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
+              </View>
+
+              <WorkoutChoiceRow
+                label="Quick set rest"
+                choices={[
+                  { label: "None", value: "0" },
+                  { label: "15s", value: "15" },
+                  { label: "30s", value: "30" },
+                  { label: "60s", value: "60" }
+                ]}
+                selectedValue={newSetRestSecondsText}
+                onSelect={setNewSetRestSecondsText}
               />
 
-              <View className="mt-3 flex-row gap-3">
-                <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                    Loops (1-20)
-                  </Text>
-                  <TextInput
-                    value={newSetLoopsText}
-                    onChangeText={(value) => setNewSetLoopsText(digitsOnly(value))}
-                    keyboardType="number-pad"
-                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
-                  />
+                <View className="mt-5" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
+                  <Button label="Cancel" onPress={() => setSetModalVisible(false)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
+                  <Button label={setModalMode === "edit" ? "Save set" : "Create set"} onPress={saveSetFromModal} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
                 </View>
-                <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                    Rest (0-600)
-                  </Text>
-                  <TextInput
-                    value={newSetRestSecondsText}
-                    onChangeText={(value) => setNewSetRestSecondsText(digitsOnly(value))}
-                    keyboardType="number-pad"
-                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
-                  />
-                </View>
-              </View>
-
-              <View className="mt-5 flex-row gap-3">
-                <Pressable
-                  onPress={() => setSetModalVisible(false)}
-                  className="flex-1 items-center rounded-xl border border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505] py-3"
-                >
-                  <Text className="font-semibold text-[#1E5B71] dark:text-white/80">Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={saveSetFromModal}
-                  className="flex-1 items-center rounded-xl bg-neon-green py-3"
-                >
-                  <Text className="font-black text-ink">
-                    {setModalMode === "edit" ? "Save Set" : "Create Set"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
+              </Surface>
+            </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
 
-        <Modal
-          visible={exerciseModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setExerciseModalVisible(false)}
-        >
+        <Modal visible={exerciseModalVisible} transparent animationType="fade" onRequestClose={() => setExerciseModalVisible(false)}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-5"
+            className="flex-1"
+            style={{ backgroundColor: theme.colors.scrim }}
           >
-            <View className="rounded-3xl border border-[#05AED5]/22 dark:border-white/10 bg-panel dark:bg-[#151515] p-5">
-              <Text className="text-xl font-black text-[#08364A] dark:text-white">
-                {exerciseModalMode === "edit" ? "Edit Exercise" : "Add Exercise"}
-              </Text>
-              <Text className="mt-1 text-sm text-[#34768B] dark:text-white/70">
-                Keep exercise edits in this popup so the keyboard never hides your fields.
-              </Text>
+            <KeyboardAwareScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: "center",
+                paddingHorizontal: theme.spacing.xl,
+                paddingVertical: theme.spacing.xl
+              }}
+            >
+              <Surface
+                variant="elevated"
+                padding="large"
+                radius="xlarge"
+                bordered
+                accessibilityViewIsModal
+                style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
+              >
+              <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+                <View className="min-w-0 flex-1">
+                  <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>{exerciseModalMode === "edit" ? "Edit exercise" : "Add an exercise"}</Text>
+                  <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Set the work interval and recovery that follows it.</Text>
+                </View>
+                <IconButton icon={X} onPress={() => setExerciseModalVisible(false)} accessibilityLabel="Close exercise editor" variant="ghost" />
+              </View>
 
-              <Text className="mb-1 mt-4 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                Exercise Name
-              </Text>
-              <TextInput
+              <TextField
+                ref={exerciseNameInputRef}
+                label="Exercise name"
                 value={newExerciseName}
                 onChangeText={setNewExerciseName}
-                placeholder="Jump Squats"
-                placeholderTextColor="#7A7A7A"
-                className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
+                placeholder="Jump squats"
+                autoFocus
+                selectTextOnFocus
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => exerciseWorkInputRef.current?.focus()}
+                required
+                containerStyle={{ marginTop: theme.spacing.lg }}
+              />
+              <View className="mt-3" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
+                <TextField ref={exerciseWorkInputRef} label="Work (1–3600s)" value={newExerciseWorkSecondsText} onChangeText={(value) => setNewExerciseWorkSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => exerciseRestInputRef.current?.focus()} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
+                <TextField ref={exerciseRestInputRef} label="Rest (0–600s)" value={newExerciseRestSecondsText} onChangeText={(value) => setNewExerciseRestSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="done" onSubmitEditing={saveExerciseFromModal} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
+              </View>
+
+              <WorkoutChoiceRow
+                label="Quick work / rest"
+                choices={[
+                  { label: "30 / 15", value: "30:15" },
+                  { label: "40 / 20", value: "40:20" },
+                  { label: "45 / 15", value: "45:15" },
+                  { label: "60 / 30", value: "60:30" }
+                ]}
+                selectedValue={`${newExerciseWorkSecondsText}:${newExerciseRestSecondsText}`}
+                onSelect={(value) => {
+                  const [work, rest] = value.split(":");
+                  setNewExerciseWorkSecondsText(work);
+                  setNewExerciseRestSecondsText(rest);
+                }}
               />
 
-              <View className="mt-3 flex-row gap-3">
-                <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                    Work (1-3600)
-                  </Text>
-                  <TextInput
-                    value={newExerciseWorkSecondsText}
-                    onChangeText={(value) => setNewExerciseWorkSecondsText(digitsOnly(value))}
-                    keyboardType="number-pad"
-                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
-                  />
+                <View className="mt-5" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
+                  <Button label="Cancel" onPress={() => setExerciseModalVisible(false)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
+                  <Button label={exerciseModalMode === "edit" ? "Save exercise" : "Create exercise"} onPress={saveExerciseFromModal} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
                 </View>
-                <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                    Rest (0-600)
-                  </Text>
-                  <TextInput
-                    value={newExerciseRestSecondsText}
-                    onChangeText={(value) => setNewExerciseRestSecondsText(digitsOnly(value))}
-                    keyboardType="number-pad"
-                    className="rounded-xl border border-[#05AED5]/22 dark:border-white/10 bg-ink dark:bg-[#050505] px-3 py-3 text-base font-medium text-[#08364A] dark:text-white"
-                  />
-                </View>
-              </View>
-
-              <View className="mt-5 flex-row gap-3">
-                <Pressable
-                  onPress={() => setExerciseModalVisible(false)}
-                  className="flex-1 items-center rounded-xl border border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505] py-3"
-                >
-                  <Text className="font-semibold text-[#1E5B71] dark:text-white/80">Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={saveExerciseFromModal}
-                  className="flex-1 items-center rounded-xl bg-neon-green py-3"
-                >
-                  <Text className="font-black text-ink">
-                    {exerciseModalMode === "edit" ? "Save Exercise" : "Create Exercise"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
+              </Surface>
+            </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>

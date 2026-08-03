@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, ListTodo, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { Check, ListTodo, Pencil, Plus, Search, Trash2, X } from "lucide-react-native";
 
+import { useAnthraTheme } from "../design-system";
+import { MAX_LIST_ITEM_LENGTH, MAX_LIST_NAME_LENGTH } from "../constants/listBuddy";
 import {
+  clearCompletedListItems,
   deleteListCategory,
   deleteListItem,
   getListCategories,
@@ -24,19 +27,16 @@ import {
   setListItemCompleted
 } from "../db";
 import type { ListBuddyCategory, ListBuddyItem } from "../types";
+import { ProgressBar } from "./ProgressBar";
+import { Button, Card, IconButton, KeyboardAwareScrollView, ScreenHeader, StatusBanner, TextField } from "./ui";
 
 type ListBuddyScreenProps = {
   onBack: () => void;
-  isDarkMode?: boolean;
-  theme?: {
-    accent: string;
-    accentSoft: string;
-    accentBorder: string;
-    onAccent: string;
-  };
 };
 
-export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddyScreenProps) {
+export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
+  const anthraTheme = useAnthraTheme();
+  const { colors, layout, radii, spacing, typography } = anthraTheme;
   const [categories, setCategories] = useState<ListBuddyCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [items, setItems] = useState<ListBuddyItem[]>([]);
@@ -44,8 +44,20 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [categoryNameText, setCategoryNameText] = useState("");
   const [itemText, setItemText] = useState("");
+  const [listSearchText, setListSearchText] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [quickItemText, setQuickItemText] = useState("");
+  const [recentlyClearedItems, setRecentlyClearedItems] = useState<ListBuddyItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [itemError, setItemError] = useState<string | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
+  const [quickAdding, setQuickAdding] = useState(false);
+  const categorySaveInFlight = useRef(false);
+  const itemSaveInFlight = useRef(false);
+  const quickAddInFlight = useRef(false);
 
   const selectedCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId) ?? null,
@@ -57,33 +69,28 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
     [categories, editingCategoryId]
   );
 
-  const categoryColumns = useMemo(() => {
-    const left: ListBuddyCategory[] = [];
-    const right: ListBuddyCategory[] = [];
-
-    categories.forEach((category, index) => {
-      if (index % 2 === 0) {
-        left.push(category);
-      } else {
-        right.push(category);
-      }
-    });
-
-    return { left, right };
-  }, [categories]);
+  const filteredCategories = useMemo(() => {
+    const query = listSearchText.trim().toLocaleLowerCase();
+    if (!query) return categories;
+    return categories.filter((category) => category.name.toLocaleLowerCase().includes(query));
+  }, [categories, listSearchText]);
 
   const refreshCategories = useCallback(async () => {
     const next = await getListCategories();
     setCategories(next);
+    setLoadError(null);
   }, []);
 
   const refreshItems = useCallback(async (categoryId: number) => {
     const next = await getListItems(categoryId);
     setItems(next);
+    setLoadError(null);
   }, []);
 
   useEffect(() => {
-    refreshCategories().catch(() => undefined);
+    refreshCategories().catch((error) => {
+      setLoadError(error instanceof Error ? error.message : "Could not load your lists.");
+    });
   }, [refreshCategories]);
 
   useEffect(() => {
@@ -91,10 +98,13 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
       setItems([]);
       return;
     }
-    refreshItems(selectedCategoryId).catch(() => undefined);
+    refreshItems(selectedCategoryId).catch((error) => {
+      setLoadError(error instanceof Error ? error.message : "Could not load this list.");
+    });
   }, [refreshItems, selectedCategoryId]);
 
   const openCategoryModal = (category?: ListBuddyCategory) => {
+    setCategoryError(null);
     if (category) {
       setEditingCategoryId(category.id);
       setCategoryNameText(category.name);
@@ -107,6 +117,7 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
 
   const openItemModal = (item?: ListBuddyItem) => {
     if (!selectedCategoryId) return;
+    setItemError(null);
     if (item) {
       setEditingItemId(item.id);
       setItemText(item.text);
@@ -118,6 +129,10 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
   };
 
   const handleSaveCategory = async () => {
+    if (categorySaveInFlight.current) return;
+    categorySaveInFlight.current = true;
+    setSavingCategory(true);
+    setCategoryError(null);
     try {
       const categoryId = await saveListCategory({
         id: editingCategoryId ?? undefined,
@@ -132,7 +147,10 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
       setEditingCategoryId(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save category.";
-      Alert.alert("Category error", message);
+      setCategoryError(message);
+    } finally {
+      categorySaveInFlight.current = false;
+      setSavingCategory(false);
     }
   };
 
@@ -164,7 +182,10 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
   };
 
   const handleSaveItem = async () => {
-    if (!selectedCategoryId) return;
+    if (!selectedCategoryId || itemSaveInFlight.current) return;
+    itemSaveInFlight.current = true;
+    setSavingItem(true);
+    setItemError(null);
     const existingItem = items.find((item) => item.id === editingItemId) ?? null;
     try {
       await saveListItem({
@@ -179,7 +200,10 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
       setEditingItemId(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save list item.";
-      Alert.alert("Item error", message);
+      setItemError(message);
+    } finally {
+      itemSaveInFlight.current = false;
+      setSavingItem(false);
     }
   };
 
@@ -214,276 +238,647 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
     }
   };
 
-  const renderCategoryCard = (category: ListBuddyCategory) => {
-    const percent =
-      category.totalItems > 0
-        ? Math.round((category.completedItems / category.totalItems) * 100)
-        : 0;
+  const handleQuickAddItem = async () => {
+    if (!selectedCategoryId || !quickItemText.trim() || quickAddInFlight.current) return;
+    quickAddInFlight.current = true;
+    setQuickAdding(true);
+    const categoryId = selectedCategoryId;
+    const text = quickItemText;
+    try {
+      await saveListItem({ categoryId, text, completed: false });
+      setQuickItemText("");
+      await Promise.all([refreshItems(categoryId), refreshCategories()]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not add item.";
+      setLoadError(message);
+    } finally {
+      quickAddInFlight.current = false;
+      setQuickAdding(false);
+    }
+  };
 
-    return (
-      <Pressable
-        key={category.id}
-        onPress={() => setSelectedCategoryId(category.id)}
-        className="mb-4 overflow-hidden rounded-2xl border px-4 py-3"
-        style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground, maxHeight: 260 }}
-      >
-        <Text className="text-base font-black text-[#032D3B] dark:text-white">
-          {category.name}
-        </Text>
-        <Text className="mt-1 text-[11px] font-semibold uppercase tracking-[1.1px] text-[#2C778D] dark:text-white/60">
-          {category.completedItems}/{category.totalItems} done • {percent}%
-        </Text>
+  const handleClearCompleted = () => {
+    if (!selectedCategoryId) return;
+    const completedItems = items.filter((item) => item.completed);
+    if (completedItems.length === 0) return;
 
-        <View className="mt-3 gap-1.5">
-          {category.previewItems.length === 0 && (
-            <Text className="text-sm text-[#538EA0] dark:text-white/45">No list lines yet</Text>
-          )}
-          {category.previewItems.map((item) => (
-            <Text
-              key={item.id}
-              numberOfLines={1}
-              className={`text-xs ${
-                item.completed
-                  ? "text-[#7FB1C0] dark:text-white/45 line-through"
-                  : "text-[#0F4D63] dark:text-white/82"
-              }`}
-            >
-              • {item.text}
-            </Text>
-          ))}
-        </View>
-      </Pressable>
+    Alert.alert(
+      "Clear completed items?",
+      `Remove ${completedItems.length} completed ${completedItems.length === 1 ? "item" : "items"}? You can undo this while this list is open.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await clearCompletedListItems(selectedCategoryId);
+            setRecentlyClearedItems(completedItems);
+            await Promise.all([refreshItems(selectedCategoryId), refreshCategories()]);
+          }
+        }
+      ]
     );
   };
 
-  const resolvedTheme = theme ?? {
-    accent: isDarkMode ? "#75DFFF" : "#00C8F0",
-    accentSoft: isDarkMode ? "#153847" : "#D7F7FF",
-    accentBorder: isDarkMode ? "rgba(117,223,255,0.45)" : "rgba(0,200,240,0.34)",
-    onAccent: "#08202A"
+  const handleUndoClear = async () => {
+    if (!selectedCategoryId || recentlyClearedItems.length === 0) return;
+    try {
+      await Promise.all(
+        recentlyClearedItems.map((item) =>
+          saveListItem({ categoryId: selectedCategoryId, text: item.text, completed: true })
+        )
+      );
+      setRecentlyClearedItems([]);
+      await Promise.all([refreshItems(selectedCategoryId), refreshCategories()]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not restore items.";
+      Alert.alert("Undo failed", message);
+    }
   };
-  const backgroundColor = isDarkMode ? "#05070A" : "#F6FBFF";
-  const panelBackground = isDarkMode ? "#14181D" : "#FFFFFF";
-  const inputBackground = isDarkMode ? "#0B1014" : "#F5FAFD";
-  const textMuted = isDarkMode ? "rgba(244,250,255,0.72)" : "#3D6F81";
+
+  const handleRetryLoad = async () => {
+    try {
+      if (selectedCategoryId) {
+        await Promise.all([refreshItems(selectedCategoryId), refreshCategories()]);
+      } else {
+        await refreshCategories();
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load your lists.");
+    }
+  };
+
+  const closeSelectedCategory = useCallback(() => {
+    setSelectedCategoryId(null);
+    setRecentlyClearedItems([]);
+    setQuickItemText("");
+    setLoadError(null);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return undefined;
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (!selectedCategory) return false;
+      closeSelectedCategory();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [closeSelectedCategory, selectedCategory]);
+
+  const renderCategoryCard = (category: ListBuddyCategory) => {
+    const percent = category.totalItems > 0
+      ? Math.round((category.completedItems / category.totalItems) * 100)
+      : 0;
+
+    return (
+      <View
+        key={category.id}
+        style={{
+          marginBottom: spacing.md,
+          borderRadius: radii.lg,
+          borderWidth: 1,
+          borderColor: colors.brandBorder,
+          backgroundColor: colors.surfaceElevated,
+          shadowColor: anthraTheme.isDark ? "#000000" : "#6D2436",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: anthraTheme.isDark ? 0.2 : 0.06,
+          shadowRadius: 8,
+          elevation: 1
+        }}
+      >
+        <Pressable
+          onPress={() => {
+            setSelectedCategoryId(category.id);
+            setRecentlyClearedItems([]);
+            setQuickItemText("");
+            setLoadError(null);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${category.name}, ${category.completedItems} of ${category.totalItems} completed`}
+          accessibilityHint="Opens this list"
+          style={({ pressed }) => ({
+            borderRadius: radii.lg,
+            backgroundColor: pressed ? colors.surfacePressed : "transparent",
+            opacity: pressed ? 0.94 : 1
+          })}
+        >
+          <View style={{ minHeight: 132, padding: spacing.lg }}>
+            <View className="flex-row items-start justify-between" style={{ gap: spacing.md }}>
+              <View className="min-w-0 flex-1">
+                <Text numberOfLines={2} style={[typography.titleSmall, { color: colors.textPrimary }]}>
+                  {category.name}
+                </Text>
+                <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                  {category.totalItems === 0
+                    ? "Ready for your first item"
+                    : `${category.completedItems} of ${category.totalItems} complete`}
+                </Text>
+              </View>
+              <View
+                accessible
+                accessibilityLabel={`${percent} percent complete`}
+                style={{
+                  minWidth: 54,
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.xs,
+                  borderRadius: radii.full,
+                  backgroundColor: percent === 100 && category.totalItems > 0 ? colors.successSoft : colors.brandSoft
+                }}
+              >
+                <Text
+                  style={[
+                    typography.label,
+                    { textAlign: "center", color: percent === 100 && category.totalItems > 0 ? colors.success : colors.brand }
+                  ]}
+                >
+                  {percent}%
+                </Text>
+              </View>
+            </View>
+
+            <ProgressBar
+              value={category.completedItems}
+              max={category.totalItems}
+              height={6}
+              accessibilityLabel={`${category.name} progress`}
+              accessibilityValueText={`${category.completedItems} of ${category.totalItems} complete`}
+              style={{ marginTop: spacing.md }}
+            />
+
+            {category.previewItems.length > 0 && (
+              <View style={{ gap: spacing.xs, marginTop: spacing.md }}>
+                {category.previewItems.slice(0, 2).map((item) => (
+                  <Text
+                    key={item.id}
+                    numberOfLines={1}
+                    style={[
+                      typography.caption,
+                      {
+                        color: item.completed ? colors.textTertiary : colors.textSecondary,
+                        textDecorationLine: item.completed ? "line-through" : "none"
+                      }
+                    ]}
+                  >
+                    {item.completed ? "Done" : "Next"} · {item.text}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </View>
+    );
+  };
+
+  const selectedPercent = selectedCategory && selectedCategory.totalItems > 0
+    ? Math.round((selectedCategory.completedItems / selectedCategory.totalItems) * 100)
+    : 0;
 
   return (
-    <SafeAreaView
-      className="flex-1"
-      edges={["top", "bottom"]}
-      style={{ backgroundColor }}
-    >
-      <StatusBar style={isDarkMode ? "light" : "dark"} backgroundColor={backgroundColor} translucent={false} />
+    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.canvas }}>
+      <StatusBar
+        style={anthraTheme.statusBarStyle}
+        backgroundColor={colors.canvas}
+        translucent={false}
+      />
 
-      <View className="border-b px-5 pb-3 pt-4" style={{ borderColor: resolvedTheme.accentBorder }}>
-        {!selectedCategory && (
-          <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={onBack}
-              className="h-10 w-10 items-center justify-center rounded-xl border"
-              style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}
-            >
-              <ArrowLeft size={18} color={isDarkMode ? "#FFFFFF" : textMuted} />
-            </Pressable>
-            <Text className="text-2xl font-black text-[#032D3B] dark:text-white">List Buddy</Text>
-            <Pressable
-              onPress={() => openCategoryModal()}
-              className="h-10 w-10 items-center justify-center rounded-xl"
-              style={{ backgroundColor: resolvedTheme.accent }}
-            >
-              <Plus size={18} color={resolvedTheme.onAccent} />
-            </Pressable>
+      <View
+        style={{
+          paddingHorizontal: layout.screenPadding,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.divider,
+          backgroundColor: colors.canvas
+        }}
+      >
+        <ScreenHeader
+          eyebrow="ORGANIZE"
+          title={selectedCategory?.name ?? "Lists"}
+          subtitle={selectedCategory ? `${selectedCategory.totalItems} items` : "Keep small plans clear and actionable"}
+          onBack={selectedCategory ? closeSelectedCategory : onBack}
+          backLabel={selectedCategory ? "Back to all lists" : "Back to Anthra hub"}
+          style={{ width: "100%", maxWidth: layout.contentMaxWidth, alignSelf: "center" }}
+          action={
+            <IconButton
+              icon={Plus}
+              accessibilityLabel={selectedCategory ? `Add item to ${selectedCategory.name}` : "Create a new list"}
+              variant="primary"
+              onPress={() => selectedCategory ? openItemModal() : openCategoryModal()}
+            />
+          }
+        />
+      </View>
+
+      <ScrollView
+        className="flex-1"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: layout.contentMaxWidth,
+          alignSelf: "center",
+          padding: layout.screenPadding,
+          paddingBottom: spacing["4xl"]
+        }}
+      >
+        {loadError && (
+          <View style={{ marginBottom: spacing.lg }}>
+            <StatusBanner title="Lists need attention" message={loadError} variant="danger" />
+            <Button
+              label="Try again"
+              variant="outline"
+              size="small"
+              onPress={() => handleRetryLoad().catch(() => undefined)}
+              style={{ marginTop: spacing.sm }}
+            />
           </View>
+        )}
+
+        {!selectedCategory && (
+          <>
+            <Card variant="brand" style={{ marginBottom: spacing.xl }}>
+              <View className="flex-row items-start" style={{ gap: spacing.md }}>
+                <View
+                  className="items-center justify-center"
+                  style={{ width: 44, height: 44, borderRadius: radii.md, backgroundColor: colors.surface }}
+                >
+                  <ListTodo accessible={false} size={23} color={colors.brand} />
+                </View>
+                <View className="min-w-0 flex-1">
+                  <Text style={[typography.titleSmall, { color: colors.textPrimary }]}>Everything in its place</Text>
+                  <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                    Capture an item, tap it when complete, and keep each list focused.
+                  </Text>
+                </View>
+              </View>
+            </Card>
+
+            {categories.length === 0 ? (
+              <Card padding="large" style={{ alignItems: "center" }}>
+                <View
+                  className="items-center justify-center"
+                  style={{ width: 64, height: 64, borderRadius: radii.full, backgroundColor: colors.brandSoft }}
+                >
+                  <ListTodo accessible={false} size={28} color={colors.brand} />
+                </View>
+                <Text style={[typography.titleMedium, { color: colors.textPrimary, textAlign: "center", marginTop: spacing.lg }]}>
+                  Create your first list
+                </Text>
+                <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.sm }]}>
+                  Groceries, movies, errands—start with anything you want out of your head.
+                </Text>
+                <Button
+                  label="New list"
+                  icon={Plus}
+                  onPress={() => openCategoryModal()}
+                  style={{ marginTop: spacing.xl }}
+                />
+              </Card>
+            ) : (
+              <View>
+                <View className="mb-3 flex-row items-end justify-between">
+                  <Text style={[typography.titleSmall, { color: colors.textPrimary }]}>Your lists</Text>
+                  <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                    {listSearchText.trim()
+                      ? `${filteredCategories.length} of ${categories.length}`
+                      : `${categories.length} ${categories.length === 1 ? "list" : "lists"}`}
+                  </Text>
+                </View>
+                <TextField
+                  label="Search lists"
+                  value={listSearchText}
+                  onChangeText={setListSearchText}
+                  placeholder="Search by list name"
+                  leadingIcon={Search}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  accessibilityLabel="Search lists by name"
+                  containerStyle={{ marginBottom: spacing.lg }}
+                  trailing={listSearchText.length > 0 ? (
+                    <IconButton
+                      icon={X}
+                      size="small"
+                      variant="ghost"
+                      accessibilityLabel="Clear list search"
+                      onPress={() => setListSearchText("")}
+                    />
+                  ) : undefined}
+                />
+                {filteredCategories.length > 0 ? (
+                  filteredCategories.map(renderCategoryCard)
+                ) : (
+                  <Card variant="subtle" padding="large" style={{ alignItems: "center" }}>
+                    <View
+                      className="items-center justify-center"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: radii.full,
+                        backgroundColor: colors.brandSoft
+                      }}
+                    >
+                      <Search accessible={false} size={22} color={colors.brand} />
+                    </View>
+                    <Text
+                      style={[
+                        typography.titleSmall,
+                        { color: colors.textPrimary, marginTop: spacing.md, textAlign: "center" }
+                      ]}
+                    >
+                      No lists found
+                    </Text>
+                    <Text
+                      style={[
+                        typography.body,
+                        { color: colors.textSecondary, marginTop: spacing.xs, textAlign: "center" }
+                      ]}
+                    >
+                      Try a different list name.
+                    </Text>
+                    <Button
+                      label="Clear search"
+                      variant="ghost"
+                      size="small"
+                      onPress={() => setListSearchText("")}
+                      style={{ marginTop: spacing.md }}
+                    />
+                  </Card>
+                )}
+              </View>
+            )}
+          </>
         )}
 
         {selectedCategory && (
-          <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={() => setSelectedCategoryId(null)}
-              className="h-10 w-10 items-center justify-center rounded-xl border"
-              style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}
-            >
-              <ArrowLeft size={18} color={isDarkMode ? "#FFFFFF" : textMuted} />
-            </Pressable>
-            <Text className="max-w-[190px] text-center text-xl font-black text-[#032D3B] dark:text-white">
-              {selectedCategory.name}
-            </Text>
-            <Pressable
-              onPress={() => openItemModal()}
-              className="h-10 w-10 items-center justify-center rounded-xl"
-              style={{ backgroundColor: resolvedTheme.accent }}
-            >
-              <Plus size={18} color={resolvedTheme.onAccent} />
-            </Pressable>
-          </View>
-        )}
-      </View>
-
-      {!selectedCategory && (
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View className="rounded-2xl border px-4 py-3" style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: resolvedTheme.accentSoft }}>
-            <View className="flex-row items-center">
-              <ListTodo size={20} color={resolvedTheme.accent} />
-              <Text className="ml-2 text-base font-black text-[#032D3B] dark:text-white">
-                Your categories
-              </Text>
-            </View>
-            <Text className="mt-1 text-sm text-[#165B72] dark:text-white/70">
-              Tap a line later to cross it out.
-            </Text>
-          </View>
-
-          {categories.length === 0 && (
-            <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}>
-              <Text className="text-base text-[#165B72] dark:text-white/75">
-                No categories yet. Create your first one.
-              </Text>
-            </View>
-          )}
-
-          <View className="mt-4 flex-row items-start justify-between">
-            <View className="w-[48%]">{categoryColumns.left.map(renderCategoryCard)}</View>
-            <View className="w-[48%]">{categoryColumns.right.map(renderCategoryCard)}</View>
-          </View>
-        </ScrollView>
-      )}
-
-      {selectedCategory && (
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View className="rounded-2xl border p-4" style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-semibold uppercase tracking-[1.3px] text-[#2C778D] dark:text-white/60">
-                Progress
-              </Text>
-              <Pressable
-                onPress={() => openCategoryModal(selectedCategory)}
-                className="h-8 w-8 items-center justify-center rounded-lg border"
-                style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: resolvedTheme.accentSoft }}
-              >
-                <Pencil size={14} color={isDarkMode ? "#FFFFFF" : "#0D5D75"} />
-              </Pressable>
-            </View>
-            <Text className="mt-1 text-xl font-black text-[#032D3B] dark:text-white">
-              {selectedCategory.completedItems}/{selectedCategory.totalItems} crossed out
-            </Text>
-            <View className="mt-3 h-2 rounded-full bg-[#D6EDF5] dark:bg-white/15">
-              <View
-                className="h-2 rounded-full"
-                style={{
-                  backgroundColor: resolvedTheme.accent,
-                  width: `${
-                    selectedCategory.totalItems > 0
-                      ? Math.round((selectedCategory.completedItems / selectedCategory.totalItems) * 100)
-                      : 0
-                  }%`
+          <>
+            <View className="flex-row items-end" style={{ gap: spacing.md, marginBottom: spacing.lg }}>
+              <TextField
+                label="Quick add"
+                value={quickItemText}
+                onChangeText={(value) => {
+                  setQuickItemText(value);
+                  if (loadError) setLoadError(null);
                 }}
+                onSubmitEditing={() => handleQuickAddItem().catch(() => undefined)}
+                returnKeyType="done"
+                placeholder="Add an item"
+                maxLength={MAX_LIST_ITEM_LENGTH}
+                accessibilityLabel={`New item for ${selectedCategory.name}`}
+                containerStyle={{ flex: 1 }}
+                disabled={quickAdding}
+              />
+              <IconButton
+                icon={Plus}
+                accessibilityLabel="Add list item"
+                variant="primary"
+                size="large"
+                disabled={quickAdding || !quickItemText.trim()}
+                onPress={() => handleQuickAddItem().catch(() => undefined)}
               />
             </View>
-          </View>
 
-          <View className="mt-4 rounded-2xl border" style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}>
-            {items.length === 0 && (
-              <View className="p-4">
-                <Text className="text-base text-[#1C6076] dark:text-white/70">
-                  No items in this category yet.
-                </Text>
+            <Card style={{ marginBottom: spacing.lg }}>
+              <View className="flex-row items-center justify-between" style={{ gap: spacing.md }}>
+                <View className="min-w-0 flex-1">
+                  <Text style={[typography.label, { color: colors.textSecondary }]}>PROGRESS</Text>
+                  <Text style={[typography.titleMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>
+                    {selectedCategory.completedItems} of {selectedCategory.totalItems} complete
+                  </Text>
+                </View>
+                <View
+                  accessible
+                  accessibilityLabel={`${selectedPercent} percent complete`}
+                  style={{
+                    minWidth: 54,
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs,
+                    borderRadius: radii.full,
+                    backgroundColor:
+                      selectedPercent === 100 && selectedCategory.totalItems > 0
+                        ? colors.successSoft
+                        : colors.brandSoft
+                  }}
+                >
+                  <Text
+                    style={[
+                      typography.label,
+                      {
+                        textAlign: "center",
+                        color:
+                          selectedPercent === 100 && selectedCategory.totalItems > 0
+                            ? colors.success
+                            : colors.brand
+                      }
+                    ]}
+                  >
+                    {selectedPercent}%
+                  </Text>
+                </View>
+                <IconButton
+                  icon={Pencil}
+                  size="small"
+                  accessibilityLabel={`Edit ${selectedCategory.name}`}
+                  onPress={() => openCategoryModal(selectedCategory)}
+                />
               </View>
+              <View style={{ marginTop: spacing.lg }}>
+                <ProgressBar
+                  value={selectedCategory.completedItems}
+                  max={selectedCategory.totalItems}
+                  accessibilityLabel={`${selectedCategory.name} progress`}
+                  accessibilityValueText={`${selectedCategory.completedItems} of ${selectedCategory.totalItems} complete`}
+                  style={{ width: "100%" }}
+                />
+              </View>
+              {selectedCategory.completedItems > 0 && (
+                <Button
+                  label="Clear completed"
+                  variant="outline"
+                  size="small"
+                  onPress={handleClearCompleted}
+                  style={{ marginTop: spacing.lg }}
+                />
+              )}
+            </Card>
+
+            {recentlyClearedItems.length > 0 && (
+              <Card variant="brand" style={{ marginBottom: spacing.lg }}>
+                <View className="flex-row items-center" style={{ gap: spacing.md }}>
+                  <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>
+                    {recentlyClearedItems.length} completed {recentlyClearedItems.length === 1 ? "item" : "items"} cleared
+                  </Text>
+                  <Button
+                    label="Undo"
+                    variant="ghost"
+                    size="small"
+                    onPress={() => handleUndoClear().catch(() => undefined)}
+                  />
+                </View>
+              </Card>
             )}
 
-            {items.map((item, index) => (
-              <View
-                key={item.id}
-                className={`flex-row items-center px-3 py-3 ${
-                  index !== items.length - 1
-                    ? "border-b border-[#05AED5]/22 dark:border-white/10"
-                    : ""
-                }`}
-              >
-                <Pressable onPress={() => handleToggleItem(item)} className="flex-1 pr-3">
-                  <Text
-                    className={`text-base ${
-                      item.completed
-                        ? "text-[#7FB1C0] dark:text-white/45 line-through"
-                        : "text-[#063B4F] dark:text-white/90"
-                    }`}
-                  >
-                    {item.text}
+            <Card padding="none" style={{ overflow: "hidden" }}>
+              {items.length === 0 ? (
+                <View style={{ alignItems: "center", padding: spacing["2xl"] }}>
+                  <Text style={[typography.titleSmall, { color: colors.textPrimary, textAlign: "center" }]}>This list is ready</Text>
+                  <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.sm }]}>
+                    Add the first item above or use the plus button.
                   </Text>
-                </Pressable>
-
-                <View className="flex-row items-center gap-2">
-                  <Pressable
-                    onPress={() => openItemModal(item)}
-                    className="h-8 w-8 items-center justify-center rounded-lg border"
-                    style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: resolvedTheme.accentSoft }}
-                  >
-                    <Pencil size={14} color={isDarkMode ? "#FFFFFF" : "#0D5D75"} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleDeleteItem(item)}
-                    className="h-8 w-8 items-center justify-center rounded-lg border border-[#FF6E7F]/35 bg-[#FF6E7F]/12 dark:border-[#FF6E7F]/50 dark:bg-[#FF6E7F]/20"
-                  >
-                    <Trash2 size={14} color="#FF6E7F" />
-                  </Pressable>
                 </View>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      )}
+              ) : (
+                items.map((item, index) => (
+                  <View
+                    key={item.id}
+                    className="flex-row items-center"
+                    style={{
+                      minHeight: 68,
+                      paddingLeft: spacing.lg,
+                      paddingRight: spacing.sm,
+                      borderBottomWidth: index === items.length - 1 ? 0 : 1,
+                      borderBottomColor: colors.divider
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => handleToggleItem(item)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: item.completed }}
+                      accessibilityLabel={item.text}
+                      accessibilityHint={item.completed ? "Marks this item incomplete" : "Marks this item complete"}
+                      className="min-w-0 flex-1 flex-row items-center self-stretch"
+                      style={({ pressed }) => ({
+                        paddingVertical: spacing.md,
+                        paddingRight: spacing.md,
+                        opacity: pressed ? 0.72 : 1
+                      })}
+                    >
+                      <View
+                        className="items-center justify-center"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: radii.full,
+                          borderWidth: 2,
+                          borderColor: item.completed ? colors.brand : colors.borderStrong,
+                          backgroundColor: item.completed ? colors.brand : "transparent",
+                          marginRight: spacing.lg,
+                          flexShrink: 0
+                        }}
+                      >
+                        {item.completed && <Check accessible={false} size={15} strokeWidth={3} color={colors.textOnBrandSolid} />}
+                      </View>
+                      <Text
+                        style={[
+                          typography.bodyLarge,
+                          {
+                            flex: 1,
+                            color: item.completed ? colors.textTertiary : colors.textPrimary,
+                            textDecorationLine: item.completed ? "line-through" : "none"
+                          }
+                        ]}
+                      >
+                        {item.text}
+                      </Text>
+                    </Pressable>
+
+                    <View className="flex-row" style={{ gap: spacing.xs }}>
+                      <IconButton
+                        icon={Pencil}
+                        size="small"
+                        variant="ghost"
+                        accessibilityLabel={`Edit ${item.text}`}
+                        onPress={() => openItemModal(item)}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        size="small"
+                        variant="ghost"
+                        color={colors.danger}
+                        accessibilityLabel={`Delete ${item.text}`}
+                        onPress={() => handleDeleteItem(item)}
+                      />
+                    </View>
+                  </View>
+                ))
+              )}
+            </Card>
+          </>
+        )}
+      </ScrollView>
 
       <Modal
         visible={categoryModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setCategoryModalOpen(false)}
+        onRequestClose={() => {
+          if (!savingCategory) setCategoryModalOpen(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1 justify-center bg-black/70 px-6"
+          style={{ flex: 1, backgroundColor: colors.scrim }}
         >
-          <View className="rounded-3xl border p-5" style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}>
-            <Text className="text-2xl font-black text-[#08364A] dark:text-white">
-              {editingCategoryId ? "Edit Category" : "New Category"}
+          <KeyboardAwareScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl }}
+          >
+          <Card
+            variant="elevated"
+            padding="large"
+            accessibilityViewIsModal
+            style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
+          >
+            <Text accessibilityRole="header" style={[typography.titleLarge, { color: colors.textPrimary }]}>
+              {editingCategoryId ? "Edit list" : "New list"}
             </Text>
-            <TextInput
+            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.xl }]}>
+              Give it a short name that will be easy to scan later.
+            </Text>
+            <TextField
+              label="List name"
               value={categoryNameText}
-              onChangeText={setCategoryNameText}
-              placeholder="Movies to Watch"
-              placeholderTextColor="#7A7A7A"
-              className="mt-4 rounded-2xl border px-4 py-3 text-lg font-semibold"
-              style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: inputBackground, color: isDarkMode ? "#FFFFFF" : "#08364A" }}
+              onChangeText={(value) => {
+                setCategoryNameText(value);
+                if (categoryError) setCategoryError(null);
+              }}
+              error={categoryError ?? undefined}
+              helperText={`${categoryNameText.length}/${MAX_LIST_NAME_LENGTH} characters`}
+              placeholder="Movies to watch"
+              maxLength={MAX_LIST_NAME_LENGTH}
+              autoFocus
+              disabled={savingCategory}
+              returnKeyType="done"
+              onSubmitEditing={() => handleSaveCategory().catch(() => undefined)}
             />
 
-            <View className="mt-5 flex-row gap-3">
-              <Pressable
+            <View className="flex-row" style={{ gap: spacing.md, marginTop: spacing.xl }}>
+              <Button
+                label="Cancel"
+                variant="outline"
+                fullWidth
+                disabled={savingCategory}
                 onPress={() => setCategoryModalOpen(false)}
-                className="flex-1 items-center rounded-xl border py-3"
-                style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: inputBackground }}
-              >
-                <Text className="text-base font-semibold text-[#2A6A80] dark:text-white/75">
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
+                style={{ flex: 1 }}
+              />
+              <Button
+                label="Save list"
+                fullWidth
+                disabled={!categoryNameText.trim()}
+                loading={savingCategory}
                 onPress={() => handleSaveCategory().catch(() => undefined)}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: resolvedTheme.accent }}
-              >
-                <Text className="text-base font-black" style={{ color: resolvedTheme.onAccent }}>Save</Text>
-              </Pressable>
+                style={{ flex: 1 }}
+              />
             </View>
 
             {editingCategory && (
-              <Pressable
+              <Button
+                label="Delete list"
+                variant="danger"
+                icon={Trash2}
+                fullWidth
+                disabled={savingCategory}
                 onPress={() =>
                   handleDeleteCategory(editingCategory, () => {
                     setCategoryModalOpen(false);
@@ -491,14 +886,11 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
                     setEditingCategoryId(null);
                   })
                 }
-                className="mt-3 items-center rounded-xl border border-[#FF6E7F]/45 bg-[#FF6E7F]/12 py-3"
-              >
-                <Text className="text-sm font-black uppercase text-[#B9495A] dark:text-[#FF8D9B]">
-                  Delete Category
-                </Text>
-              </Pressable>
+                style={{ marginTop: spacing.md }}
+              />
             )}
-          </View>
+          </Card>
+          </KeyboardAwareScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -506,43 +898,68 @@ export function ListBuddyScreen({ onBack, isDarkMode = false, theme }: ListBuddy
         visible={itemModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setItemModalOpen(false)}
+        onRequestClose={() => {
+          if (!savingItem) setItemModalOpen(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1 justify-center bg-black/70 px-6"
+          style={{ flex: 1, backgroundColor: colors.scrim }}
         >
-          <View className="rounded-3xl border p-5" style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: panelBackground }}>
-            <Text className="text-2xl font-black text-[#08364A] dark:text-white">
-              {editingItemId ? "Edit Line Item" : "New Line Item"}
+          <KeyboardAwareScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl }}
+          >
+          <Card
+            variant="elevated"
+            padding="large"
+            accessibilityViewIsModal
+            style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
+          >
+            <Text accessibilityRole="header" style={[typography.titleLarge, { color: colors.textPrimary }]}>
+              {editingItemId ? "Edit item" : "New item"}
             </Text>
-            <TextInput
+            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.xl }]}>
+              {selectedCategory ? `Add one clear action to ${selectedCategory.name}.` : "Add one clear action."}
+            </Text>
+            <TextField
+              label="Item"
               value={itemText}
-              onChangeText={setItemText}
-              placeholder="Inception"
-              placeholderTextColor="#7A7A7A"
-              className="mt-4 rounded-2xl border px-4 py-3 text-lg font-medium"
-              style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: inputBackground, color: isDarkMode ? "#FFFFFF" : "#08364A" }}
+              onChangeText={(value) => {
+                setItemText(value);
+                if (itemError) setItemError(null);
+              }}
+              error={itemError ?? undefined}
+              helperText={`${itemText.length}/${MAX_LIST_ITEM_LENGTH} characters`}
+              placeholder="Watch Inception"
+              maxLength={MAX_LIST_ITEM_LENGTH}
+              autoFocus
+              disabled={savingItem}
+              returnKeyType="done"
+              onSubmitEditing={() => handleSaveItem().catch(() => undefined)}
             />
-            <View className="mt-5 flex-row gap-3">
-              <Pressable
+            <View className="flex-row" style={{ gap: spacing.md, marginTop: spacing.xl }}>
+              <Button
+                label="Cancel"
+                variant="outline"
+                fullWidth
+                disabled={savingItem}
                 onPress={() => setItemModalOpen(false)}
-                className="flex-1 items-center rounded-xl border py-3"
-                style={{ borderColor: resolvedTheme.accentBorder, backgroundColor: inputBackground }}
-              >
-                <Text className="text-base font-semibold text-[#2A6A80] dark:text-white/75">
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
+                style={{ flex: 1 }}
+              />
+              <Button
+                label="Save item"
+                fullWidth
+                disabled={!itemText.trim()}
+                loading={savingItem}
                 onPress={() => handleSaveItem().catch(() => undefined)}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: resolvedTheme.accent }}
-              >
-                <Text className="text-base font-black" style={{ color: resolvedTheme.onAccent }}>Save</Text>
-              </Pressable>
+                style={{ flex: 1 }}
+              />
             </View>
-          </View>
+          </Card>
+          </KeyboardAwareScrollView>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>

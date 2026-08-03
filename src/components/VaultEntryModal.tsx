@@ -1,0 +1,277 @@
+import { useEffect, useReducer, useRef } from "react";
+import { KeyboardAvoidingView, Modal, Platform, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Eye, EyeOff, KeyRound, ShieldCheck, WandSparkles } from "lucide-react-native";
+
+import { useAnthraTheme } from "../design-system";
+import { Button, Card, KeyboardAwareScrollView, StatusBanner, TextField } from "./ui";
+import {
+  INITIAL_VAULT_EDITOR_PRIVACY_STATE,
+  vaultEditorPrivacyReducer,
+} from "../features/vault/editorPrivacy";
+
+type VaultEntryModalProps = {
+  visible: boolean;
+  editing: boolean;
+  appName: string;
+  accountId: string;
+  secret: string;
+  error: string;
+  saving: boolean;
+  onChangeAppName: (value: string) => void;
+  onChangeAccountId: (value: string) => void;
+  onChangeSecret: (value: string) => void;
+  onGenerateSecret: () => Promise<void>;
+  onClose: () => void;
+  onSave: () => void;
+};
+
+export function VaultEntryModal(props: VaultEntryModalProps) {
+  if (!props.visible) {
+    return null;
+  }
+
+  return <VaultEntryEditor {...props} />;
+}
+
+function VaultEntryEditor(props: VaultEntryModalProps) {
+  const anthraTheme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const shouldStackActions = width < 420 || fontScale >= 1.2;
+  const [privacyState, dispatchPrivacy] = useReducer(
+    vaultEditorPrivacyReducer,
+    INITIAL_VAULT_EDITOR_PRIVACY_STATE,
+  );
+  const nextGenerationIdRef = useRef(0);
+  const activeGenerationIdRef = useRef<number | null>(null);
+  const appNameInputRef = useRef<TextInput>(null);
+  const accountInputRef = useRef<TextInput>(null);
+  const secretInputRef = useRef<TextInput>(null);
+
+  useEffect(() => () => {
+    activeGenerationIdRef.current = null;
+    nextGenerationIdRef.current += 1;
+  }, []);
+
+  const closeEditor = () => {
+    activeGenerationIdRef.current = null;
+    nextGenerationIdRef.current += 1;
+    dispatchPrivacy({ type: "reset" });
+    props.onClose();
+  };
+
+  const generateSecret = async () => {
+    if (activeGenerationIdRef.current !== null) {
+      return;
+    }
+
+    const generationId = nextGenerationIdRef.current + 1;
+    nextGenerationIdRef.current = generationId;
+    activeGenerationIdRef.current = generationId;
+    dispatchPrivacy({ type: "generation-started", generationId });
+
+    try {
+      await props.onGenerateSecret();
+      dispatchPrivacy({ type: "generation-succeeded", generationId });
+    } catch (error) {
+      dispatchPrivacy({ type: "generation-failed", generationId });
+      throw error;
+    } finally {
+      if (activeGenerationIdRef.current === generationId) {
+        activeGenerationIdRef.current = null;
+      }
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={closeEditor}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1, backgroundColor: anthraTheme.colors.scrim }}
+      >
+        <KeyboardAwareScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: anthraTheme.spacing.xl,
+            paddingVertical: anthraTheme.spacing["3xl"]
+          }}
+        >
+          <Card
+            accessibilityViewIsModal
+            variant="elevated"
+            padding="large"
+            style={{ width: "100%", maxWidth: anthraTheme.layout.contentMaxWidth, alignSelf: "center" }}
+          >
+            <View className="flex-row items-start" style={{ gap: anthraTheme.spacing.md }}>
+              <View
+                className="items-center justify-center"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: anthraTheme.radii.md,
+                  backgroundColor: anthraTheme.colors.brandSoft
+                }}
+              >
+                <KeyRound accessible={false} color={anthraTheme.colors.brand} size={23} />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Text style={[anthraTheme.typography.label, { color: anthraTheme.colors.brand }]}>SECURE ENTRY</Text>
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    anthraTheme.typography.titleLarge,
+                    { color: anthraTheme.colors.textPrimary, marginTop: 2 }
+                  ]}
+                >
+                  {props.editing ? "Edit credential" : "Add credential"}
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              style={[
+                anthraTheme.typography.body,
+                { color: anthraTheme.colors.textSecondary, marginTop: anthraTheme.spacing.md }
+              ]}
+            >
+              Details are stored in your protected on-device vault.
+            </Text>
+
+            {props.error.length > 0 && (
+              <StatusBanner
+                title="Couldn’t save credential"
+                message={props.error}
+                variant="danger"
+                style={{ marginTop: anthraTheme.spacing.lg }}
+              />
+            )}
+
+            <TextField
+              ref={appNameInputRef}
+              label="App or website"
+              value={props.appName}
+              onChangeText={props.onChangeAppName}
+              placeholder="Example: Anthra"
+              accessibilityLabel="App or website"
+              autoComplete="off"
+              autoCorrect={false}
+              spellCheck={false}
+              importantForAutofill="no"
+              textContentType="none"
+              autoFocus
+              selectTextOnFocus={props.editing}
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => accountInputRef.current?.focus()}
+              required
+              containerStyle={{ marginTop: anthraTheme.spacing.xl }}
+            />
+            <TextField
+              ref={accountInputRef}
+              label="Login ID or username"
+              value={props.accountId}
+              onChangeText={props.onChangeAccountId}
+              placeholder="name@example.com"
+              accessibilityLabel="Login ID or username"
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect={false}
+              spellCheck={false}
+              importantForAutofill="no"
+              textContentType="none"
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => secretInputRef.current?.focus()}
+              required
+              containerStyle={{ marginTop: anthraTheme.spacing.lg }}
+            />
+            <TextField
+              ref={secretInputRef}
+              label="Password"
+              value={props.secret}
+              onChangeText={props.onChangeSecret}
+              placeholder="Enter or generate a password"
+              accessibilityLabel="Password"
+              accessibilityHint={privacyState.secretVisible
+                ? "The password is currently visible."
+                : "The password is currently hidden."}
+              secureTextEntry={!privacyState.secretVisible}
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect={false}
+              spellCheck={false}
+              importantForAutofill="no"
+              textContentType="none"
+              leadingIcon={ShieldCheck}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (!props.saving) props.onSave();
+              }}
+              required
+              containerStyle={{ marginTop: anthraTheme.spacing.lg }}
+            />
+
+            <View
+              style={{
+                flexDirection: shouldStackActions ? "column" : "row",
+                gap: anthraTheme.spacing.sm,
+                marginTop: anthraTheme.spacing.md
+              }}
+            >
+              <Button
+                label={privacyState.secretVisible ? "Hide password" : "Show password"}
+                icon={privacyState.secretVisible ? EyeOff : Eye}
+                variant="outline"
+                onPress={() => dispatchPrivacy({ type: "toggle-secret-visibility" })}
+                accessibilityHint="Changes whether the password is displayed on screen"
+                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+              <Button
+                label={privacyState.generating ? "Generating…" : "Generate strong"}
+                icon={WandSparkles}
+                variant="secondary"
+                onPress={() => generateSecret().catch(() => undefined)}
+                disabled={privacyState.generating}
+                loading={privacyState.generating}
+                accessibilityLabel="Generate a strong password"
+                accessibilityHint="Replaces the password field with a randomly generated password"
+                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+            </View>
+
+            <View
+              style={{
+                flexDirection: shouldStackActions ? "column" : "row",
+                gap: anthraTheme.spacing.md,
+                paddingTop: anthraTheme.spacing.xl,
+                marginTop: anthraTheme.spacing.xl,
+                borderTopWidth: 1,
+                borderTopColor: anthraTheme.colors.divider
+              }}
+            >
+              <Button
+                label="Cancel"
+                variant="outline"
+                onPress={closeEditor}
+                accessibilityLabel="Cancel password entry"
+                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+              <Button
+                label="Save credential"
+                icon={ShieldCheck}
+                onPress={props.onSave}
+                loading={props.saving}
+                disabled={props.saving}
+                accessibilityLabel="Save password entry"
+                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+            </View>
+          </Card>
+        </KeyboardAwareScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}

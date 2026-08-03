@@ -1,0 +1,1365 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  AppState,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  CircleCheck,
+  Clock3,
+  Footprints,
+  HeartPulse,
+  LockKeyhole,
+  Minus,
+  Plus,
+  RefreshCw,
+  Share2,
+  ShieldCheck,
+  TriangleAlert,
+  type LucideIcon
+} from "lucide-react-native";
+
+import { ProgressBar } from "../../components/ProgressBar";
+import {
+  Button,
+  Card,
+  IconButton,
+  ScreenHeader,
+  StatusBanner,
+  Surface
+} from "../../components/ui";
+import { useAnthraTheme } from "../../design-system";
+import { getDayPartsInTimeZone, zonedDateTimeToTimestamp } from "../../utils/timezone";
+import {
+  acknowledgePendingPhoneStepDays,
+  cancelCurrentPhoneStepReading,
+  disablePhoneStepTracking,
+  enablePhoneStepTracking,
+  getActivityCapabilities,
+  getCurrentPhoneStepReading,
+  getHealthConnectStatus,
+  getPendingPhoneStepDays,
+  getPhoneStepStatus,
+  openHealthConnectSettings,
+  readHealthConnectDailyTotals,
+  readHealthConnectWorkouts,
+  requestHealthConnectPermissions
+} from "./activityNative";
+import {
+  currentActivityTimezone,
+  getActivityDailySummaries,
+  getActivitySettings,
+  getActivitySyncState,
+  getAnthraWorkoutDateKeys,
+  getStoredActivityWorkouts,
+  initActivityDatabase,
+  recordActivitySyncAttempt,
+  recordActivitySyncFailure,
+  recordActivitySyncSuccess,
+  replaceHealthWorkoutsInRange,
+  saveActivitySettings,
+  saveHealthDailyTotals,
+  savePhoneStepDaySnapshots,
+  savePhoneStepReading
+} from "./activityRepository";
+import {
+  activeDaysThisWeek,
+  calculateActivityStreak,
+  dateKeyInTimeZone,
+  qualifyingActivityDateKeys,
+  recentDateKeys,
+  unionActivityDateKeys
+} from "./activityStats";
+import type {
+  ActivityCapabilities,
+  ActivityDailySummary,
+  ActivitySettings,
+  ActivityShareScope,
+  ActivitySyncState,
+  HealthConnectStatus,
+  PhoneStepStatus,
+  StoredActivityWorkout
+} from "./activityTypes";
+import {
+  ACTIVITY_STREAK_CARD_HEIGHT,
+  ACTIVITY_STREAK_CARD_WIDTH,
+  ActivityStreakCard
+} from "./ActivityStreakCard";
+import { ActivityHistoryChart } from "./components/ActivityHistoryChart";
+
+type ActivityBuddyScreenProps = {
+  onBack: () => void;
+};
+
+type SourceTone = "success" | "warning" | "neutral";
+
+type SourceCardProps = {
+  icon: LucideIcon;
+  title: string;
+  status: string;
+  statusTone: SourceTone;
+  description: string;
+  detail?: string;
+  actionLabel: string;
+  actionHint: string;
+  actionVariant?: "primary" | "secondary" | "outline";
+  actionDisabled?: boolean;
+  actionLoading?: boolean;
+  onAction: () => void;
+};
+
+const INITIAL_SETTINGS: ActivitySettings = {
+  dailyGoal: 10_000,
+  phoneTrackingEnabled: false,
+  shareScope: "activity"
+};
+
+const EMPTY_SYNC: ActivitySyncState = {
+  lastAttemptAt: null,
+  lastSuccessAt: null,
+  error: null
+};
+
+const INITIAL_LOAD_TIMEOUT_MS = 12_000;
+
+function localMidnight(timezone: string, dayOffset: number): number {
+  const parts = getDayPartsInTimeZone(Date.now(), dayOffset, timezone);
+  return zonedDateTimeToTimestamp(
+    parts.year,
+    parts.month,
+    parts.day,
+    0,
+    0,
+    timezone
+  );
+}
+
+function formatSyncTime(timestamp: number | null): string {
+  if (timestamp == null) return "Not synced yet";
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    day: "numeric"
+  }).format(new Date(timestamp));
+}
+
+function compactSteps(value: number): string {
+  return Math.max(0, Math.floor(value)).toLocaleString();
+}
+
+function SourceCard({
+  icon: Icon,
+  title,
+  status,
+  statusTone,
+  description,
+  detail,
+  actionLabel,
+  actionHint,
+  actionVariant = "primary",
+  actionDisabled = false,
+  actionLoading = false,
+  onAction
+}: SourceCardProps) {
+  const theme = useAnthraTheme();
+  const tone = {
+    success: {
+      foreground: theme.colors.success,
+      background: theme.colors.successSoft,
+      icon: CircleCheck
+    },
+    warning: {
+      foreground: theme.colors.warning,
+      background: theme.colors.warningSoft,
+      icon: TriangleAlert
+    },
+    neutral: {
+      foreground: theme.colors.textSecondary,
+      background: theme.colors.surfaceSubtle,
+      icon: Clock3
+    }
+  }[statusTone];
+  const StatusIcon = tone.icon;
+
+  return (
+    <Card>
+      <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+        <View
+          accessible={false}
+          className="items-center justify-center"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: theme.radii.md,
+            backgroundColor: theme.colors.brandSoft
+          }}
+        >
+          <Icon accessible={false} color={theme.colors.brand} size={22} />
+        </View>
+
+        <View className="min-w-0 flex-1">
+          <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
+            {title}
+          </Text>
+          <View
+            accessible
+            accessibilityLabel={`${title} status: ${status}`}
+            className="mt-2 flex-row items-center self-start"
+            style={{
+              gap: theme.spacing.xs,
+              paddingHorizontal: theme.spacing.sm,
+              paddingVertical: theme.spacing.xs,
+              borderRadius: theme.radii.full,
+              backgroundColor: tone.background
+            }}
+          >
+            <StatusIcon accessible={false} color={tone.foreground} size={14} />
+            <Text style={[theme.typography.caption, { color: tone.foreground, fontWeight: "600" }]}>
+              {status}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Text
+        style={[
+          theme.typography.body,
+          { color: theme.colors.textSecondary, marginTop: theme.spacing.md }
+        ]}
+      >
+        {description}
+      </Text>
+      {detail ? (
+        <Text
+          style={[
+            theme.typography.caption,
+            { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }
+          ]}
+        >
+          {detail}
+        </Text>
+      ) : null}
+
+      <Button
+        label={actionLabel}
+        accessibilityHint={actionHint}
+        variant={actionVariant}
+        disabled={actionDisabled}
+        loading={actionLoading}
+        fullWidth
+        onPress={onAction}
+        style={{ marginTop: theme.spacing.lg }}
+      />
+    </Card>
+  );
+}
+
+export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
+  const theme = useAnthraTheme();
+  const { width: viewportWidth } = useWindowDimensions();
+  const previewAvailableWidth = Math.max(0, viewportWidth - theme.spacing["2xl"]);
+  const previewScale = Math.min(
+    1,
+    Math.max(0.5, previewAvailableWidth / ACTIVITY_STREAK_CARD_WIDTH)
+  );
+  const previewCardWidth = ACTIVITY_STREAK_CARD_WIDTH * previewScale;
+  const previewCardHeight = ACTIVITY_STREAK_CARD_HEIGHT * previewScale;
+  const [settings, setSettings] = useState<ActivitySettings>(INITIAL_SETTINGS);
+  const [capabilities, setCapabilities] = useState<ActivityCapabilities | null>(null);
+  const [phoneStatus, setPhoneStatus] = useState<PhoneStepStatus | null>(null);
+  const [healthStatus, setHealthStatus] = useState<HealthConnectStatus | null>(null);
+  const [summaries, setSummaries] = useState<ActivityDailySummary[]>([]);
+  const [workouts, setWorkouts] = useState<StoredActivityWorkout[]>([]);
+  const [anthraWorkoutDates, setAnthraWorkoutDates] = useState<Set<string>>(new Set());
+  const [syncState, setSyncState] = useState<ActivitySyncState>(EMPTY_SYNC);
+  const [loading, setLoading] = useState(true);
+  const [initialLoadTimedOut, setInitialLoadTimedOut] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [goalSaving, setGoalSaving] = useState(false);
+  const [scopeSaving, setScopeSaving] = useState(false);
+  const [sourceAction, setSourceAction] = useState<"phone" | "health" | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const shareCardRef = useRef<View>(null);
+  const refreshInFlight = useRef(false);
+  const refreshAttemptRef = useRef(0);
+  const settingsRef = useRef<ActivitySettings>(INITIAL_SETTINGS);
+  const settingsRevisionRef = useRef(0);
+  const settingsWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const timezone = currentActivityTimezone();
+  const todayKey = dateKeyInTimeZone(Date.now(), timezone);
+
+  const refresh = useCallback(async (showSpinner = true, supersede = false) => {
+    if (refreshInFlight.current && !supersede) return;
+    const attempt = refreshAttemptRef.current + 1;
+    refreshAttemptRef.current = attempt;
+    const isCurrentAttempt = () => refreshAttemptRef.current === attempt;
+    const settingsRevisionAtStart = settingsRevisionRef.current;
+    refreshInFlight.current = true;
+    if (showSpinner) setRefreshing(true);
+    setNotice(null);
+
+    try {
+      await initActivityDatabase();
+      await recordActivitySyncAttempt();
+      const nextSettings = await getActivitySettings();
+      if (
+        isCurrentAttempt() &&
+        settingsRevisionRef.current === settingsRevisionAtStart
+      ) {
+        settingsRef.current = nextSettings;
+        setSettings(nextSettings);
+      }
+
+      const [nextCapabilities, nextPhoneStatus, nextHealthStatus] = await Promise.all([
+        getActivityCapabilities(),
+        getPhoneStepStatus().catch(() => null),
+        getHealthConnectStatus()
+      ]);
+      if (isCurrentAttempt()) {
+        setCapabilities(nextCapabilities);
+        setPhoneStatus(nextPhoneStatus);
+        setHealthStatus(nextHealthStatus);
+      }
+
+      const sourceErrors: string[] = [];
+      if (
+        nextSettings.phoneTrackingEnabled &&
+        nextPhoneStatus?.sensorAvailable &&
+        nextPhoneStatus.permissionGranted
+      ) {
+        try {
+          const reading = await getCurrentPhoneStepReading(timezone);
+          await savePhoneStepReading(reading);
+          const pendingDays = await getPendingPhoneStepDays();
+          if (pendingDays.length > 0) {
+            await savePhoneStepDaySnapshots(pendingDays);
+            await acknowledgePendingPhoneStepDays(
+              pendingDays.map((day) => day.dateKey)
+            );
+          }
+        } catch (error) {
+          sourceErrors.push(
+            error instanceof Error ? error.message : "Phone step refresh failed."
+          );
+        }
+      }
+
+      const healthRangeStart = localMidnight(timezone, -29);
+      const healthRangeEnd = localMidnight(timezone, 1);
+      if (nextHealthStatus.stepsPermission) {
+        try {
+          const totals = await readHealthConnectDailyTotals(
+            healthRangeStart,
+            healthRangeEnd,
+            timezone
+          );
+          await saveHealthDailyTotals(totals);
+        } catch (error) {
+          sourceErrors.push(
+            error instanceof Error ? error.message : "Health Connect steps failed."
+          );
+        }
+      }
+      if (nextHealthStatus.exercisePermission) {
+        try {
+          const records = await readHealthConnectWorkouts(
+            healthRangeStart,
+            healthRangeEnd
+          );
+          await replaceHealthWorkoutsInRange(
+            records,
+            healthRangeStart,
+            healthRangeEnd,
+            timezone
+          );
+        } catch (error) {
+          sourceErrors.push(
+            error instanceof Error ? error.message : "Health Connect workouts failed."
+          );
+        }
+      }
+
+      const [nextSummaries, nextWorkouts, nextAnthraDates] = await Promise.all([
+        getActivityDailySummaries("0000-01-01"),
+        getStoredActivityWorkouts("0000-01-01"),
+        getAnthraWorkoutDateKeys(0, timezone)
+      ]);
+      if (isCurrentAttempt()) {
+        setSummaries(nextSummaries);
+        setWorkouts(nextWorkouts);
+        setAnthraWorkoutDates(nextAnthraDates);
+      }
+
+      if (sourceErrors.length > 0) {
+        const message = sourceErrors.join(" ");
+        await recordActivitySyncFailure(message);
+        if (isCurrentAttempt()) setNotice(message);
+      } else {
+        await recordActivitySyncSuccess();
+      }
+      const nextSyncState = await getActivitySyncState();
+      if (isCurrentAttempt()) setSyncState(nextSyncState);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Activity could not refresh.";
+      await recordActivitySyncFailure(message).catch(() => undefined);
+      const nextSyncState = await getActivitySyncState().catch(() => EMPTY_SYNC);
+      if (isCurrentAttempt()) {
+        setNotice(message);
+        setSyncState(nextSyncState);
+      }
+    } finally {
+      if (isCurrentAttempt()) {
+        refreshInFlight.current = false;
+        setLoading(false);
+        setInitialLoadTimedOut(false);
+        setRefreshing(false);
+      }
+    }
+  }, [timezone]);
+
+  useEffect(() => {
+    refresh(false).catch(() => undefined);
+    return () => {
+      refreshAttemptRef.current += 1;
+      refreshInFlight.current = false;
+      cancelCurrentPhoneStepReading();
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!loading || initialLoadTimedOut) return;
+    const timer = setTimeout(() => setInitialLoadTimedOut(true), INITIAL_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [initialLoadTimedOut, loading]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        refresh(false).catch(() => undefined);
+      } else {
+        cancelCurrentPhoneStepReading();
+      }
+    });
+    return () => subscription.remove();
+  }, [refresh]);
+
+  useEffect(() => {
+    let observedDate = todayKey;
+    const timer = setInterval(() => {
+      const currentDate = dateKeyInTimeZone(Date.now(), timezone);
+      if (currentDate !== observedDate) {
+        observedDate = currentDate;
+        refresh(false).catch(() => undefined);
+      }
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [refresh, timezone, todayKey]);
+
+  const todaySummary = useMemo(
+    () => summaries.find((summary) => summary.dateKey === todayKey),
+    [summaries, todayKey]
+  );
+  const todaySteps = todaySummary?.authoritativeSteps ?? 0;
+  const activityDateKeys = useMemo(
+    () => qualifyingActivityDateKeys(summaries, workouts, settings.dailyGoal),
+    [settings.dailyGoal, summaries, workouts]
+  );
+  const allActivityDateKeys = useMemo(
+    () => unionActivityDateKeys(activityDateKeys, anthraWorkoutDates),
+    [activityDateKeys, anthraWorkoutDates]
+  );
+  const activityStreak = calculateActivityStreak(activityDateKeys, todayKey);
+  const activityWeekDays = activeDaysThisWeek(activityDateKeys, todayKey);
+  const shareDates =
+    settings.shareScope === "all" ? allActivityDateKeys : activityDateKeys;
+  const shareStreak = calculateActivityStreak(shareDates, todayKey);
+  const shareWeekDays = activeDaysThisWeek(shareDates, todayKey);
+  const progress = Math.min(100, (todaySteps / Math.max(1, settings.dailyGoal)) * 100);
+  const visibleSummaries = useMemo(() => {
+    const keys = new Set(recentDateKeys(todayKey, 7));
+    return summaries.filter((summary) => keys.has(summary.dateKey));
+  }, [summaries, todayKey]);
+  const hasRecentStepData = visibleSummaries.some(
+    (summary) => summary.authoritativeSteps > 0
+  );
+  const isStale =
+    syncState.lastSuccessAt != null &&
+    Date.now() - syncState.lastSuccessAt > 12 * 60 * 60 * 1000;
+  const sourceLabel =
+    todaySummary?.authoritativeSource === "health_connect"
+      ? "Health Connect aggregated steps"
+      : todaySummary?.authoritativeSource === "phone_sensor"
+        ? "This phone’s step sensor"
+        : "No step source yet";
+  const shareSourceLabel =
+    settings.shareScope === "all"
+      ? `${sourceLabel} + Anthra workouts`
+      : sourceLabel;
+  const connectedPackages = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...(todaySummary?.sourcePackages ?? []),
+          ...workouts.map((workout) => workout.originPackage)
+        ])
+      ].sort(),
+    [todaySummary?.sourcePackages, workouts]
+  );
+
+  const phoneAvailable = capabilities?.stepCounterAvailable === true;
+  const phoneEnabled = settings.phoneTrackingEnabled && phoneStatus?.permissionGranted === true;
+  const phoneNeedsAttention = settings.phoneTrackingEnabled && !phoneEnabled;
+  const phoneDescription = !phoneAvailable
+    ? "This phone does not expose a compatible hardware step counter."
+    : phoneStatus?.permissionGranted
+      ? settings.phoneTrackingEnabled
+        ? "Anthra keeps the low-power step sensor active in the background, including when the app is closed. Android shows a quiet ongoing notification while tracking."
+        : "Available on this device. Access is requested only when you choose to enable it."
+      : settings.phoneTrackingEnabled
+        ? "Physical activity access was removed. Enable it again to resume phone steps."
+        : "Off. Anthra has not requested physical activity access."
+  const healthUnavailable =
+    healthStatus?.availability === "unavailable" ||
+    healthStatus?.availability === "unsupported_os";
+  const healthHasPermission =
+    healthStatus?.stepsPermission === true || healthStatus?.exercisePermission === true;
+  const healthDescription = healthStatus?.connected
+    ? "Connected activity apps provide the authoritative step total and eligible workouts."
+    : healthStatus?.availability === "update_required"
+      ? "Install or update Health Connect to bring in watches and fitness apps."
+      : healthUnavailable
+        ? "Health Connect is not available on this Android device."
+        : healthHasPermission
+          ? "Some activity access is enabled. Manage access to include every visible source."
+          : "Connect compatible watches and fitness apps while keeping their records on this device.";
+  const healthActionLabel =
+    healthStatus?.availability === "update_required"
+      ? "Update Health Connect"
+      : healthHasPermission
+        ? "Manage Health Data"
+        : "Connect Health Data";
+
+  const updateSettings = useCallback(async (
+    createNext: (current: ActivitySettings) => ActivitySettings
+  ) => {
+    settingsRevisionRef.current += 1;
+    const write = settingsWriteQueueRef.current.then(async () => {
+      const next = createNext(settingsRef.current);
+      await saveActivitySettings(next);
+      settingsRef.current = next;
+      setSettings(next);
+    });
+    settingsWriteQueueRef.current = write.catch(() => undefined);
+    await write;
+  }, []);
+
+  const changeGoal = async (delta: number) => {
+    if (goalSaving) return;
+    setGoalSaving(true);
+    setNotice(null);
+    try {
+      await updateSettings((current) => ({
+        ...current,
+        dailyGoal: Math.min(50_000, Math.max(1_000, current.dailyGoal + delta))
+      }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not update the daily goal.");
+    } finally {
+      setGoalSaving(false);
+    }
+  };
+
+  const togglePhoneTracking = async () => {
+    if (sourceAction) return;
+    setSourceAction("phone");
+    setNotice(null);
+    try {
+      if (settings.phoneTrackingEnabled) {
+        await disablePhoneStepTracking();
+        await updateSettings((current) => ({ ...current, phoneTrackingEnabled: false }));
+        await refresh(false);
+        return;
+      }
+      const enabled = await enablePhoneStepTracking();
+      if (!enabled) {
+        setNotice(
+          capabilities?.stepCounterAvailable
+            ? "Physical activity permission was denied. Phone steps remain off."
+            : "This device has no hardware step-counter sensor."
+        );
+        return;
+      }
+      await updateSettings((current) => ({ ...current, phoneTrackingEnabled: true }));
+      await refresh(false);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Phone step tracking could not be changed.");
+    } finally {
+      setSourceAction(null);
+    }
+  };
+
+  const handleHealthAction = async () => {
+    if (sourceAction || healthUnavailable) return;
+    setSourceAction("health");
+    setNotice(null);
+    try {
+      if (healthStatus?.availability === "update_required" || healthHasPermission) {
+        await openHealthConnectSettings();
+      } else {
+        await requestHealthConnectPermissions();
+        await refresh(false);
+      }
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Health Connect access could not be changed."
+      );
+    } finally {
+      setSourceAction(null);
+    }
+  };
+
+  const changeShareScope = async (scope: ActivityShareScope) => {
+    if (scopeSaving || settings.shareScope === scope) return;
+    setScopeSaving(true);
+    setNotice(null);
+    try {
+      await updateSettings((current) => ({ ...current, shareScope: scope }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save the sharing preference.");
+    } finally {
+      setScopeSaving(false);
+    }
+  };
+
+  const retryInitialLoad = () => {
+    cancelCurrentPhoneStepReading();
+    setInitialLoadTimedOut(false);
+    setNotice(null);
+    refresh(false, true).catch(() => undefined);
+  };
+
+  const openSharePreview = () => {
+    setShareError(null);
+    setSharePreviewOpen(true);
+  };
+
+  const closeSharePreview = () => {
+    if (sharing) return;
+    setShareError(null);
+    setSharePreviewOpen(false);
+  };
+
+  const shareConfirmed = async () => {
+    if (!shareCardRef.current || sharing) return;
+    setSharing(true);
+    setShareError(null);
+    try {
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error("System sharing is not available on this device.");
+      }
+      const uri = await captureRef(shareCardRef, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
+        width: 1080,
+        height: 1440
+      });
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share Activity Streak"
+      });
+      setSharePreviewOpen(false);
+      setShareError(null);
+    } catch (error) {
+      setShareError(error instanceof Error ? error.message : "Could not share Activity Streak.");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: theme.colors.canvas }}
+        edges={["top", "bottom"]}
+      >
+        <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+        <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider }}>
+          <View
+            style={{
+              width: "100%",
+              maxWidth: theme.layout.contentMaxWidth,
+              alignSelf: "center",
+              paddingHorizontal: theme.layout.screenPadding
+            }}
+          >
+            <ScreenHeader
+              title="Activity"
+              eyebrow="PRIVATE · ON DEVICE"
+              onBack={onBack}
+              backLabel="Back to Anthra home"
+            />
+          </View>
+        </View>
+
+        <View
+          className="flex-1 items-center justify-center"
+          style={{ paddingHorizontal: theme.spacing["3xl"] }}
+        >
+          {initialLoadTimedOut ? (
+            <View style={{ width: "100%", maxWidth: 420 }}>
+              <StatusBanner
+                title="Activity is taking longer than expected"
+                message="A device activity service may not be responding. You can retry safely or return to Anthra."
+                variant="warning"
+              />
+              <Button
+                label="Retry Activity"
+                icon={RefreshCw}
+                fullWidth
+                onPress={retryInitialLoad}
+                style={{ marginTop: theme.spacing.lg }}
+              />
+              <Button
+                label="Back to Anthra"
+                variant="ghost"
+                fullWidth
+                onPress={onBack}
+                style={{ marginTop: theme.spacing.sm }}
+              />
+            </View>
+          ) : (
+            <View
+              accessible
+              accessibilityLabel="Loading Activity. Checking only the sources you have enabled."
+              accessibilityLiveRegion="polite"
+              className="items-center"
+            >
+              <View
+                className="items-center justify-center"
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: theme.radii.xl,
+                  backgroundColor: theme.colors.brandSoft
+                }}
+              >
+                <Footprints accessible={false} color={theme.colors.brand} size={34} />
+              </View>
+              <ActivityIndicator
+                accessibilityElementsHidden
+                color={theme.colors.brand}
+                size="small"
+                style={{ marginTop: theme.spacing.xl }}
+              />
+              <Text
+                accessibilityRole="header"
+                style={[
+                  theme.typography.titleMedium,
+                  { color: theme.colors.textPrimary, marginTop: theme.spacing.md }
+                ]}
+              >
+                Preparing your activity
+              </Text>
+              <Text
+                style={[
+                  theme.typography.body,
+                  {
+                    color: theme.colors.textSecondary,
+                    marginTop: theme.spacing.sm,
+                    textAlign: "center"
+                  }
+                ]}
+              >
+                Checking only the sources you have enabled.
+              </Text>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const syncTitle = syncState.error
+    ? "Last refresh was incomplete"
+    : isStale
+      ? "Activity may be out of date"
+      : "Activity is up to date";
+  const syncMessage = `Last successful refresh: ${formatSyncTime(syncState.lastSuccessAt)}.`;
+
+  return (
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: theme.colors.canvas }}
+      edges={["top", "bottom"]}
+    >
+      <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+
+      <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider }}>
+        <View
+          style={{
+            width: "100%",
+            maxWidth: theme.layout.contentMaxWidth,
+            alignSelf: "center",
+            paddingHorizontal: theme.layout.screenPadding
+          }}
+        >
+          <ScreenHeader
+            title="Activity"
+            eyebrow="PRIVATE · ON DEVICE"
+            subtitle="Steps, movement and streaks at a glance."
+            onBack={onBack}
+            backLabel="Back to Anthra home"
+            action={
+              <IconButton
+                icon={RefreshCw}
+                accessibilityLabel="Refresh activity data"
+                accessibilityHint="Reads the activity sources currently enabled"
+                accessibilityState={{ busy: refreshing }}
+                disabled={refreshing}
+                onPress={() => refresh(true)}
+              />
+            }
+          />
+        </View>
+      </View>
+
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: theme.layout.contentMaxWidth,
+          alignSelf: "center",
+          paddingHorizontal: theme.layout.screenPadding,
+          paddingTop: theme.spacing.xl,
+          paddingBottom: theme.spacing["4xl"]
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => refresh(true)}
+            tintColor={theme.colors.brand}
+            colors={[theme.colors.brand]}
+            progressBackgroundColor={theme.colors.surface}
+          />
+        }
+      >
+        {notice ? (
+          <StatusBanner
+            title="Some activity data needs attention"
+            message={notice}
+            variant="danger"
+            style={{ marginBottom: theme.spacing.lg }}
+          />
+        ) : null}
+
+        <Card variant="elevated" padding="large">
+          <View className="flex-row items-start" style={{ gap: theme.spacing.lg }}>
+            <View
+              accessible
+              accessibilityLabel={`${compactSteps(todaySteps)} steps today. ${sourceLabel}.`}
+              className="min-w-0 flex-1"
+            >
+              <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
+                <Footprints accessible={false} color={theme.colors.brand} size={20} />
+                <Text style={[theme.typography.label, { color: theme.colors.textSecondary }]}>
+                  TODAY’S STEPS
+                </Text>
+              </View>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+                style={[
+                  theme.typography.display,
+                  { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }
+                ]}
+              >
+                {compactSteps(todaySteps)}
+              </Text>
+              <Text
+                style={[
+                  theme.typography.caption,
+                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
+                ]}
+              >
+                {sourceLabel}
+              </Text>
+            </View>
+
+            <Surface
+              accessible
+              accessibilityLabel={`${activityStreak} day activity streak`}
+              variant="brand"
+              padding="small"
+              radius="large"
+              bordered
+              className="items-end"
+              style={{ minWidth: 92 }}
+            >
+              <Text style={[theme.typography.headline, { color: theme.colors.brand }]}>
+                {activityStreak}
+              </Text>
+              <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
+                day streak
+              </Text>
+            </Surface>
+          </View>
+
+          <ProgressBar
+            value={todaySteps}
+            max={settings.dailyGoal}
+            accessibilityLabel="Daily step goal progress"
+            accessibilityValueText={`${Math.round(progress)} percent, ${compactSteps(todaySteps)} of ${compactSteps(settings.dailyGoal)} steps`}
+            height={10}
+            style={{ marginTop: theme.spacing.xl }}
+          />
+
+          <View
+            className="mt-3 flex-row items-center justify-between"
+            style={{ gap: theme.spacing.md }}
+          >
+            <View className="min-w-0 flex-1">
+              <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>
+                {Math.round(progress)}% of your goal
+              </Text>
+              <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
+                Goal · {compactSteps(settings.dailyGoal)} steps
+              </Text>
+            </View>
+            <View className="flex-row" style={{ gap: theme.spacing.sm }}>
+              <IconButton
+                icon={Minus}
+                size="small"
+                accessibilityLabel="Decrease daily step goal by 1,000"
+                accessibilityHint={`Current goal is ${compactSteps(settings.dailyGoal)} steps`}
+                disabled={goalSaving || settings.dailyGoal <= 1_000}
+                onPress={() => changeGoal(-1_000)}
+              />
+              <IconButton
+                icon={Plus}
+                size="small"
+                accessibilityLabel="Increase daily step goal by 1,000"
+                accessibilityHint={`Current goal is ${compactSteps(settings.dailyGoal)} steps`}
+                disabled={goalSaving || settings.dailyGoal >= 50_000}
+                onPress={() => changeGoal(1_000)}
+              />
+            </View>
+          </View>
+        </Card>
+
+        <View style={{ marginTop: theme.spacing["2xl"] }}>
+          <View className="flex-row items-end justify-between" style={{ gap: theme.spacing.lg }}>
+            <View className="min-w-0 flex-1">
+              <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
+                Seven-day rhythm
+              </Text>
+              <Text
+                style={[
+                  theme.typography.body,
+                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
+                ]}
+              >
+                Daily steps compared with your current goal.
+              </Text>
+            </View>
+            <View
+              accessible
+              accessibilityLabel={`${activityWeekDays} active days in the last seven days`}
+              className="items-end"
+            >
+              <Text style={[theme.typography.titleSmall, { color: theme.colors.brand }]}>
+                {activityWeekDays}/7
+              </Text>
+              <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
+                active days
+              </Text>
+            </View>
+          </View>
+
+          <Card style={{ marginTop: theme.spacing.md }}>
+            {hasRecentStepData ? (
+              <ActivityHistoryChart
+                todayKey={todayKey}
+                summaries={visibleSummaries}
+                dailyGoal={settings.dailyGoal}
+              />
+            ) : (
+              <View
+                accessible
+                accessibilityLabel="No step history yet. Enable a source below, then refresh after moving."
+                className="items-center"
+                style={{ paddingVertical: theme.spacing.xl }}
+              >
+                <View
+                  className="items-center justify-center"
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: theme.radii.lg,
+                    backgroundColor: theme.colors.brandSoft
+                  }}
+                >
+                  <Footprints accessible={false} color={theme.colors.brand} size={26} />
+                </View>
+                <Text
+                  style={[
+                    theme.typography.titleSmall,
+                    { color: theme.colors.textPrimary, marginTop: theme.spacing.md }
+                  ]}
+                >
+                  No step history yet
+                </Text>
+                <Text
+                  style={[
+                    theme.typography.body,
+                    {
+                      color: theme.colors.textSecondary,
+                      marginTop: theme.spacing.xs,
+                      textAlign: "center"
+                    }
+                  ]}
+                >
+                  Enable a source below, then refresh after moving.
+                </Text>
+              </View>
+            )}
+          </Card>
+        </View>
+
+        <View style={{ marginTop: theme.spacing["3xl"] }}>
+          <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
+            Data sources
+          </Text>
+          <Text
+            style={[
+              theme.typography.body,
+              { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
+            ]}
+          >
+            You decide which sources Anthra can read.
+          </Text>
+
+          <View style={{ marginTop: theme.spacing.md, gap: theme.spacing.md }}>
+            <SourceCard
+              icon={Footprints}
+              title="Phone step counter"
+              status={
+                !phoneAvailable
+                  ? "Unavailable"
+                  : phoneEnabled
+                    ? "On"
+                    : phoneNeedsAttention
+                      ? "Needs attention"
+                      : "Off"
+              }
+              statusTone={
+                phoneEnabled ? "success" : phoneNeedsAttention ? "warning" : "neutral"
+              }
+              description={phoneDescription}
+              actionLabel={settings.phoneTrackingEnabled ? "Turn Off Phone Steps" : "Enable Phone Steps"}
+              actionHint="Changes access to this phone’s hardware step sensor"
+              actionVariant={settings.phoneTrackingEnabled ? "outline" : "primary"}
+              actionDisabled={!phoneAvailable || sourceAction === "health"}
+              actionLoading={sourceAction === "phone"}
+              onAction={() => togglePhoneTracking()}
+            />
+
+            <SourceCard
+              icon={HeartPulse}
+              title="Health Connect"
+              status={
+                healthStatus?.connected
+                  ? "Connected"
+                  : healthStatus?.availability === "update_required"
+                    ? "Update required"
+                    : healthUnavailable
+                      ? "Unavailable"
+                      : healthHasPermission
+                        ? "Partial access"
+                        : "Not connected"
+              }
+              statusTone={
+                healthStatus?.connected
+                  ? "success"
+                  : healthStatus?.availability === "update_required" || healthHasPermission
+                    ? "warning"
+                    : "neutral"
+              }
+              description={healthDescription}
+              detail={connectedPackages.length > 0 ? `Sources · ${connectedPackages.join(", ")}` : undefined}
+              actionLabel={healthActionLabel}
+              actionHint="Opens Android Health Connect permission controls"
+              actionVariant={healthHasPermission ? "outline" : "primary"}
+              actionDisabled={healthUnavailable || sourceAction === "phone"}
+              actionLoading={sourceAction === "health"}
+              onAction={() => handleHealthAction()}
+            />
+          </View>
+        </View>
+
+        <View style={{ marginTop: theme.spacing["3xl"] }}>
+          <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
+            Data health
+          </Text>
+          <StatusBanner
+            title={syncTitle}
+            message={syncMessage}
+            variant={syncState.error ? "danger" : isStale ? "warning" : "success"}
+            style={{ marginTop: theme.spacing.md }}
+          />
+
+          <Surface
+            variant="subtle"
+            padding="medium"
+            radius="large"
+            style={{ marginTop: theme.spacing.md }}
+          >
+            <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+              <LockKeyhole accessible={false} color={theme.colors.brand} size={21} />
+              <View className="min-w-0 flex-1">
+                <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>
+                  Private by design
+                </Text>
+                <Text
+                  style={[
+                    theme.typography.body,
+                    { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
+                  ]}
+                >
+                  Health records stay on this device and are excluded from normal Anthra JSON backups.
+                  Step counts are estimates, not medical measurements.
+                </Text>
+              </View>
+            </View>
+          </Surface>
+        </View>
+
+        <Card
+          variant="brand"
+          style={{ marginTop: theme.spacing["3xl"], borderColor: theme.colors.brandBorder }}
+        >
+          <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+            <View
+              className="items-center justify-center"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: theme.radii.md,
+                backgroundColor: theme.colors.surface
+              }}
+            >
+              <Share2 accessible={false} color={theme.colors.brand} size={21} />
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
+                Share your momentum
+              </Text>
+              <Text
+                style={[
+                  theme.typography.body,
+                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
+                ]}
+              >
+                Choose what counts toward the card. You’ll always preview it before sharing.
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[
+              theme.typography.label,
+              { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }
+            ]}
+          >
+            INCLUDED ACTIVITY
+          </Text>
+          <View className="mt-2 flex-row" style={{ gap: theme.spacing.sm }}>
+            {(["activity", "all"] as ActivityShareScope[]).map((scope) => {
+              const selected = settings.shareScope === scope;
+              const label = scope === "all" ? "All activity" : "Steps + health";
+              return (
+                <Pressable
+                  key={scope}
+                  onPress={() => changeShareScope(scope)}
+                  disabled={scopeSaving}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  accessibilityHint={
+                    scope === "all"
+                      ? "Includes Anthra workout days"
+                      : "Includes phone and Health Connect activity only"
+                  }
+                  accessibilityState={{ selected, disabled: scopeSaving }}
+                  className="flex-1 items-center justify-center"
+                  style={({ pressed }) => ({
+                    minHeight: theme.layout.minTouchTarget,
+                    paddingHorizontal: theme.spacing.sm,
+                    borderRadius: theme.radii.md,
+                    borderWidth: 1,
+                    borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
+                    backgroundColor: selected
+                      ? theme.colors.brandSoft
+                      : pressed
+                        ? theme.colors.surfacePressed
+                        : theme.colors.surface,
+                    opacity: scopeSaving ? theme.motion.disabledOpacity : 1,
+                    transform: [{ scale: pressed && !scopeSaving ? theme.motion.pressedScale : 1 }]
+                  })}
+                >
+                  <Text
+                    style={[
+                      theme.typography.label,
+                      { color: selected ? theme.colors.brand : theme.colors.textPrimary }
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Button
+            label="Preview Share Card"
+            icon={Share2}
+            accessibilityHint="Opens a private preview before the system share sheet"
+            fullWidth
+            onPress={openSharePreview}
+            style={{ marginTop: theme.spacing.md }}
+          />
+        </Card>
+      </ScrollView>
+
+      <Modal
+        visible={sharePreviewOpen}
+        transparent
+        statusBarTranslucent
+        animationType="fade"
+        onRequestClose={closeSharePreview}
+      >
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: theme.colors.scrim }}
+          accessibilityViewIsModal
+        >
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: theme.spacing.sm,
+              paddingVertical: theme.spacing["2xl"]
+            }}
+          >
+            <View className="items-center" style={{ width: "100%" }}>
+              <Surface
+                variant="elevated"
+                padding="medium"
+                radius="large"
+                bordered
+                style={{
+                  width: Math.min(ACTIVITY_STREAK_CARD_WIDTH, previewAvailableWidth),
+                  alignItems: "center"
+                }}
+              >
+                <Text
+                  accessibilityRole="header"
+                  style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}
+                >
+                  Share preview
+                </Text>
+                <View className="mt-1 flex-row items-center" style={{ gap: theme.spacing.xs }}>
+                  <ShieldCheck accessible={false} color={theme.colors.brand} size={15} />
+                  <Text
+                    style={[theme.typography.caption, { color: theme.colors.textSecondary }]}
+                  >
+                    Nothing is shared until you confirm
+                  </Text>
+                </View>
+              </Surface>
+
+              {shareError ? (
+                <StatusBanner
+                  title="Couldn’t share this card"
+                  message={shareError}
+                  variant="danger"
+                  style={{
+                    width: Math.min(ACTIVITY_STREAK_CARD_WIDTH, previewAvailableWidth),
+                    marginTop: theme.spacing.md
+                  }}
+                />
+              ) : null}
+
+              <View
+                style={{
+                  width: previewCardWidth,
+                  height: previewCardHeight,
+                  marginTop: theme.spacing.lg
+                }}
+              >
+                <View
+                  ref={shareCardRef}
+                  collapsable={false}
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    width: ACTIVITY_STREAK_CARD_WIDTH,
+                    height: ACTIVITY_STREAK_CARD_HEIGHT,
+                    left: (previewCardWidth - ACTIVITY_STREAK_CARD_WIDTH) / 2,
+                    top: (previewCardHeight - ACTIVITY_STREAK_CARD_HEIGHT) / 2,
+                    transform: [{ scale: previewScale }]
+                  }}
+                >
+                  <ActivityStreakCard
+                    scope={settings.shareScope}
+                    streak={shareStreak}
+                    todaySteps={todaySteps}
+                    dailyGoal={settings.dailyGoal}
+                    activeDaysThisWeek={shareWeekDays}
+                    sourceLabel={shareSourceLabel}
+                    accentColor={theme.colors.brand}
+                  />
+                </View>
+              </View>
+
+              <View
+                className="mt-4 w-full max-w-[320px] flex-row"
+                style={{ gap: theme.spacing.sm }}
+              >
+                <Button
+                  label="Cancel"
+                  variant="outline"
+                  disabled={sharing}
+                  onPress={closeSharePreview}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Share Now"
+                  icon={Share2}
+                  loading={sharing}
+                  onPress={shareConfirmed}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+    </SafeAreaView>
+  );
+}

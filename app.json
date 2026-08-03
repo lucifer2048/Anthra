@@ -2,31 +2,69 @@
   "expo": {
     "name": "Anthra",
     "slug": "anthra",
-    "version": "1.0.2",
-    "icon": "./assets/icons/icon.png",
+    "scheme": "anthra",
+    "version": "1.0.14",
+    "icon": "./assets/icons/icon-red.png",
     "notification": {
-      "icon": "./assets/icons/adaptive-icon-foreground.png",
-      "color": "#2F7DDE"
+      "icon": "./assets/icons/notification-icon-white.png",
+      "color": "#C8102E"
     },
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
+    "androidStatusBar": {
+      "translucent": false
+    },
     "plugins": [
       [
         "expo-notifications",
         {
-          "icon": "./assets/icons/adaptive-icon-foreground.png",
-          "color": "#2F7DDE"
+          "icon": "./assets/icons/notification-icon-white.png",
+          "color": "#C8102E"
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Anthra to use Face ID to unlock Password Buddy."
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "android": {
       "package": "com.anthra.timer",
+      "versionCode": 14,
+      "softwareKeyboardLayoutMode": "resize",
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icons/adaptive-icon-foreground.png",
-        "backgroundImage": "./assets/icons/adaptive-icon-background.png"
+        "foregroundImage": "./assets/icons/adaptive-icon-foreground-red.png",
+        "backgroundImage": "./assets/icons/adaptive-icon-background-black.png"
       },
       "permissions": [
-        "VIBRATE"
+        "CAMERA",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "ACTIVITY_RECOGNITION",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_EXERCISE",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_FULL_SCREEN_INTENT",
+        "WAKE_LOCK"
       ]
     }
   }

@@ -36,7 +36,10 @@ export type WorkoutPlanInput = {
 
 export type DashboardStats = {
   currentStreak: number;
+  bestStreak: number;
   streakWeeks: number;
+  totalWorkouts: number;
+  averageWorkoutSeconds: number;
   weekCompleted: number;
   weekGoal: number;
 };
@@ -47,6 +50,22 @@ export type WorkoutRunSummary = {
   completedSegments: number;
   totalSegments: number;
   elapsedSeconds: number;
+};
+
+export type WorkoutTimerState = {
+  phase: Exclude<TimerPhase, "complete">;
+  segmentIndex: number;
+  remainingSeconds: number;
+  isRunning: boolean;
+  startedAt: number;
+  summary: WorkoutRunSummary;
+};
+
+export type ActiveWorkoutSnapshot = {
+  sessionId: number;
+  plan: WorkoutPlan;
+  timer: WorkoutTimerState;
+  updatedAt: number;
 };
 
 export type WorkoutHistoryEntry = {
@@ -70,6 +89,8 @@ export type UserProfile = {
   goal: string;
 };
 
+export type WorkoutReminderDelivery = "notification" | "alarm" | "both";
+
 export type UserSettings = {
   workoutDays: number[];
   weeklyGoal: number;
@@ -77,6 +98,8 @@ export type UserSettings = {
   reminderMinute: number;
   reminderLeadMinutes: number[];
   notificationsEnabled: boolean;
+  reminderDelivery: WorkoutReminderDelivery;
+  timezone: string;
 };
 
 export type ReminderMode = "time" | "interval" | "multi" | "once";
@@ -131,6 +154,50 @@ export type ReminderCompletionEntry = {
   reminderId: number;
   occurrenceTs: number;
   completedAt: number;
+};
+
+export type AlarmItem = {
+  id: number;
+  label: string;
+  hour: number;
+  minute: number;
+  days: number[];
+  pushupTarget: number;
+  soundUri: string;
+  soundName: string;
+  enabled: boolean;
+  timezone: "Asia/Kolkata";
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type AlarmInput = {
+  id?: number;
+  label: string;
+  hour: number;
+  minute: number;
+  days: number[];
+  pushupTarget: number;
+  soundUri: string;
+  soundName: string;
+  enabled: boolean;
+};
+
+export type AlarmCompletionStatus = "completed" | "emergency_stopped";
+
+export type AlarmCompletionEvent = {
+  eventId: string;
+  alarmId: number | null;
+  label: string;
+  firedAt: number;
+  completedAt: number;
+  targetReps: number;
+  completedReps: number;
+  status: AlarmCompletionStatus;
+};
+
+export type AlarmHistoryEntry = AlarmCompletionEvent & {
+  id: number;
 };
 
 export type VaultEntry = {

@@ -1,7 +1,13 @@
 import * as SQLite from "expo-sqlite";
+import * as SecureStore from "expo-secure-store";
 
 import type {
   DashboardStats,
+  ActiveWorkoutSnapshot,
+  AlarmCompletionEvent,
+  AlarmHistoryEntry,
+  AlarmInput,
+  AlarmItem,
   ReminderCompletionEntry,
   ReminderInput,
   ReminderItem,
@@ -22,8 +28,15 @@ import type {
   WorkoutRunSummary,
   WorkoutSection
 } from "../types";
-import { parseDays, serializeDays } from "../constants/schedule";
+import { normalizeDays, parseDays, serializeDays } from "../constants/schedule";
 import { addDays, startOfWeekMonday } from "../utils/date";
+import { getDeviceTimeZone } from "../utils/timezone";
+import {
+  isSupportedAnthraBackupVersion,
+  normalizeLegacyBackupTables
+} from "./backupCompatibility";
+import { TRACKER_MIGRATIONS } from "../features/tracker/trackerSchema";
+import { MAX_LIST_ITEM_LENGTH, MAX_LIST_NAME_LENGTH } from "../constants/listBuddy";
 
 const SQLiteAny = SQLite as unknown as Record<string, unknown>;
 const legacyDb =
@@ -39,20 +52,57 @@ const META_STREAK = "current_streak";
 const META_MARKER = "streak_marker_week_start";
 const META_PLAN_DRAFT = "plan_editor_draft_v1";
 const META_HUB_APP_THEME_COLORS = "hub_app_theme_colors_v1";
+const META_APP_THEME_MODE = "app_theme_mode_v1";
+const META_ACTIVE_WORKOUT = "active_workout_snapshot_v1";
 const DEFAULT_WEEKLY_GOAL = 4;
 const DEFAULT_WORKOUT_DAYS = [1, 3, 5];
 const DEFAULT_REMINDER_HOUR = 18;
 const DEFAULT_REMINDER_MINUTE = 0;
 const DEFAULT_REMINDER_LEAD_MINUTES = 60;
-const DEFAULT_REMINDER_BUDDY_TIMEZONE = "Asia/Kolkata";
+const DEFAULT_REMINDER_BUDDY_TIMEZONE = getDeviceTimeZone();
+const ALARM_TIMEZONE = "Asia/Kolkata" as const;
 const VAULT_KEY = "anthra-vault-key-v1";
 const VAULT_PIN_SALT = "anthra-vault-pin-salt-v1";
+const VAULT_SECURE_STORE_SENTINEL = "secure-store-v1";
+const VAULT_SECURE_STORE_PREFIX = "anthra.vault.secret";
+const VAULT_SECURE_STORE_OPTIONS = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
+} as const;
 
 type QueryValue = string | number | null;
 type QueryResult = {
   rows: Record<string, unknown>[];
   insertId?: number;
 };
+
+export type AnthraBackup = {
+  format: "anthra-backup";
+  version: 1 | 2 | 3 | 4;
+  createdAt: number;
+  appDataNotice: string;
+  tables: Record<string, Record<string, QueryValue>[]>;
+};
+
+const BACKUP_TABLES: Array<{ name: string; columns: string[] }> = [
+  { name: "plans", columns: ["id", "name", "loops", "workoutDays", "createdAt"] },
+  { name: "plan_sections", columns: ["id", "planId", "name", "loops", "restSeconds", "sortOrder"] },
+  { name: "exercises", columns: ["id", "planId", "sectionId", "name", "workSeconds", "restSeconds", "sortOrder"] },
+  { name: "workout_logs", columns: ["id", "completedAt", "planId"] },
+  { name: "workout_sessions", columns: ["id", "planId", "planName", "startedAt", "endedAt", "progressPercent", "completedSegments", "totalSegments", "elapsedSeconds", "completed", "rating", "comment"] },
+  { name: "user_profile", columns: ["id", "heightCm", "weightKg", "goal"] },
+  { name: "user_settings", columns: ["id", "workoutDays", "weeklyGoal", "reminderHour", "reminderMinute", "reminderLeadMinutes", "reminderLeadMinutesCsv", "notificationsEnabled", "reminderDelivery", "timezone"] },
+  { name: "meta", columns: ["key", "value"] },
+  { name: "reminders", columns: ["id", "title", "note", "mode", "hour", "minute", "dateLabel", "daysCsv", "timeSlotsCsv", "intervalMinutes", "intervalStartHour", "intervalStartMinute", "intervalEndHour", "intervalEndMinute", "enabled", "timezone", "createdAt", "updatedAt"] },
+  { name: "reminder_completion_logs", columns: ["id", "reminderId", "occurrenceTs", "completedAt"] },
+  { name: "alarms", columns: ["id", "label", "hour", "minute", "daysCsv", "pushupTarget", "soundUri", "soundName", "enabled", "timezone", "createdAt", "updatedAt"] },
+  { name: "alarm_logs", columns: ["id", "eventId", "alarmId", "label", "firedAt", "completedAt", "targetReps", "completedReps", "status"] },
+  { name: "list_categories", columns: ["id", "name", "createdAt", "updatedAt"] },
+  { name: "list_items", columns: ["id", "categoryId", "text", "completed", "sortOrder", "createdAt", "updatedAt"] },
+  { name: "tracker_buddy_trackers", columns: ["id", "name", "createdDate", "archivedAt", "createdAt", "updatedAt"] },
+  { name: "tracker_buddy_tasks", columns: ["id", "trackerId", "archivedAt", "createdAt", "updatedAt"] },
+  { name: "tracker_buddy_task_versions", columns: ["id", "taskId", "title", "recurrence", "daysCsv", "onceDate", "notificationEnabled", "notificationHour", "notificationMinute", "timezone", "validFrom", "validTo", "sortOrder", "createdAt", "updatedAt"] },
+  { name: "tracker_buddy_completions", columns: ["id", "taskId", "versionId", "dateKey", "completedAt"] }
+];
 
 function sqlLooksLikeSelect(sql: string): boolean {
   return /^\s*(SELECT|PRAGMA|WITH)\b/i.test(sql);
@@ -275,18 +325,6 @@ function hashPin(pin: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-function encodeSecret(secret: string): string {
-  const key = VAULT_KEY;
-  let encoded = "";
-  for (let index = 0; index < secret.length; index += 1) {
-    const source = secret.charCodeAt(index);
-    const keyCode = key.charCodeAt(index % key.length);
-    const cipher = source ^ keyCode;
-    encoded += cipher.toString(16).padStart(4, "0");
-  }
-  return encoded;
-}
-
 function decodeSecret(encoded: string): string {
   const key = VAULT_KEY;
   if (encoded.length % 4 !== 0) return "";
@@ -299,6 +337,48 @@ function decodeSecret(encoded: string): string {
     decoded += String.fromCharCode(cipher ^ keyCode);
   }
   return decoded;
+}
+
+function getVaultSecretStorageKey(entryId: number): string {
+  return `${VAULT_SECURE_STORE_PREFIX}.${entryId}`;
+}
+
+async function canUseSecureVaultStorage(): Promise<boolean> {
+  try {
+    return await SecureStore.isAvailableAsync();
+  } catch {
+    return false;
+  }
+}
+
+async function readVaultSecret(entryId: number, secretCipher: string): Promise<string> {
+  if (await canUseSecureVaultStorage()) {
+    const storageKey = getVaultSecretStorageKey(entryId);
+    const secureValue = await SecureStore.getItemAsync(storageKey).catch(() => null);
+    if (secureValue != null) return secureValue;
+
+    if (secretCipher !== VAULT_SECURE_STORE_SENTINEL) {
+      const legacyValue = decodeSecret(secretCipher);
+      if (legacyValue) {
+        try {
+          await SecureStore.setItemAsync(storageKey, legacyValue, VAULT_SECURE_STORE_OPTIONS);
+          await runQuery("UPDATE vault_entries SET secretCipher = ? WHERE id = ?;", [
+            VAULT_SECURE_STORE_SENTINEL,
+            entryId
+          ]);
+        } catch {
+          // The legacy value remains readable and untouched; migration can retry later.
+        }
+      }
+      return legacyValue;
+    }
+  }
+
+  if (secretCipher === VAULT_SECURE_STORE_SENTINEL) {
+    throw new Error("Secure vault data is unavailable on this device. No password data was changed.");
+  }
+
+  return decodeSecret(secretCipher);
 }
 
 async function hasColumn(tableName: string, columnName: string): Promise<boolean> {
@@ -326,6 +406,71 @@ async function countWorkoutDaysInRange(startMs: number, endMs: number): Promise<
     [startMs, endMs]
   );
   return Number(result.rows[0]?.total ?? 0);
+}
+
+type WorkoutLifetimeSummary = {
+  bestStreak: number;
+  totalWorkouts: number;
+};
+
+function localDateKey(timestamp: number): string {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+async function getWorkoutLifetimeSummary(
+  weeklyGoal: number,
+  currentWeekStart: number,
+  currentStreak: number
+): Promise<WorkoutLifetimeSummary> {
+  const result = await runQuery("SELECT completedAt FROM workout_logs ORDER BY completedAt ASC;");
+  const workoutsByWeek = new Map<number, Set<string>>();
+
+  for (const row of result.rows) {
+    const completedAt = Number(row.completedAt);
+    if (!Number.isFinite(completedAt)) continue;
+
+    const weekStart = startOfWeekMonday(new Date(completedAt)).getTime();
+    const workoutDays = workoutsByWeek.get(weekStart) ?? new Set<string>();
+    workoutDays.add(localDateKey(completedAt));
+    workoutsByWeek.set(weekStart, workoutDays);
+  }
+
+  const goal = Math.max(1, Math.floor(Number(weeklyGoal) || DEFAULT_WEEKLY_GOAL));
+  const sortedWeeks = [...workoutsByWeek.entries()]
+    .filter(([weekStart]) => weekStart <= currentWeekStart)
+    .sort(([left], [right]) => left - right);
+
+  let bestStreak = 0;
+  let runningStreak = 0;
+  let previousWeekStart: number | null = null;
+
+  for (const [weekStart, workoutDays] of sortedWeeks) {
+    const isConsecutiveWeek =
+      previousWeekStart == null || weekStart - previousWeekStart <= 8 * 24 * 60 * 60 * 1000;
+    if (!isConsecutiveWeek) runningStreak = 0;
+
+    const completedDays = workoutDays.size;
+    if (weekStart === currentWeekStart) {
+      // The current week remains part of an active streak while the goal is in progress.
+      runningStreak += completedDays;
+    } else if (completedDays >= goal) {
+      runningStreak += completedDays;
+    } else {
+      runningStreak = 0;
+    }
+
+    bestStreak = Math.max(bestStreak, runningStreak);
+    previousWeekStart = weekStart;
+  }
+
+  return {
+    bestStreak: Math.max(bestStreak, currentStreak),
+    totalWorkouts: result.rows.length
+  };
 }
 
 async function backfillLegacySections(): Promise<void> {
@@ -431,7 +576,9 @@ export async function initDatabase(): Promise<void> {
       reminderMinute INTEGER NOT NULL DEFAULT 0,
       reminderLeadMinutes INTEGER NOT NULL DEFAULT 60,
       reminderLeadMinutesCsv TEXT NOT NULL DEFAULT '60',
-      notificationsEnabled INTEGER NOT NULL DEFAULT 0
+      notificationsEnabled INTEGER NOT NULL DEFAULT 0,
+      reminderDelivery TEXT NOT NULL DEFAULT 'notification',
+      timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata'
     );
   `);
   await runQuery(`
@@ -473,6 +620,48 @@ export async function initDatabase(): Promise<void> {
     );
   `);
   await runQuery(`
+    CREATE TABLE IF NOT EXISTS alarms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL,
+      hour INTEGER NOT NULL,
+      minute INTEGER NOT NULL,
+      daysCsv TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',
+      pushupTarget INTEGER NOT NULL DEFAULT 10,
+      soundUri TEXT NOT NULL DEFAULT '',
+      soundName TEXT NOT NULL DEFAULT 'System alarm',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+  `);
+  await runQuery(`
+    CREATE TABLE IF NOT EXISTS alarm_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      eventId TEXT NOT NULL UNIQUE,
+      alarmId INTEGER,
+      label TEXT NOT NULL,
+      firedAt INTEGER NOT NULL,
+      completedAt INTEGER NOT NULL,
+      targetReps INTEGER NOT NULL,
+      completedReps INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      FOREIGN KEY (alarmId) REFERENCES alarms(id) ON DELETE SET NULL
+    );
+  `);
+  await runQuery(`
+    DELETE FROM reminder_completion_logs
+    WHERE id NOT IN (
+      SELECT MAX(id)
+      FROM reminder_completion_logs
+      GROUP BY reminderId, occurrenceTs
+    );
+  `);
+  await runQuery(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_reminder_completion_occurrence
+    ON reminder_completion_logs(reminderId, occurrenceTs);
+  `);
+  await runQuery(`
     CREATE TABLE IF NOT EXISTS vault_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       appName TEXT NOT NULL,
@@ -509,6 +698,9 @@ export async function initDatabase(): Promise<void> {
       FOREIGN KEY (categoryId) REFERENCES list_categories(id) ON DELETE CASCADE
     );
   `);
+  for (const migration of TRACKER_MIGRATIONS) {
+    await runQuery(migration);
+  }
 
   if (!(await hasColumn("plans", "workoutDays"))) {
     await runQuery("ALTER TABLE plans ADD COLUMN workoutDays TEXT NOT NULL DEFAULT '';");
@@ -531,6 +723,14 @@ export async function initDatabase(): Promise<void> {
     await runQuery(
       "UPDATE user_settings SET reminderLeadMinutesCsv = CAST(reminderLeadMinutes AS TEXT) WHERE reminderLeadMinutesCsv = '60';"
     );
+  }
+
+  if (!(await hasColumn("user_settings", "timezone"))) {
+    await runQuery("ALTER TABLE user_settings ADD COLUMN timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata';");
+  }
+
+  if (!(await hasColumn("user_settings", "reminderDelivery"))) {
+    await runQuery("ALTER TABLE user_settings ADD COLUMN reminderDelivery TEXT NOT NULL DEFAULT 'notification';");
   }
 
   if (!(await hasColumn("reminders", "timezone"))) {
@@ -557,8 +757,10 @@ export async function initDatabase(): Promise<void> {
         reminderMinute,
         reminderLeadMinutes,
         reminderLeadMinutesCsv,
-        notificationsEnabled
-      ) VALUES (1, ?, ?, ?, ?, ?, ?, 0);
+        notificationsEnabled,
+        reminderDelivery,
+        timezone
+      ) VALUES (1, ?, ?, ?, ?, ?, ?, 0, 'notification', ?);
     `,
     [
       serializeDays(DEFAULT_WORKOUT_DAYS),
@@ -566,7 +768,8 @@ export async function initDatabase(): Promise<void> {
       DEFAULT_REMINDER_HOUR,
       DEFAULT_REMINDER_MINUTE,
       DEFAULT_REMINDER_LEAD_MINUTES,
-      String(DEFAULT_REMINDER_LEAD_MINUTES)
+      String(DEFAULT_REMINDER_LEAD_MINUTES),
+      getDeviceTimeZone()
     ]
   );
 
@@ -907,6 +1110,68 @@ export async function saveWorkoutSessionFeedback(
   ]);
 }
 
+export async function getActiveWorkoutSnapshot(): Promise<ActiveWorkoutSnapshot | null> {
+  const raw = await getMeta(META_ACTIVE_WORKOUT);
+  if (!raw) return null;
+
+  try {
+    const snapshot = JSON.parse(raw) as ActiveWorkoutSnapshot;
+    if (
+      !snapshot ||
+      !Number.isFinite(snapshot.sessionId) ||
+      snapshot.sessionId <= 0 ||
+      !snapshot.plan ||
+      !Number.isFinite(snapshot.plan.id) ||
+      !snapshot.timer ||
+      !["ready", "work", "rest"].includes(snapshot.timer.phase) ||
+      !Number.isFinite(snapshot.timer.remainingSeconds) ||
+      !Number.isFinite(snapshot.timer.segmentIndex) ||
+      !Number.isFinite(snapshot.timer.startedAt)
+    ) {
+      await clearActiveWorkoutSnapshot();
+      return null;
+    }
+
+    const session = await runQuery(
+      "SELECT endedAt FROM workout_sessions WHERE id = ? LIMIT 1;",
+      [snapshot.sessionId]
+    );
+    if (session.rows.length === 0 || session.rows[0].endedAt != null) {
+      await clearActiveWorkoutSnapshot();
+      return null;
+    }
+
+    return {
+      ...snapshot,
+      sessionId: Math.floor(snapshot.sessionId),
+      timer: {
+        ...snapshot.timer,
+        segmentIndex: Math.max(0, Math.floor(snapshot.timer.segmentIndex)),
+        remainingSeconds: Math.max(0, Math.floor(snapshot.timer.remainingSeconds)),
+        isRunning: false,
+        summary: {
+          completed: false,
+          progressPercent: Math.max(0, Math.min(100, Number(snapshot.timer.summary?.progressPercent) || 0)),
+          completedSegments: Math.max(0, Math.floor(Number(snapshot.timer.summary?.completedSegments) || 0)),
+          totalSegments: Math.max(0, Math.floor(Number(snapshot.timer.summary?.totalSegments) || 0)),
+          elapsedSeconds: Math.max(0, Math.floor(Number(snapshot.timer.summary?.elapsedSeconds) || 0))
+        }
+      }
+    };
+  } catch {
+    await clearActiveWorkoutSnapshot();
+    return null;
+  }
+}
+
+export async function saveActiveWorkoutSnapshot(snapshot: ActiveWorkoutSnapshot): Promise<void> {
+  await setMeta(META_ACTIVE_WORKOUT, JSON.stringify(snapshot));
+}
+
+export async function clearActiveWorkoutSnapshot(): Promise<void> {
+  await runQuery("DELETE FROM meta WHERE key = ?;", [META_ACTIVE_WORKOUT]);
+}
+
 export async function getUserSettings(): Promise<UserSettings> {
   const result = await runQuery(
     `
@@ -917,7 +1182,9 @@ export async function getUserSettings(): Promise<UserSettings> {
         reminderMinute,
         reminderLeadMinutes,
         reminderLeadMinutesCsv,
-        notificationsEnabled
+        notificationsEnabled,
+        reminderDelivery,
+        timezone
       FROM user_settings
       WHERE id = 1
       LIMIT 1;
@@ -931,7 +1198,9 @@ export async function getUserSettings(): Promise<UserSettings> {
       reminderHour: DEFAULT_REMINDER_HOUR,
       reminderMinute: DEFAULT_REMINDER_MINUTE,
       reminderLeadMinutes: [DEFAULT_REMINDER_LEAD_MINUTES],
-      notificationsEnabled: false
+      notificationsEnabled: false,
+      reminderDelivery: "notification",
+      timezone: getDeviceTimeZone()
     };
   }
 
@@ -945,7 +1214,12 @@ export async function getUserSettings(): Promise<UserSettings> {
       String(row.reminderLeadMinutesCsv ?? ""),
       Number(row.reminderLeadMinutes)
     ),
-    notificationsEnabled: Number(row.notificationsEnabled) === 1
+    notificationsEnabled: Number(row.notificationsEnabled) === 1,
+    reminderDelivery:
+      row.reminderDelivery === "alarm" || row.reminderDelivery === "both"
+        ? row.reminderDelivery
+        : "notification",
+    timezone: String(row.timezone ?? getDeviceTimeZone()) || getDeviceTimeZone()
   };
 }
 
@@ -959,6 +1233,11 @@ export async function saveUserSettings(settings: UserSettings): Promise<void> {
   const leadMinutesPrimary =
     reminderLeadMinutes.length > 0 ? reminderLeadMinutes[0] : DEFAULT_REMINDER_LEAD_MINUTES;
   const notificationsEnabled = settings.notificationsEnabled ? 1 : 0;
+  const reminderDelivery =
+    settings.reminderDelivery === "alarm" || settings.reminderDelivery === "both"
+      ? settings.reminderDelivery
+      : "notification";
+  const timezone = String(settings.timezone || getDeviceTimeZone());
 
   await runQuery(
     `
@@ -970,8 +1249,10 @@ export async function saveUserSettings(settings: UserSettings): Promise<void> {
         reminderMinute,
         reminderLeadMinutes,
         reminderLeadMinutesCsv,
-        notificationsEnabled
-      ) VALUES (1, ?, ?, ?, ?, ?, ?, ?);
+        notificationsEnabled,
+        reminderDelivery,
+        timezone
+      ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
     [
       workoutDays,
@@ -980,7 +1261,9 @@ export async function saveUserSettings(settings: UserSettings): Promise<void> {
       reminderMinute,
       leadMinutesPrimary,
       reminderLeadMinutesCsv,
-      notificationsEnabled
+      notificationsEnabled,
+      reminderDelivery,
+      timezone
     ]
   );
 }
@@ -1242,14 +1525,157 @@ export async function setReminderItemEnabled(reminderId: number, enabled: boolea
 
 export async function markReminderOccurrenceDone(reminderId: number, occurrenceTs: number): Promise<void> {
   const completedAt = Date.now();
-  await runQuery("DELETE FROM reminder_completion_logs WHERE reminderId = ? AND occurrenceTs = ?;", [
-    reminderId,
-    occurrenceTs
-  ]);
   await runQuery(
-    "INSERT INTO reminder_completion_logs (reminderId, occurrenceTs, completedAt) VALUES (?, ?, ?);",
+    "INSERT OR REPLACE INTO reminder_completion_logs (reminderId, occurrenceTs, completedAt) VALUES (?, ?, ?);",
     [reminderId, occurrenceTs, completedAt]
   );
+}
+
+function normalizeAlarmTarget(value: number): number {
+  return Math.min(100, Math.max(1, Math.floor(Number(value) || 10)));
+}
+
+function toAlarmItem(row: {
+  id: number;
+  label: string;
+  hour: number;
+  minute: number;
+  daysCsv: string | null;
+  pushupTarget: number;
+  soundUri: string | null;
+  soundName: string | null;
+  enabled: number;
+  createdAt: number;
+  updatedAt: number;
+}): AlarmItem {
+  return {
+    id: Number(row.id),
+    label: String(row.label || "Push-up alarm"),
+    hour: clampHour(row.hour, 7),
+    minute: clampMinute(row.minute, 0),
+    days: parseDays(row.daysCsv),
+    pushupTarget: normalizeAlarmTarget(row.pushupTarget),
+    soundUri: String(row.soundUri ?? ""),
+    soundName: String(row.soundName || "System alarm"),
+    enabled: Number(row.enabled) === 1,
+    timezone: ALARM_TIMEZONE,
+    createdAt: Number(row.createdAt),
+    updatedAt: Number(row.updatedAt)
+  };
+}
+
+export async function getAlarmItems(): Promise<AlarmItem[]> {
+  const result = await runQuery(
+    `SELECT id, label, hour, minute, daysCsv, pushupTarget, soundUri, soundName,
+            enabled, createdAt, updatedAt
+     FROM alarms
+     ORDER BY enabled DESC, hour ASC, minute ASC, updatedAt DESC;`
+  );
+  return mapRows<Parameters<typeof toAlarmItem>[0]>(result).map(toAlarmItem);
+}
+
+export async function saveAlarmItem(input: AlarmInput): Promise<number> {
+  const label = input.label.trim().replace(/\s+/g, " ").slice(0, 80) || "Push-up alarm";
+  const hour = clampHour(input.hour, 7);
+  const minute = clampMinute(input.minute, 0);
+  const normalizedDays = normalizeDays(input.days);
+  if (normalizedDays.length === 0) {
+    throw new Error("Choose at least one repeat day.");
+  }
+  const daysCsv = serializeDays(normalizedDays);
+  const target = normalizeAlarmTarget(input.pushupTarget);
+  const soundUri = String(input.soundUri ?? "").slice(0, 2048);
+  const soundName = String(input.soundName || "System alarm").trim().slice(0, 120);
+  const enabled = input.enabled ? 1 : 0;
+  const now = Date.now();
+
+  if (input.id) {
+    await runQuery(
+      `UPDATE alarms
+       SET label = ?, hour = ?, minute = ?, daysCsv = ?, pushupTarget = ?,
+           soundUri = ?, soundName = ?, enabled = ?, timezone = ?, updatedAt = ?
+       WHERE id = ?;`,
+      [label, hour, minute, daysCsv, target, soundUri, soundName, enabled, ALARM_TIMEZONE, now, input.id]
+    );
+    return input.id;
+  }
+
+  const result = await runQuery(
+    `INSERT INTO alarms (
+       label, hour, minute, daysCsv, pushupTarget, soundUri, soundName,
+       enabled, timezone, createdAt, updatedAt
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    [label, hour, minute, daysCsv, target, soundUri, soundName, enabled, ALARM_TIMEZONE, now, now]
+  );
+  const alarmId = Number(result.insertId);
+  if (!alarmId) throw new Error("Could not save alarm.");
+  return alarmId;
+}
+
+export async function deleteAlarmItem(alarmId: number): Promise<void> {
+  await runQuery("DELETE FROM alarms WHERE id = ?;", [alarmId]);
+}
+
+export async function setAlarmItemEnabled(alarmId: number, enabled: boolean): Promise<void> {
+  await runQuery("UPDATE alarms SET enabled = ?, updatedAt = ? WHERE id = ?;", [
+    enabled ? 1 : 0,
+    Date.now(),
+    alarmId
+  ]);
+}
+
+export async function saveAlarmCompletionEvents(events: AlarmCompletionEvent[]): Promise<void> {
+  for (const event of events) {
+    if (!event.eventId || !Number.isFinite(event.completedAt)) continue;
+    await runQuery(
+      `INSERT OR IGNORE INTO alarm_logs (
+         eventId, alarmId, label, firedAt, completedAt, targetReps, completedReps, status
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        event.eventId,
+        event.alarmId,
+        event.label.slice(0, 80),
+        event.firedAt,
+        event.completedAt,
+        normalizeAlarmTarget(event.targetReps),
+        Math.max(0, Math.floor(Number(event.completedReps) || 0)),
+        event.status === "emergency_stopped" ? "emergency_stopped" : "completed"
+      ]
+    );
+  }
+}
+
+export async function getAlarmHistory(limit = 50): Promise<AlarmHistoryEntry[]> {
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(Number(limit) || 50)));
+  const result = await runQuery(
+    `SELECT id, eventId, alarmId, label, firedAt, completedAt,
+            targetReps, completedReps, status
+     FROM alarm_logs
+     ORDER BY completedAt DESC
+     LIMIT ?;`,
+    [safeLimit]
+  );
+  return mapRows<{
+    id: number;
+    eventId: string;
+    alarmId: number | null;
+    label: string;
+    firedAt: number;
+    completedAt: number;
+    targetReps: number;
+    completedReps: number;
+    status: string;
+  }>(result).map((row) => ({
+    id: Number(row.id),
+    eventId: String(row.eventId),
+    alarmId: row.alarmId == null ? null : Number(row.alarmId),
+    label: String(row.label),
+    firedAt: Number(row.firedAt),
+    completedAt: Number(row.completedAt),
+    targetReps: Number(row.targetReps),
+    completedReps: Number(row.completedReps),
+    status: row.status === "emergency_stopped" ? "emergency_stopped" : "completed"
+  }));
 }
 
 async function getVaultSettingsRow(): Promise<{ pinHash: string; biometricsEnabled: boolean }> {
@@ -1313,21 +1739,28 @@ export async function getVaultEntries(): Promise<VaultEntry[]> {
     `
   );
 
-  return mapRows<{
+  const rows = mapRows<{
     id: number;
     appName: string;
     accountId: string;
     secretCipher: string;
     createdAt: number;
     updatedAt: number;
-  }>(result).map((row) => ({
-    id: Number(row.id),
-    appName: String(row.appName ?? ""),
-    accountId: String(row.accountId ?? ""),
-    secret: decodeSecret(String(row.secretCipher ?? "")),
-    createdAt: Number(row.createdAt),
-    updatedAt: Number(row.updatedAt)
-  }));
+  }>(result);
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const id = Number(row.id);
+      return {
+        id,
+        appName: String(row.appName ?? ""),
+        accountId: String(row.accountId ?? ""),
+        secret: await readVaultSecret(id, String(row.secretCipher ?? "")),
+        createdAt: Number(row.createdAt),
+        updatedAt: Number(row.updatedAt)
+      };
+    })
+  );
 }
 
 export async function saveVaultEntry(entry: VaultEntryInput): Promise<number> {
@@ -1345,8 +1778,17 @@ export async function saveVaultEntry(entry: VaultEntryInput): Promise<number> {
   }
 
   const now = Date.now();
-  const cipher = encodeSecret(secret);
+  const secureStorageAvailable = await canUseSecureVaultStorage();
+  if (!secureStorageAvailable) {
+    throw new Error("Secure device storage is unavailable. No password was saved.");
+  }
+  const cipher = VAULT_SECURE_STORE_SENTINEL;
   if (entry.id) {
+    await SecureStore.setItemAsync(
+      getVaultSecretStorageKey(entry.id),
+      secret,
+      VAULT_SECURE_STORE_OPTIONS
+    );
     await runQuery(
       `
         UPDATE vault_entries
@@ -1369,19 +1811,32 @@ export async function saveVaultEntry(entry: VaultEntryInput): Promise<number> {
   if (!entryId) {
     throw new Error("Could not save vault entry.");
   }
+  try {
+    await SecureStore.setItemAsync(
+      getVaultSecretStorageKey(entryId),
+      secret,
+      VAULT_SECURE_STORE_OPTIONS
+    );
+  } catch (error) {
+    await runQuery("DELETE FROM vault_entries WHERE id = ?;", [entryId]);
+    throw error;
+  }
   return entryId;
 }
 
 export async function deleteVaultEntry(entryId: number): Promise<void> {
+  if (await canUseSecureVaultStorage()) {
+    await SecureStore.deleteItemAsync(getVaultSecretStorageKey(entryId)).catch(() => undefined);
+  }
   await runQuery("DELETE FROM vault_entries WHERE id = ?;", [entryId]);
 }
 
 function normalizeListCategoryName(value: string): string {
-  return value.trim().replace(/\s+/g, " ").slice(0, 60);
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function normalizeListItemText(value: string): string {
-  return value.trim().replace(/\s+/g, " ").slice(0, 220);
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function toListBuddyItem(row: {
@@ -1472,6 +1927,9 @@ export async function saveListCategory(input: ListBuddyCategoryInput): Promise<n
   if (!name) {
     throw new Error("Category name is required.");
   }
+  if (name.length > MAX_LIST_NAME_LENGTH) {
+    throw new Error(`List names can be up to ${MAX_LIST_NAME_LENGTH} characters.`);
+  }
 
   const now = Date.now();
   if (input.id) {
@@ -1527,6 +1985,9 @@ export async function saveListItem(input: ListBuddyItemInput): Promise<number> {
   const text = normalizeListItemText(input.text);
   if (!text) {
     throw new Error("List item text is required.");
+  }
+  if (text.length > MAX_LIST_ITEM_LENGTH) {
+    throw new Error(`List items can be up to ${MAX_LIST_ITEM_LENGTH} characters.`);
   }
 
   const now = Date.now();
@@ -1659,6 +2120,116 @@ export async function saveHubAppThemeColors(themeJson: string): Promise<void> {
   await setMeta(META_HUB_APP_THEME_COLORS, themeJson);
 }
 
+export async function getAppThemeMode(): Promise<"system" | "light" | "dark"> {
+  const stored = await getMeta(META_APP_THEME_MODE);
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+}
+
+export async function saveAppThemeMode(mode: "system" | "light" | "dark"): Promise<void> {
+  await setMeta(META_APP_THEME_MODE, mode);
+}
+
+export async function createAnthraBackup(): Promise<AnthraBackup> {
+  const tables: AnthraBackup["tables"] = {};
+  for (const table of BACKUP_TABLES) {
+    const selectedColumns = table.columns.join(", ");
+    const result = await runQuery(
+      table.name === "meta"
+        ? `SELECT ${selectedColumns} FROM meta WHERE key NOT IN (?, ?);`
+        : `SELECT ${selectedColumns} FROM ${table.name};`,
+      table.name === "meta" ? [META_ACTIVE_WORKOUT, META_PLAN_DRAFT] : []
+    );
+    tables[table.name] = result.rows.map((row) => {
+      const safeRow: Record<string, QueryValue> = {};
+      for (const column of table.columns) {
+        const value = row[column];
+        safeRow[column] = value == null ? null : typeof value === "number" ? value : String(value);
+      }
+      return safeRow;
+    });
+  }
+
+  return {
+    format: "anthra-backup",
+    version: 4,
+    createdAt: Date.now(),
+    appDataNotice: "Password Buddy credentials are excluded because they are protected by device secure storage.",
+    tables
+  };
+}
+
+function validateBackup(candidate: unknown): AnthraBackup {
+  if (!candidate || typeof candidate !== "object") throw new Error("This is not a valid Anthra backup.");
+  const source = candidate as Partial<AnthraBackup>;
+  if (
+    source.format !== "anthra-backup" ||
+    !isSupportedAnthraBackupVersion(source.version) ||
+    !source.tables ||
+    typeof source.tables !== "object"
+  ) {
+    throw new Error("This backup format is not supported.");
+  }
+
+  // Version 1 predates Alarm Buddy. Preserve restore compatibility by treating
+  // its two new tables as empty instead of rejecting a previously valid backup.
+  const normalizedTables = normalizeLegacyBackupTables(
+    source.version,
+    source.tables
+  ) as AnthraBackup["tables"];
+  const normalizedSource = { ...source, tables: normalizedTables };
+
+  let totalRows = 0;
+  for (const table of BACKUP_TABLES) {
+    const rows = normalizedSource.tables[table.name];
+    if (!Array.isArray(rows)) throw new Error(`Backup is missing ${table.name}.`);
+    totalRows += rows.length;
+    if (totalRows > 100_000) throw new Error("Backup is too large to restore safely.");
+    for (const row of rows) {
+      if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error(`Invalid row in ${table.name}.`);
+      for (const column of table.columns) {
+        const value = row[column];
+        if (value !== null && typeof value !== "string" && typeof value !== "number") {
+          throw new Error(`Invalid ${table.name}.${column} value.`);
+        }
+      }
+    }
+  }
+  if (normalizedSource.tables.user_settings.length !== 1 || normalizedSource.tables.user_profile.length !== 1) {
+    throw new Error("Backup settings are incomplete.");
+  }
+
+  return normalizedSource as AnthraBackup;
+}
+
+export async function restoreAnthraBackup(candidate: unknown): Promise<void> {
+  const backup = validateBackup(candidate);
+  const restore = async () => {
+    for (const table of [...BACKUP_TABLES].reverse()) {
+      await runQuery(`DELETE FROM ${table.name};`);
+    }
+
+    for (const table of BACKUP_TABLES) {
+      const rows = backup.tables[table.name];
+      const placeholders = table.columns.map(() => "?").join(", ");
+      const sql = `INSERT INTO ${table.name} (${table.columns.join(", ")}) VALUES (${placeholders});`;
+      for (const row of rows) {
+        await runQuery(sql, table.columns.map((column) => row[column] ?? null));
+      }
+    }
+    await clearActiveWorkoutSnapshot();
+    await clearPlanEditorDraft();
+  };
+
+  const transactionDatabase = modernDb as {
+    withTransactionAsync?: (task: () => Promise<void>) => Promise<void>;
+  } | null;
+  if (transactionDatabase?.withTransactionAsync) {
+    await transactionDatabase.withTransactionAsync(restore);
+  } else {
+    await restore();
+  }
+}
+
 export async function evaluateStreakIfNeeded(weeklyGoal: number): Promise<number> {
   const goal = Math.max(1, Math.floor(Number(weeklyGoal) || DEFAULT_WEEKLY_GOAL));
   const currentWeekStart = startOfWeekMonday(new Date()).getTime();
@@ -1706,10 +2277,25 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const weekCompleted = await countWorkoutDaysInRange(weekStart, weekEnd);
   const streakStart = addDays(new Date(weekStart), -7 * Math.max(0, streakWeeks)).getTime();
   const streakDays = await countWorkoutDaysInRange(streakStart, Date.now() + 1);
+  const lifetime = await getWorkoutLifetimeSummary(settings.weeklyGoal, weekStart, streakDays);
+  const averageResult = await runQuery(
+    `
+      SELECT AVG(elapsedSeconds) AS averageWorkoutSeconds
+      FROM workout_sessions
+      WHERE completed = 1 AND elapsedSeconds > 0;
+    `
+  );
+  const averageWorkoutSeconds = Math.max(
+    0,
+    Math.round(Number(averageResult.rows[0]?.averageWorkoutSeconds) || 0)
+  );
 
   return {
     currentStreak: streakDays,
+    bestStreak: lifetime.bestStreak,
     streakWeeks,
+    totalWorkouts: lifetime.totalWorkouts,
+    averageWorkoutSeconds,
     weekCompleted,
     weekGoal: settings.weeklyGoal
   };

@@ -4,37 +4,68 @@ import {
   AppState,
   Animated,
   Alert,
-  Image,
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
+  PermissionsAndroid,
   Platform,
   Pressable,
+  Share,
   ScrollView,
   Text,
-  TextInput,
+  type TextInput,
+  ToastAndroid,
+  useColorScheme as useSystemColorScheme,
+  useWindowDimensions,
   View
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import * as LocalAuthentication from "expo-local-authentication";
+import * as Clipboard from "expo-clipboard";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { BellRing, Dumbbell, KeyRound, ListTodo, Trash2 } from "lucide-react-native";
-import { useColorScheme } from "nativewind";
+import { CheckCircle2, Clock3, History as HistoryIcon, Share2, Star, Trash2 } from "lucide-react-native";
 
 import "./global.css";
+import "./src/utils/reminderNotificationTask";
 import { PlanEditorModal } from "./src/components/PlanEditorModal";
+import { PasswordManagerScreen } from "./src/components/PasswordManagerScreen";
 import { ProgressBar } from "./src/components/ProgressBar";
 import { STREAK_CARD_HEIGHT, STREAK_CARD_WIDTH, StreakCard } from "./src/components/StreakCard";
 import { TimerScreen } from "./src/components/TimerScreen";
+import { TimePickerField } from "./src/components/TimePickerField";
 import { ListBuddyScreen } from "./src/components/ListBuddyScreen";
+import { AlarmBuddyScreen } from "./src/components/AlarmBuddyScreen";
+import { AppearanceControl } from "./src/components/AppearanceControl";
+import { LaunchOverlay } from "./src/components/LaunchOverlay";
+import { VaultResetPinModal } from "./src/components/VaultResetPinModal";
+import { VaultEntryModal } from "./src/components/VaultEntryModal";
+import { VaultPinModal } from "./src/components/VaultPinModal";
+import { WorkoutTabBar, type WorkoutTab } from "./src/components/WorkoutTabBar";
+import { ReminderTabBar, type ReminderTab } from "./src/components/ReminderTabBar";
+import { ActivityBuddyScreen } from "./src/features/activity/ActivityBuddyScreen";
+import { AnthraHomeScreen } from "./src/features/hub/AnthraHomeScreen";
+import { TrackerBuddyScreen } from "./src/features/tracker/TrackerBuddyScreen";
+import { syncTrackerNotifications } from "./src/features/tracker/trackerNotifications";
+import { resolveTheme, ThemeProvider, themes, type ThemeMode } from "./src/design-system";
+import { Button, Card, IconButton, KeyboardAwareScrollView, ScreenHeader, StatusBanner, SwitchRow, TextField } from "./src/components/ui";
 import {
+  clearActiveWorkoutSnapshot,
+  createAnthraBackup,
   deletePlan,
   deleteReminderItem,
   deleteWorkoutSession,
   deleteVaultEntry,
   finalizeWorkoutSession,
+  getActiveWorkoutSnapshot,
+  getAppThemeMode,
+  getAlarmItems,
   getDashboardStats,
   getPlans,
   getReminderCompletionEntries,
@@ -47,8 +78,10 @@ import {
   initDatabase,
   logWorkoutCompletion,
   markReminderOccurrenceDone,
-  saveReminderItem,
+  saveActiveWorkoutSnapshot,
+  saveAppThemeMode,
   savePlan,
+  saveReminderItem,
   saveVaultEntry,
   saveVaultPin,
   saveWorkoutSessionFeedback,
@@ -57,10 +90,12 @@ import {
   saveUserProfile,
   saveUserSettings,
   startWorkoutSession,
+  restoreAnthraBackup,
   verifyVaultPin
 } from "./src/db";
 import { WEEKDAY_OPTIONS, formatDays, matchesDay, normalizeDays } from "./src/constants/schedule";
 import type {
+  ActiveWorkoutSnapshot,
   DashboardStats,
   ReminderCompletionEntry,
   ReminderInput,
@@ -73,25 +108,48 @@ import type {
   WorkoutHistoryEntry,
   WorkoutPlan,
   WorkoutPlanInput,
-  WorkoutRunSummary
+  WorkoutRunSummary,
+  WorkoutTimerState
 } from "./src/types";
-import { syncWorkoutReminders } from "./src/utils/reminders";
-import { syncReminderBuddyNotifications } from "./src/utils/reminderBuddy";
+import { syncWorkoutReminderDelivery } from "./src/utils/reminders";
+import { syncReminderBuddyNotifications, setupNotificationResponseListener } from "./src/utils/reminderBuddy";
+import {
+  getNotificationHealth,
+  sendTestNotification,
+  type NotificationHealth
+} from "./src/utils/notificationHealth";
+import {
+  formatTimestampInTimeZone,
+  getDayPartsInTimeZone,
+  getDeviceTimeZone,
+  getTodayLabelInTimeZone,
+  zonedDateTimeToTimestamp
+} from "./src/utils/timezone";
+import { generateStrongPassword } from "./src/utils/passwords";
+import {
+  getAlarmPermissionStatus,
+  openExactAlarmSettings,
+  openFullScreenIntentSettings,
+  replaceNativeAlarms,
+  syncWorkoutAlarmReminders
+} from "./src/utils/alarmNative";
+import {
+  createPlanShareFileContents,
+  createPlanShareMessage,
+  isPlanShareUrl,
+  parsePlanShareText,
+  parsePlanShareUrl
+} from "./src/utils/planSharing";
+import { getPlansForWeekday, getScheduledWorkoutDays } from "./src/utils/workoutSchedule";
+import { parseReminderDateParts, validateOneTimeReminder } from "./src/utils/reminderValidation";
+import {
+  getVaultPinAttemptStatus,
+  INITIAL_VAULT_PIN_ATTEMPT_STATE,
+  registerVaultPinFailure,
+  registerVaultPinSuccess
+} from "./src/features/vault/pinAttemptPolicy";
 
-type DashboardTab = "home" | "plans" | "history" | "profile" | "settings";
-type AppModule = "hub" | "workout" | "reminder" | "password" | "list";
-type ThemedModule = Exclude<AppModule, "hub">;
-type AppThemePresetId = "mint" | "sky" | "apricot" | "rose" | "lime" | "indigo";
-type AppThemeSelections = Record<ThemedModule, AppThemePresetId>;
-
-type AppThemePreset = {
-  id: AppThemePresetId;
-  label: string;
-  accentLight: string;
-  accentDark: string;
-  softLight: string;
-  softDark: string;
-};
+type AppModule = "hub" | "workout" | "reminder" | "password" | "list" | "alarm" | "activity" | "tracker";
 
 type ModuleTheme = {
   accent: string;
@@ -119,14 +177,13 @@ type ReminderFormState = {
   enabled: boolean;
 };
 
-type ReminderTrackerView = "reminders" | "history";
-
 type ReminderHistoryItem = {
   reminderId: number;
   occurrenceTs: number;
   title: string;
   note: string;
   mode: ReminderMode;
+  timezone: string;
   done: boolean;
 };
 
@@ -147,7 +204,10 @@ type VaultFormState = {
 
 const INITIAL_STATS: DashboardStats = {
   currentStreak: 0,
+  bestStreak: 0,
   streakWeeks: 0,
+  totalWorkouts: 0,
+  averageWorkoutSeconds: 0,
   weekCompleted: 0,
   weekGoal: 4
 };
@@ -158,7 +218,9 @@ const INITIAL_SETTINGS: UserSettings = {
   reminderHour: 18,
   reminderMinute: 0,
   reminderLeadMinutes: [60],
-  notificationsEnabled: false
+  notificationsEnabled: false,
+  reminderDelivery: "notification",
+  timezone: getDeviceTimeZone()
 };
 
 const INITIAL_REMINDER_FORM: ReminderFormState = {
@@ -184,64 +246,6 @@ const INITIAL_VAULT_FORM: VaultFormState = {
   secret: ""
 };
 
-const APP_THEME_PRESETS: Record<AppThemePresetId, AppThemePreset> = {
-  mint: {
-    id: "mint",
-    label: "Mint",
-    accentLight: "#18C79A",
-    accentDark: "#5EF2C4",
-    softLight: "#D5FFF1",
-    softDark: "#14342C"
-  },
-  sky: {
-    id: "sky",
-    label: "Sky",
-    accentLight: "#00C8F0",
-    accentDark: "#75DFFF",
-    softLight: "#D7F7FF",
-    softDark: "#153847"
-  },
-  apricot: {
-    id: "apricot",
-    label: "Apricot",
-    accentLight: "#D88A3A",
-    accentDark: "#FFBE78",
-    softLight: "#FFF0DF",
-    softDark: "#38291D"
-  },
-  rose: {
-    id: "rose",
-    label: "Rose",
-    accentLight: "#D75B87",
-    accentDark: "#FFA2C1",
-    softLight: "#FFE2EC",
-    softDark: "#381E29"
-  },
-  lime: {
-    id: "lime",
-    label: "Lime",
-    accentLight: "#84B83A",
-    accentDark: "#B8E86F",
-    softLight: "#EFFADB",
-    softDark: "#28321A"
-  },
-  indigo: {
-    id: "indigo",
-    label: "Indigo",
-    accentLight: "#6B82DA",
-    accentDark: "#B2C2FF",
-    softLight: "#E4EBFF",
-    softDark: "#232A40"
-  }
-};
-
-const DEFAULT_APP_THEME_SELECTIONS: AppThemeSelections = {
-  workout: "sky",
-  reminder: "mint",
-  password: "rose",
-  list: "indigo"
-};
-
 function withAlpha(hex: string, alpha: number): string {
   const sanitized = hex.replace("#", "");
   if (!/^[0-9a-fA-F]{6}$/.test(sanitized)) return hex;
@@ -252,31 +256,14 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
 }
 
-function readableTextOn(backgroundHex: string): string {
-  const sanitized = backgroundHex.replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(sanitized)) return "#08202A";
-  const parsed = Number.parseInt(sanitized, 16);
-  const r = (parsed >> 16) & 255;
-  const g = (parsed >> 8) & 255;
-  const b = parsed & 255;
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 150 ? "#08202A" : "#F6FCFF";
-}
-
-function resolveModuleTheme(
-  module: ThemedModule,
-  selections: AppThemeSelections,
-  isDarkMode: boolean
-): ModuleTheme {
-  const preset = APP_THEME_PRESETS[selections[module]];
-  const accent = isDarkMode ? preset.accentDark : preset.accentLight;
-  const accentSoft = isDarkMode ? preset.softDark : preset.softLight;
+function resolveModuleTheme(isDarkMode: boolean): ModuleTheme {
+  const colors = isDarkMode ? themes.dark.colors : themes.light.colors;
   return {
-    accent,
-    accentSoft,
-    accentBorder: withAlpha(accent, isDarkMode ? 0.45 : 0.34),
-    icon: accent,
-    onAccent: readableTextOn(accent)
+    accent: colors.brand,
+    accentSoft: colors.brandSoft,
+    accentBorder: colors.brandBorder,
+    icon: colors.brand,
+    onAccent: colors.textOnBrandSolid
   };
 }
 
@@ -350,38 +337,7 @@ function formatReminderDays(days: number[]): string {
   return formatDays(normalized);
 }
 
-const IST_OFFSET_MINUTES = 330;
 const REMINDER_HISTORY_PAST_DAYS = 7;
-
-function toIstDayParts(baseMs: number, dayOffset: number): {
-  year: number;
-  month: number;
-  day: number;
-  weekday: number;
-} {
-  const shifted = baseMs + IST_OFFSET_MINUTES * 60_000;
-  const baseIstDate = new Date(shifted);
-  const utcMs = Date.UTC(
-    baseIstDate.getUTCFullYear(),
-    baseIstDate.getUTCMonth(),
-    baseIstDate.getUTCDate() + dayOffset,
-    0,
-    0,
-    0,
-    0
-  );
-  const dayDate = new Date(utcMs);
-  return {
-    year: dayDate.getUTCFullYear(),
-    month: dayDate.getUTCMonth() + 1,
-    day: dayDate.getUTCDate(),
-    weekday: dayDate.getUTCDay()
-  };
-}
-
-function istToUtcTimestamp(year: number, month: number, day: number, hour: number, minute: number): number {
-  return Date.UTC(year, month - 1, day, hour, minute, 0, 0) - IST_OFFSET_MINUTES * 60_000;
-}
 
 function formatDateInput(baseDate: Date): string {
   const year = baseDate.getUTCFullYear();
@@ -390,39 +346,12 @@ function formatDateInput(baseDate: Date): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function getIstTodayLabel(): string {
-  const shifted = new Date(Date.now() + IST_OFFSET_MINUTES * 60_000);
-  return formatDateInput(shifted);
+function getDeviceTodayLabel(): string {
+  return getTodayLabelInTimeZone(getDeviceTimeZone());
 }
 
 function ensureReminderTimeInputs(values: string[]): string[] {
   return Array.from({ length: 4 }, (_, index) => values[index] ?? "");
-}
-
-function normalizeReminderTimeInput(value: string): string {
-  const digits = value.replace(/[^0-9]/g, "").slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-}
-
-function parseReminderDateParts(value: string): { year: number; month: number; day: number } | null {
-  const trimmed = value.trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() + 1 !== month ||
-    date.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return { year, month, day };
 }
 
 function formatReminderCalendarMonth(cursor: string): string {
@@ -439,7 +368,7 @@ function formatReminderCalendarMonth(cursor: string): string {
 function getReminderCalendarMonthFromDateLabel(dateLabel: string): string {
   const parts = parseReminderDateParts(dateLabel);
   if (!parts) {
-    const today = parseReminderDateParts(getIstTodayLabel());
+    const today = parseReminderDateParts(getDeviceTodayLabel());
     if (!today) return "";
     return `${String(today.year).padStart(4, "0")}-${String(today.month).padStart(2, "0")}`;
   }
@@ -448,7 +377,7 @@ function getReminderCalendarMonthFromDateLabel(dateLabel: string): string {
 
 function shiftReminderCalendarMonth(cursor: string, monthDelta: number): string {
   const match = /^(\d{4})-(\d{2})$/.exec(cursor);
-  if (!match) return getReminderCalendarMonthFromDateLabel(getIstTodayLabel());
+  if (!match) return getReminderCalendarMonthFromDateLabel(getDeviceTodayLabel());
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + monthDelta, 1));
   return `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
@@ -462,7 +391,7 @@ function buildReminderCalendarDays(monthCursor: string): ReminderCalendarDay[] {
   const firstDay = new Date(Date.UTC(year, month - 1, 1));
   const firstWeekday = (firstDay.getUTCDay() + 6) % 7;
   const gridStart = new Date(Date.UTC(year, month - 1, 1 - firstWeekday));
-  const todayLabel = getIstTodayLabel();
+  const todayLabel = getDeviceTodayLabel();
   const todayParts = parseReminderDateParts(todayLabel);
   const todayTs =
     todayParts == null ? null : Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day, 0, 0, 0, 0);
@@ -509,32 +438,28 @@ function formatReminderModeLabel(mode: ReminderMode): string {
 }
 
 function formatReminderSchedule(item: ReminderItem): string {
+  const timezone = item.timezone || getDeviceTimeZone();
   if (item.mode === "once") {
     const dateLabel = item.dateLabel ?? "No date";
-    return `One time • ${dateLabel} • ${formatTimeLabel(item.hour, item.minute)} IST`;
+    return `One time • ${dateLabel} • ${formatTimeLabel(item.hour, item.minute)} • ${timezone}`;
   }
 
   if (item.mode === "multi") {
     const slots = item.timeSlots.map((slot) => formatTimeLabel(slot.hour, slot.minute)).join(", ");
-    return `${item.timeSlots.length} time${item.timeSlots.length === 1 ? "" : "s"} • ${slots} • ${formatReminderDays(item.days)}`;
+    return `${item.timeSlots.length} time${item.timeSlots.length === 1 ? "" : "s"} • ${slots} • ${formatReminderDays(item.days)} • ${timezone}`;
   }
 
   if (item.mode === "interval") {
     const start = formatTimeLabel(item.intervalStartHour ?? 8, item.intervalStartMinute ?? 0);
     const end = formatTimeLabel(item.intervalEndHour ?? 22, item.intervalEndMinute ?? 0);
-    return `Every ${item.intervalMinutes ?? 60} min • ${start}-${end} • ${formatReminderDays(item.days)}`;
+    return `Every ${item.intervalMinutes ?? 60} min • ${start}-${end} • ${formatReminderDays(item.days)} • ${timezone}`;
   }
 
-  return `${formatTimeLabel(item.hour, item.minute)} • ${formatReminderDays(item.days)}`;
+  return `${formatTimeLabel(item.hour, item.minute)} • ${formatReminderDays(item.days)} • ${timezone}`;
 }
 
-function formatReminderOccurrenceLabel(timestamp: number): string {
-  const shifted = new Date(timestamp + IST_OFFSET_MINUTES * 60_000);
-  const year = shifted.getUTCFullYear();
-  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(shifted.getUTCDate()).padStart(2, "0");
-  const time = formatTimeLabel(shifted.getUTCHours(), shifted.getUTCMinutes());
-  return `${year}-${month}-${day} • ${time} IST`;
+function formatReminderOccurrenceLabel(timestamp: number, timezone: string): string {
+  return `${formatTimestampInTimeZone(timestamp, timezone)} • ${timezone}`;
 }
 
 function buildReminderHistoryOccurrences(
@@ -544,11 +469,19 @@ function buildReminderHistoryOccurrences(
   futureDays: number
 ): number[] {
   const candidates: number[] = [];
+  const timezone = reminder.timezone || getDeviceTimeZone();
 
   if (reminder.mode === "once") {
     const parts = parseReminderDateParts(reminder.dateLabel ?? "");
     if (!parts) return [];
-    const timestamp = istToUtcTimestamp(parts.year, parts.month, parts.day, reminder.hour, reminder.minute);
+    const timestamp = zonedDateTimeToTimestamp(
+      parts.year,
+      parts.month,
+      parts.day,
+      reminder.hour,
+      reminder.minute,
+      timezone
+    );
     const minTs = nowMs - pastDays * 24 * 60 * 60 * 1000;
     const maxTs = nowMs + futureDays * 24 * 60 * 60 * 1000;
     return timestamp >= minTs && timestamp <= maxTs ? [timestamp] : [];
@@ -559,17 +492,35 @@ function buildReminderHistoryOccurrences(
   const daySet = new Set<number>(effectiveDays);
 
   for (let dayOffset = -pastDays; dayOffset <= futureDays; dayOffset += 1) {
-    const slot = toIstDayParts(nowMs, dayOffset);
+    const slot = getDayPartsInTimeZone(nowMs, dayOffset, timezone);
     if (!daySet.has(slot.weekday)) continue;
 
     if (reminder.mode === "time") {
-      candidates.push(istToUtcTimestamp(slot.year, slot.month, slot.day, reminder.hour, reminder.minute));
+      candidates.push(
+        zonedDateTimeToTimestamp(
+          slot.year,
+          slot.month,
+          slot.day,
+          reminder.hour,
+          reminder.minute,
+          timezone
+        )
+      );
       continue;
     }
 
     if (reminder.mode === "multi") {
       for (const timeSlot of reminder.timeSlots) {
-        candidates.push(istToUtcTimestamp(slot.year, slot.month, slot.day, timeSlot.hour, timeSlot.minute));
+        candidates.push(
+          zonedDateTimeToTimestamp(
+            slot.year,
+            slot.month,
+            slot.day,
+            timeSlot.hour,
+            timeSlot.minute,
+            timezone
+          )
+        );
       }
       continue;
     }
@@ -586,7 +537,9 @@ function buildReminderHistoryOccurrences(
     for (let cursor = startTotal; cursor <= endTotal; cursor += interval) {
       const hour = Math.floor(cursor / 60);
       const minute = cursor % 60;
-      candidates.push(istToUtcTimestamp(slot.year, slot.month, slot.day, hour, minute));
+      candidates.push(
+        zonedDateTimeToTimestamp(slot.year, slot.month, slot.day, hour, minute, timezone)
+      );
     }
   }
 
@@ -594,20 +547,33 @@ function buildReminderHistoryOccurrences(
 }
 
 export default function App() {
-  const { colorScheme, setColorScheme } = useColorScheme();
+  const systemColorScheme = useSystemColorScheme();
+  const { fontScale, width: windowWidth } = useWindowDimensions();
+  const deviceTimeZone = useMemo(() => getDeviceTimeZone(), []);
+  const workoutTimeZoneOptions = useMemo(
+    () => Array.from(new Set([deviceTimeZone, "Asia/Kolkata"])),
+    [deviceTimeZone]
+  );
   const [ready, setReady] = useState(false);
-  const [launchDelayDone, setLaunchDelayDone] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [stats, setStats] = useState<DashboardStats>(INITIAL_STATS);
   const [history, setHistory] = useState<WorkoutHistoryEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("home");
+  const [activeTab, setActiveTab] = useState<WorkoutTab>("home");
+  const [planListMode, setPlanListMode] = useState<"all" | "today">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null);
   const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeTimerInitialState, setActiveTimerInitialState] = useState<WorkoutTimerState | null>(null);
+  const [recoverableWorkout, setRecoverableWorkout] = useState<ActiveWorkoutSnapshot | null>(null);
   const [profileHeightCm, setProfileHeightCm] = useState("");
   const [profileWeightKg, setProfileWeightKg] = useState("");
   const [profileGoal, setProfileGoal] = useState("");
+  const profileWeightInputRef = useRef<TextInput>(null);
+  const profileGoalInputRef = useRef<TextInput>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileNotice, setProfileNotice] = useState<{
     type: "success" | "error";
@@ -622,6 +588,7 @@ export default function App() {
     ensureThreeLeadInputs(INITIAL_SETTINGS.reminderLeadMinutes)
   );
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState<{
     type: "success" | "error";
     message: string;
@@ -633,26 +600,41 @@ export default function App() {
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackNoteModalOpen, setFeedbackNoteModalOpen] = useState(false);
+  const [workoutCompletionTransition, setWorkoutCompletionTransition] = useState(false);
   const [showSplashOverlay, setShowSplashOverlay] = useState(true);
   const [activeModule, setActiveModule] = useState<AppModule>("hub");
-  const appThemeSelections = DEFAULT_APP_THEME_SELECTIONS;
   const [reminderItems, setReminderItems] = useState<ReminderItem[]>([]);
   const [reminderCompletions, setReminderCompletions] = useState<ReminderCompletionEntry[]>([]);
-  const [reminderTrackerView, setReminderTrackerView] = useState<ReminderTrackerView>("reminders");
+  const [reminderTrackerView, setReminderTrackerView] = useState<ReminderTab>("reminders");
   const [reminderEditorOpen, setReminderEditorOpen] = useState(false);
   const [reminderForm, setReminderForm] = useState<ReminderFormState>(INITIAL_REMINDER_FORM);
-  const [reminderCalendarMonth, setReminderCalendarMonth] = useState(getReminderCalendarMonthFromDateLabel(getIstTodayLabel()));
+  const [reminderCalendarMonth, setReminderCalendarMonth] = useState(getReminderCalendarMonthFromDateLabel(getDeviceTodayLabel()));
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const [reminderEditorError, setReminderEditorError] = useState("");
   const [reminderNotice, setReminderNotice] = useState<{
     type: "success" | "error";
     message: string;
+    title?: string;
   } | null>(null);
+  const [reminderHeaderBottom, setReminderHeaderBottom] = useState(0);
+  const [notificationHealth, setNotificationHealth] = useState<NotificationHealth | null>(null);
+  const [notificationHealthLoading, setNotificationHealthLoading] = useState(false);
+  const [notificationTestNotice, setNotificationTestNotice] = useState<string | null>(null);
   const [vaultEntries, setVaultEntries] = useState<VaultEntry[]>([]);
   const [vaultEditorOpen, setVaultEditorOpen] = useState(false);
   const [vaultForm, setVaultForm] = useState<VaultFormState>(INITIAL_VAULT_FORM);
+  const [vaultEditorError, setVaultEditorError] = useState("");
+  const [vaultSaving, setVaultSaving] = useState(false);
   const [vaultHasPin, setVaultHasPin] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(false);
   const [vaultNewPin, setVaultNewPin] = useState("");
   const [vaultConfirmPin, setVaultConfirmPin] = useState("");
+  const [vaultResetPinOpen, setVaultResetPinOpen] = useState(false);
+  const [vaultCurrentPin, setVaultCurrentPin] = useState("");
+  const [vaultReplacementPin, setVaultReplacementPin] = useState("");
+  const [vaultReplacementPinConfirm, setVaultReplacementPinConfirm] = useState("");
+  const [vaultResetPinSaving, setVaultResetPinSaving] = useState(false);
+  const [vaultResetPinError, setVaultResetPinError] = useState("");
   const [vaultBiometricsEnabled, setVaultBiometricsEnabled] = useState(false);
   const [revealedVaultIds, setRevealedVaultIds] = useState<number[]>([]);
   const [vaultNotice, setVaultNotice] = useState<{
@@ -660,15 +642,123 @@ export default function App() {
     message: string;
   } | null>(null);
   const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [pinModalMode, setPinModalMode] = useState<"unlock" | "reveal">("unlock");
+  const [pinModalMode, setPinModalMode] = useState<"unlock" | "reveal" | "copy">("unlock");
   const [pinModalInput, setPinModalInput] = useState("");
   const [pinModalError, setPinModalError] = useState("");
+  const [pinVerifying, setPinVerifying] = useState(false);
   const [pinModalTargetEntryId, setPinModalTargetEntryId] = useState<number | null>(null);
+  const vaultPinAttemptRef = useRef(INITIAL_VAULT_PIN_ATTEMPT_STATE);
+  const vaultClipboardValueRef = useRef<string | null>(null);
+  const vaultClipboardClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimeoutsRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const pinVerificationRequestRef = useRef(0);
+  const vaultBiometricActionInProgressRef = useRef(false);
   const shareCardRef = useRef<View>(null);
   const completionLoggedRef = useRef(false);
+  const lastBackPressRef = useRef(0);
+  const notificationSyncInProgressRef = useRef(false);
+  const lastNotificationSyncRef = useRef(0);
+  const workoutAlarmPermissionSetupRef = useRef(false);
+  const workoutAlarmPermissionPromptVisibleRef = useRef(false);
+  const pendingReminderHistoryNavigationRef = useRef(false);
+  const workoutFlowBusyRef = useRef(false);
+  const workoutSnapshotSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handledPlanShareUrlsRef = useRef(new Set<string>());
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const handleThemeModeChange = useCallback((nextMode: ThemeMode) => {
+    setThemeMode(nextMode);
+    saveAppThemeMode(nextMode).catch(() => undefined);
+  }, []);
+
+  const promptForWorkoutAlarmPermission = useCallback(async (): Promise<boolean> => {
+    if (Platform.OS !== "android") return false;
+    const status = await getAlarmPermissionStatus();
+    if (!status.nativeSupported) return false;
+
+    const missingPermission = !status.exactAlarm
+      ? {
+          title: "Allow alarms & reminders",
+          message: "Android requires this system permission for Anthra to ring workout alarms at the exact reminder time.",
+          open: openExactAlarmSettings
+        }
+      : !status.fullScreenIntent
+        ? {
+            title: "Allow full-screen alarms",
+            message: "Allow Anthra to open workout alarms full-screen, including while your phone is locked.",
+            open: openFullScreenIntentSettings
+          }
+        : null;
+
+    if (!missingPermission) {
+      workoutAlarmPermissionSetupRef.current = false;
+      return true;
+    }
+    if (workoutAlarmPermissionPromptVisibleRef.current) return false;
+
+    workoutAlarmPermissionPromptVisibleRef.current = true;
+    Alert.alert(
+      missingPermission.title,
+      missingPermission.message,
+      [
+        {
+          text: "Not now",
+          style: "cancel",
+          onPress: () => {
+            workoutAlarmPermissionPromptVisibleRef.current = false;
+            workoutAlarmPermissionSetupRef.current = false;
+          }
+        },
+        {
+          text: "Open settings",
+          onPress: () => {
+            workoutAlarmPermissionPromptVisibleRef.current = false;
+            workoutAlarmPermissionSetupRef.current = true;
+            missingPermission.open().catch((error) => {
+              workoutAlarmPermissionSetupRef.current = false;
+              Alert.alert(
+                "Could not open settings",
+                error instanceof Error ? error.message : "Open Android settings and allow alarm access for Anthra."
+              );
+            });
+          }
+        }
+      ],
+      {
+        cancelable: true,
+        onDismiss: () => {
+          workoutAlarmPermissionPromptVisibleRef.current = false;
+        }
+      }
+    );
+    return false;
+  }, []);
+
+  workoutFlowBusyRef.current = Boolean(
+    activePlan || feedbackOpen || feedbackNoteModalOpen || workoutCompletionTransition
+  );
+
+  const clearCopiedVaultPassword = useCallback(async () => {
+    const copiedValue = vaultClipboardValueRef.current;
+    vaultClipboardValueRef.current = null;
+    if (vaultClipboardClearTimeoutRef.current) {
+      clearTimeout(vaultClipboardClearTimeoutRef.current);
+      vaultClipboardClearTimeoutRef.current = null;
+    }
+    if (!copiedValue) return;
+
+    const currentValue = await Clipboard.getStringAsync().catch(() => "");
+    if (currentValue === copiedValue) {
+      await Clipboard.setStringAsync("").catch(() => undefined);
+    }
+  }, []);
+
+  const cancelPinVerification = useCallback(() => {
+    pinVerificationRequestRef.current += 1;
+    setPinVerifying(false);
+    setPinModalOpen(false);
+  }, []);
 
   const refreshDashboard = useCallback(async () => {
     const latestStats = await getDashboardStats();
@@ -689,6 +779,7 @@ export default function App() {
     setPlans(latestPlans);
     setStats(latestStats);
     setHistory(latestHistory);
+    return { plans: latestPlans, stats: latestStats, history: latestHistory };
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -751,45 +842,135 @@ export default function App() {
     return items;
   }, []);
 
+  const syncAllNotifications = useCallback(
+    async (
+      nextSettings: UserSettings,
+      nextPlans: WorkoutPlan[],
+      nextReminders: ReminderItem[],
+      nextCompletions: ReminderCompletionEntry[],
+      force = false
+    ) => {
+      if (notificationSyncInProgressRef.current) return false;
+      if (!force && Date.now() - lastNotificationSyncRef.current < 15 * 60_000) return false;
+
+      notificationSyncInProgressRef.current = true;
+      try {
+        await Promise.all([
+          syncWorkoutReminderDelivery(
+            nextSettings,
+            getScheduledWorkoutDays(nextPlans, nextSettings.workoutDays)
+          ),
+          syncReminderBuddyNotifications(nextReminders, nextCompletions),
+          syncTrackerNotifications()
+        ]);
+        lastNotificationSyncRef.current = Date.now();
+        return true;
+      } finally {
+        notificationSyncInProgressRef.current = false;
+      }
+    },
+    []
+  );
+
+  const refreshNotificationHealth = useCallback(async () => {
+    setNotificationHealthLoading(true);
+    try {
+      setNotificationHealth(await getNotificationHealth());
+    } finally {
+      setNotificationHealthLoading(false);
+    }
+  }, []);
+
+  const handleSendTestNotification = useCallback(async () => {
+    setNotificationTestNotice(null);
+    const result = await sendTestNotification();
+    setNotificationTestNotice(result.message);
+    await refreshNotificationHealth();
+  }, [refreshNotificationHealth]);
+
   const bootstrap = useCallback(async () => {
     await initDatabase();
-    const [, , nextSettings, nextReminders, nextReminderCompletions] = await Promise.all([
+    const [nextData, , nextSettings, nextReminders, nextReminderCompletions, , recoveredWorkout, storedThemeMode] = await Promise.all([
       refreshData(),
       refreshProfile(),
       refreshSettings(),
       refreshReminderItems(),
       refreshReminderCompletions(),
-      refreshVaultSecurity()
+      refreshVaultSecurity(),
+      getActiveWorkoutSnapshot(),
+      getAppThemeMode()
     ]);
-    await syncWorkoutReminders(nextSettings).catch(() => undefined);
-    await syncReminderBuddyNotifications(nextReminders, nextReminderCompletions).catch(() => undefined);
+    setRecoverableWorkout(recoveredWorkout);
+    setThemeMode(storedThemeMode);
     setReady(true);
-  }, [refreshData, refreshProfile, refreshReminderCompletions, refreshReminderItems, refreshSettings, refreshVaultSecurity]);
+    setTimeout(() => {
+      syncAllNotifications(nextSettings, nextData.plans, nextReminders, nextReminderCompletions, true).catch(() => undefined);
+    }, 250);
+  }, [refreshData, refreshProfile, refreshReminderCompletions, refreshReminderItems, refreshSettings, refreshVaultSecurity, syncAllNotifications]);
 
   useEffect(() => {
+    let cancelled = false;
+    setBootstrapError(null);
     bootstrap().catch((error) => {
+      if (cancelled) return;
       const message = error instanceof Error ? error.message : "Failed to start app.";
-      Alert.alert("Startup error", message);
+      setBootstrapError(message);
+      setShowSplashOverlay(false);
     });
-  }, [bootstrap]);
+    return () => {
+      cancelled = true;
+    };
+  }, [bootstrap, bootstrapAttempt]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setLaunchDelayDone(true);
-    }, 2000);
-    return () => clearTimeout(timeout);
-  }, []);
+    if (!ready) return;
+    let cleanup: (() => void) | undefined;
+    setupNotificationResponseListener(
+      async (reminderId, occurrenceTs) => {
+        try {
+          await markReminderOccurrenceDone(reminderId, occurrenceTs);
+          await refreshReminderCompletions();
+        } catch {
+          // Silently ignore - the user can still mark it done in the app.
+        }
+      },
+      () => {
+        if (workoutFlowBusyRef.current) {
+          pendingReminderHistoryNavigationRef.current = true;
+          return;
+        }
+        setActiveModule("reminder");
+        setReminderTrackerView("history");
+      }
+    ).then((fn) => {
+      cleanup = fn;
+    });
+    return () => cleanup?.();
+  }, [ready, refreshReminderCompletions]);
 
   useEffect(() => {
-    if (!ready || !launchDelayDone || !showSplashOverlay) return;
+    if (activePlan || feedbackOpen || feedbackNoteModalOpen || workoutCompletionTransition) return;
+    if (!pendingReminderHistoryNavigationRef.current) return;
+    pendingReminderHistoryNavigationRef.current = false;
+    setActiveModule("reminder");
+    setReminderTrackerView("history");
+  }, [activePlan, feedbackNoteModalOpen, feedbackOpen, workoutCompletionTransition]);
+
+  useEffect(() => {
+    if (!ready || activeModule !== "reminder") return;
+    refreshNotificationHealth().catch(() => undefined);
+  }, [activeModule, ready, refreshNotificationHealth]);
+
+  useEffect(() => {
+    if (!ready || !showSplashOverlay) return;
     Animated.timing(splashOpacity, {
       toValue: 0,
-      duration: 420,
+      duration: 120,
       useNativeDriver: true
     }).start(() => {
       setShowSplashOverlay(false);
     });
-  }, [launchDelayDone, ready, showSplashOverlay, splashOpacity]);
+  }, [ready, showSplashOverlay, splashOpacity]);
 
   useEffect(() => {
     if (!ready) return;
@@ -801,14 +982,41 @@ export default function App() {
 
     const appStateSubscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        refreshDashboard().catch(() => undefined);
-        refreshHistory().catch(() => undefined);
-        Promise.all([refreshSettings(), refreshReminderItems(), refreshReminderCompletions()])
-          .then(([nextSettings, nextReminders, nextCompletions]) => {
-            syncWorkoutReminders(nextSettings).catch(() => undefined);
-            syncReminderBuddyNotifications(nextReminders, nextCompletions).catch(() => undefined);
+        Promise.all([refreshData(), refreshSettings(), refreshReminderItems(), refreshReminderCompletions()])
+          .then(async ([nextData, nextSettings, nextReminders, nextCompletions]) => {
+            const shouldRetryWorkoutAlarm =
+              nextSettings.notificationsEnabled &&
+              (nextSettings.reminderDelivery === "alarm" || nextSettings.reminderDelivery === "both");
+            if (workoutAlarmPermissionSetupRef.current && shouldRetryWorkoutAlarm) {
+              await promptForWorkoutAlarmPermission();
+            }
+            const syncedEverything = await syncAllNotifications(
+              nextSettings,
+              nextData.plans,
+              nextReminders,
+              nextCompletions
+            );
+            if (!syncedEverything && shouldRetryWorkoutAlarm) {
+              await syncWorkoutAlarmReminders(
+                nextSettings,
+                getScheduledWorkoutDays(nextData.plans, nextSettings.workoutDays)
+              );
+            }
           })
           .catch(() => undefined);
+      } else {
+        clearCopiedVaultPassword().catch(() => undefined);
+        Object.values(revealTimeoutsRef.current).forEach((timer) => clearTimeout(timer));
+        revealTimeoutsRef.current = {};
+        setVaultUnlocked(false);
+        setVaultEntries([]);
+        setRevealedVaultIds([]);
+        setVaultEditorOpen(false);
+        setVaultForm(INITIAL_VAULT_FORM);
+        setVaultEditorError("");
+        setVaultSaving(false);
+        setVaultResetPinOpen(false);
+        cancelPinVerification();
       }
     });
 
@@ -816,7 +1024,7 @@ export default function App() {
       clearInterval(interval);
       appStateSubscription.remove();
     };
-  }, [ready, refreshDashboard, refreshHistory, refreshReminderCompletions, refreshReminderItems, refreshSettings]);
+  }, [cancelPinVerification, clearCopiedVaultPassword, promptForWorkoutAlarmPermission, ready, refreshDashboard, refreshData, refreshHistory, refreshReminderCompletions, refreshReminderItems, refreshSettings, syncAllNotifications]);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -869,21 +1077,34 @@ export default function App() {
 
   useEffect(() => {
     if (activeModule === "password") return;
+    clearCopiedVaultPassword().catch(() => undefined);
     Object.values(revealTimeoutsRef.current).forEach((timer) => clearTimeout(timer));
     revealTimeoutsRef.current = {};
     setVaultUnlocked(false);
+    setVaultEntries([]);
     setRevealedVaultIds([]);
-    setPinModalOpen(false);
+    setVaultEditorOpen(false);
+    setVaultForm(INITIAL_VAULT_FORM);
+    setVaultEditorError("");
+    setVaultSaving(false);
+    cancelPinVerification();
     setPinModalError("");
     setPinModalInput("");
     setPinModalTargetEntryId(null);
-  }, [activeModule]);
+    setVaultResetPinOpen(false);
+    setVaultCurrentPin("");
+    setVaultReplacementPin("");
+    setVaultReplacementPinConfirm("");
+    setVaultResetPinError("");
+  }, [activeModule, cancelPinVerification, clearCopiedVaultPassword]);
 
   useEffect(() => {
     return () => {
+      clearCopiedVaultPassword().catch(() => undefined);
       Object.values(revealTimeoutsRef.current).forEach((timer) => clearTimeout(timer));
+      if (workoutSnapshotSaveRef.current) clearTimeout(workoutSnapshotSaveRef.current);
     };
-  }, []);
+  }, [clearCopiedVaultPassword]);
 
   const openCreatePlan = () => {
     setEditingPlan(null);
@@ -916,7 +1137,11 @@ export default function App() {
     await savePlan(plan);
     setEditorOpen(false);
     setEditingPlan(null);
-    await refreshData();
+    const nextData = await refreshData();
+    await syncWorkoutReminderDelivery(
+      settings,
+      getScheduledWorkoutDays(nextData.plans, settings.workoutDays)
+    ).catch(() => undefined);
     return true;
   };
 
@@ -928,11 +1153,173 @@ export default function App() {
         style: "destructive",
         onPress: async () => {
           await deletePlan(plan.id);
-          await refreshData();
+          const nextData = await refreshData();
+          await syncWorkoutReminderDelivery(
+            settings,
+            getScheduledWorkoutDays(nextData.plans, settings.workoutDays)
+          ).catch(() => undefined);
         }
       }
     ]);
   };
+
+  const previewSharedPlan = useCallback(
+    (sharedPlan: WorkoutPlanInput) => {
+      const exerciseCount = sharedPlan.sections.reduce(
+        (total, section) => total + section.exercises.length,
+        0
+      );
+      Alert.alert(
+        "Add to My Plans?",
+        `“${sharedPlan.name}” has ${sharedPlan.sections.length} set(s) and ${exerciseCount} exercise(s).`,
+        [
+          { text: "Not Now", style: "cancel" },
+          {
+            text: "Add to My Plans",
+            onPress: () => {
+              void (async () => {
+                try {
+                  await savePlan(sharedPlan);
+                  const nextData = await refreshData();
+                  await syncWorkoutReminderDelivery(
+                    settings,
+                    getScheduledWorkoutDays(nextData.plans, settings.workoutDays)
+                  ).catch(() => undefined);
+                  setActiveModule("workout");
+                  setPlanListMode("all");
+                  setActiveTab("plans");
+                  setShowSplashOverlay(false);
+                  if (Platform.OS === "android") {
+                    ToastAndroid.show(`Added ${sharedPlan.name} to your plans`, ToastAndroid.SHORT);
+                  } else {
+                    Alert.alert("Plan added", `“${sharedPlan.name}” is now in your plans.`);
+                  }
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : "The plan could not be saved.";
+                  Alert.alert("Could not add plan", message);
+                }
+              })();
+            }
+          }
+        ]
+      );
+    },
+    [refreshData, settings]
+  );
+
+  const handleSharePlan = async (plan: WorkoutPlan) => {
+    try {
+      if (!FileSystem.cacheDirectory || !(await Sharing.isAvailableAsync())) {
+        await Share.share(
+          { message: createPlanShareMessage(plan), title: `Share ${plan.name}` },
+          { dialogTitle: `Share ${plan.name}` }
+        );
+        return;
+      }
+
+      const fileStem = plan.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48) || "workout";
+      const uri = `${FileSystem.cacheDirectory}anthra-plan-${fileStem}.json`;
+      await FileSystem.writeAsStringAsync(uri, createPlanShareFileContents(plan), {
+        encoding: FileSystem.EncodingType.UTF8
+      });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/json",
+        dialogTitle: `Share ${plan.name}`,
+        UTI: "public.json"
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "This plan could not be shared.";
+      Alert.alert("Could not share plan", message);
+    }
+  };
+
+  const previewSharedPlanText = useCallback(
+    (text: string) => {
+      const sharedPlan = parsePlanShareText(text);
+      if (!sharedPlan) {
+        Alert.alert("Invalid shared plan", "Choose an Anthra plan file or copy a complete Anthra plan link.");
+        return;
+      }
+      previewSharedPlan(sharedPlan);
+    },
+    [previewSharedPlan]
+  );
+
+  const handleImportPlanFile = useCallback(async () => {
+    try {
+      const selection = await DocumentPicker.getDocumentAsync({
+        type: ["application/json", "text/plain"],
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+      if (selection.canceled || !selection.assets[0]) return;
+      const raw = await FileSystem.readAsStringAsync(selection.assets[0].uri, {
+        encoding: FileSystem.EncodingType.UTF8
+      });
+      if (raw.length > 1_000_000) throw new Error("This plan file is too large to import safely.");
+      previewSharedPlanText(raw);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "This plan file could not be read.";
+      Alert.alert("Could not import plan", message);
+    }
+  }, [previewSharedPlanText]);
+
+  const handleImportPlan = useCallback(() => {
+    Alert.alert(
+      "Import a plan",
+      "Choose a shared Anthra plan file, or paste a plan link copied from a message.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Paste shared link",
+          onPress: () => {
+            Clipboard.getStringAsync()
+              .then(previewSharedPlanText)
+              .catch(() => Alert.alert("Clipboard unavailable", "Anthra could not read the clipboard."));
+          }
+        },
+        {
+          text: "Choose file",
+          onPress: () => handleImportPlanFile().catch(() => undefined)
+        }
+      ]
+    );
+  }, [handleImportPlanFile, previewSharedPlanText]);
+
+  const handleIncomingPlanUrl = useCallback(
+    (url: string) => {
+      if (!isPlanShareUrl(url) || handledPlanShareUrlsRef.current.has(url)) return;
+      handledPlanShareUrlsRef.current.add(url);
+
+      const sharedPlan = parsePlanShareUrl(url);
+      if (!sharedPlan) {
+        Alert.alert("Invalid shared plan", "This Anthra plan link is incomplete or no longer supported.");
+        return;
+      }
+      previewSharedPlan(sharedPlan);
+    },
+    [previewSharedPlan]
+  );
+
+  useEffect(() => {
+    if (!ready) return;
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) handleIncomingPlanUrl(url);
+      })
+      .catch(() => undefined);
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      handleIncomingPlanUrl(url);
+    });
+    return () => subscription.remove();
+  }, [handleIncomingPlanUrl, ready]);
 
   const handleDeleteHistoryEntry = (entry: WorkoutHistoryEntry) => {
     Alert.alert("Delete history", `Remove "${entry.planName}" from workout history?`, [
@@ -948,10 +1335,99 @@ export default function App() {
     ]);
   };
 
+  const clearWorkoutRecovery = useCallback(async () => {
+    if (workoutSnapshotSaveRef.current) {
+      clearTimeout(workoutSnapshotSaveRef.current);
+      workoutSnapshotSaveRef.current = null;
+    }
+    await clearActiveWorkoutSnapshot();
+    setRecoverableWorkout(null);
+  }, []);
+
+  const handleTimerStateChange = useCallback(
+    (timer: WorkoutTimerState) => {
+      if (!activePlan || !activeSessionId) return;
+      if (workoutSnapshotSaveRef.current) {
+        clearTimeout(workoutSnapshotSaveRef.current);
+      }
+
+      const snapshot: ActiveWorkoutSnapshot = {
+        sessionId: activeSessionId,
+        plan: activePlan,
+        timer,
+        updatedAt: Date.now()
+      };
+      workoutSnapshotSaveRef.current = setTimeout(() => {
+        workoutSnapshotSaveRef.current = null;
+        saveActiveWorkoutSnapshot(snapshot).catch(() => undefined);
+      }, 500);
+    },
+    [activePlan, activeSessionId]
+  );
+
+  const resumeInterruptedWorkout = useCallback(() => {
+    if (!recoverableWorkout) return;
+    completionLoggedRef.current = false;
+    setActiveTimerInitialState({ ...recoverableWorkout.timer, isRunning: false });
+    setActiveSessionId(recoverableWorkout.sessionId);
+    setActivePlan(recoverableWorkout.plan);
+    setRecoverableWorkout(null);
+    setActiveModule("workout");
+  }, [recoverableWorkout]);
+
+  const endInterruptedWorkout = useCallback(() => {
+    if (!recoverableWorkout) return;
+    Alert.alert(
+      "End interrupted workout?",
+      "Your progress will stay in workout history as a partial session.",
+      [
+        { text: "Keep It", style: "cancel" },
+        {
+          text: "End Workout",
+          style: "destructive",
+          onPress: async () => {
+            await finalizeWorkoutSession(recoverableWorkout.sessionId, {
+              ...recoverableWorkout.timer.summary,
+              completed: false
+            });
+            await clearWorkoutRecovery();
+            await refreshData();
+          }
+        }
+      ]
+    );
+  }, [clearWorkoutRecovery, recoverableWorkout, refreshData]);
+
   const handleStartPlan = async (plan: WorkoutPlan) => {
+    if (recoverableWorkout) {
+      Alert.alert(
+        "Workout waiting to resume",
+        `Resume or end “${recoverableWorkout.plan.name}” from the Anthra hub before starting another workout.`,
+        [{ text: "Go to Hub", onPress: () => setActiveModule("hub") }]
+      );
+      return;
+    }
+
     try {
+      const startedAt = Date.now();
       const sessionId = await startWorkoutSession(plan.id, plan.name);
+      const initialTimer: WorkoutTimerState = {
+        phase: "ready",
+        segmentIndex: 0,
+        remainingSeconds: 5,
+        isRunning: true,
+        startedAt,
+        summary: {
+          completed: false,
+          progressPercent: 0,
+          completedSegments: 0,
+          totalSegments: 0,
+          elapsedSeconds: 0
+        }
+      };
+      await saveActiveWorkoutSnapshot({ sessionId, plan, timer: initialTimer, updatedAt: Date.now() });
       completionLoggedRef.current = false;
+      setActiveTimerInitialState(null);
       setActiveSessionId(sessionId);
       setActivePlan(plan);
     } catch (error) {
@@ -975,6 +1451,7 @@ export default function App() {
 
   const handleWorkoutComplete = async (summary: WorkoutRunSummary) => {
     await finalizeCurrentSession({ ...summary, completed: true, progressPercent: 100 });
+    await clearWorkoutRecovery();
     await refreshDashboard();
     await refreshHistory();
   };
@@ -1177,7 +1654,9 @@ export default function App() {
         reminderHour,
         reminderMinute,
         reminderLeadMinutes: effectiveLeadMinutes,
-        notificationsEnabled: settings.notificationsEnabled
+        notificationsEnabled: settings.notificationsEnabled,
+        reminderDelivery: settings.reminderDelivery,
+        timezone: settings.timezone || getDeviceTimeZone()
       };
 
       await saveUserSettings(payload);
@@ -1189,9 +1668,26 @@ export default function App() {
       setReminderCount(Math.min(3, Math.max(1, payload.reminderLeadMinutes.length)));
       await refreshDashboard();
 
-      const reminderResult = await syncWorkoutReminders(payload);
+      if (
+        Platform.OS === "android" &&
+        payload.notificationsEnabled &&
+        (payload.reminderDelivery === "alarm" || payload.reminderDelivery === "both")
+      ) {
+        if (Number(Platform.Version) >= 33) {
+          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        }
+        await promptForWorkoutAlarmPermission();
+      }
+
+      const reminderResult = await syncWorkoutReminderDelivery(
+        payload,
+        getScheduledWorkoutDays(plans, payload.workoutDays)
+      );
       const reminderFailure =
-        !reminderResult.supported || reminderResult.message.toLowerCase().startsWith("reminder sync failed");
+        !reminderResult.supported ||
+        /(?:reminder|alarm) sync failed|allow notifications|require(?:s)? an android|unavailable|not available/i.test(
+          reminderResult.message
+        );
       setSettingsNotice({
         type: reminderFailure ? "error" : "success",
         message: reminderResult.message ?? "Settings updated."
@@ -1207,9 +1703,99 @@ export default function App() {
     }
   };
 
+  const handleExportBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    setSettingsNotice(null);
+    try {
+      if (!FileSystem.cacheDirectory || !(await Sharing.isAvailableAsync())) {
+        throw new Error("Sharing is not available on this device.");
+      }
+      const backup = await createAnthraBackup();
+      const dateLabel = new Date().toISOString().slice(0, 10);
+      const uri = `${FileSystem.cacheDirectory}anthra-backup-${dateLabel}.json`;
+      await FileSystem.writeAsStringAsync(uri, JSON.stringify(backup, null, 2), {
+        encoding: FileSystem.EncodingType.UTF8
+      });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/json",
+        dialogTitle: "Save Anthra backup",
+        UTI: "public.json"
+      });
+      setSettingsNotice({ type: "success", message: "Backup created. Password Buddy secrets were not included." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not create backup.";
+      setSettingsNotice({ type: "error", message });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleImportBackup = async () => {
+    if (backupBusy) return;
+    setSettingsNotice(null);
+    try {
+      const selection = await DocumentPicker.getDocumentAsync({
+        type: "application/json",
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+      if (selection.canceled || !selection.assets[0]) return;
+      const raw = await FileSystem.readAsStringAsync(selection.assets[0].uri, {
+        encoding: FileSystem.EncodingType.UTF8
+      });
+      if (raw.length > 15_000_000) throw new Error("Backup is too large to restore safely.");
+      const parsed: unknown = JSON.parse(raw);
+
+      Alert.alert(
+        "Restore this backup?",
+        "Workouts, alarms, reminders, lists, profile, and settings on this device will be replaced. Password Buddy stays unchanged.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Restore",
+            style: "destructive",
+            onPress: () => {
+              const restore = async () => {
+                setBackupBusy(true);
+                try {
+                  await restoreAnthraBackup(parsed);
+                  await replaceNativeAlarms(await getAlarmItems()).catch(() => undefined);
+                  setRecoverableWorkout(null);
+                  const [nextData, nextSettings, nextReminders, nextCompletions, , restoredThemeMode] = await Promise.all([
+                    refreshData(),
+                    refreshSettings(),
+                    refreshReminderItems(),
+                    refreshReminderCompletions(),
+                    refreshProfile(),
+                    getAppThemeMode()
+                  ]);
+                  setThemeMode(restoredThemeMode);
+                  await syncAllNotifications(nextSettings, nextData.plans, nextReminders, nextCompletions, true);
+                  setSettingsNotice({ type: "success", message: "Backup restored successfully." });
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : "Could not restore backup.";
+                  setSettingsNotice({ type: "error", message });
+                } finally {
+                  setBackupBusy(false);
+                }
+              };
+              restore().catch(() => undefined);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not read backup.";
+      setSettingsNotice({ type: "error", message });
+    }
+  };
+
   const openReminderEditor = (item?: ReminderItem) => {
+    setReminderSaving(false);
+    setReminderEditorError("");
     if (!item) {
-      const todayLabel = getIstTodayLabel();
+      const todayLabel = getDeviceTodayLabel();
       setReminderForm({
         ...INITIAL_REMINDER_FORM,
         dateLabel: todayLabel
@@ -1219,7 +1805,7 @@ export default function App() {
       return;
     }
 
-    const dateLabel = item.dateLabel ?? getIstTodayLabel();
+    const dateLabel = item.dateLabel ?? getDeviceTodayLabel();
     setReminderForm({
       id: item.id,
       title: item.title,
@@ -1256,9 +1842,12 @@ export default function App() {
   };
 
   const handleSaveReminder = async () => {
+    if (reminderSaving) return;
+    setReminderSaving(true);
+    setReminderEditorError("");
     try {
       if (!reminderForm.title.trim()) {
-        setReminderNotice({ type: "error", message: "Reminder title is required." });
+        setReminderEditorError("Reminder title is required.");
         return;
       }
       const payload: ReminderInput = {
@@ -1277,14 +1866,16 @@ export default function App() {
         intervalEndHour: null,
         intervalEndMinute: null,
         enabled: reminderForm.enabled,
-        timezone: "Asia/Kolkata"
+        timezone: reminderForm.id
+          ? reminderItems.find((item) => item.id === reminderForm.id)?.timezone ?? getDeviceTimeZone()
+          : getDeviceTimeZone()
       };
 
       if (reminderForm.mode === "time" || reminderForm.mode === "once") {
         const hour = parseStrictWholeNumber(reminderForm.hour);
         const minute = parseStrictWholeNumber(reminderForm.minute);
         if (hour == null || hour < 0 || hour > 23 || minute == null || minute < 0 || minute > 59) {
-          setReminderNotice({ type: "error", message: "Time must be valid (hour 0-23, minute 0-59)." });
+          setReminderEditorError("Time must be valid (hour 0-23, minute 0-59).");
           return;
         }
 
@@ -1292,16 +1883,28 @@ export default function App() {
         payload.minute = minute;
         payload.dateLabel = reminderForm.mode === "once" ? reminderForm.dateLabel.trim() : null;
 
-        if (reminderForm.mode === "once" && !parseReminderDateParts(reminderForm.dateLabel)) {
-          setReminderNotice({ type: "error", message: "Use a valid date in YYYY-MM-DD format." });
-          return;
+        if (reminderForm.mode === "once") {
+          const validationError = validateOneTimeReminder({
+            dateLabel: reminderForm.dateLabel,
+            hour,
+            minute,
+            timeZone: payload.timezone
+          });
+          if (validationError) {
+            setReminderEditorError(validationError);
+            return;
+          }
         }
       } else if (reminderForm.mode === "multi") {
-        const timeSlots = reminderForm.timeSlots
-          .map((value) => parseReminderTimeSlotInput(value))
-          .filter((value): value is ReminderTimeSlot => value != null);
+        const enteredTimeSlots = reminderForm.timeSlots.filter((value) => value.trim().length > 0);
+        const parsedTimeSlots = enteredTimeSlots.map((value) => parseReminderTimeSlotInput(value));
+        if (parsedTimeSlots.some((value) => value == null)) {
+          setReminderEditorError("Every time must use a valid HH:MM value.");
+          return;
+        }
+        const timeSlots = parsedTimeSlots.filter((value): value is ReminderTimeSlot => value != null);
         if (timeSlots.length === 0) {
-          setReminderNotice({ type: "error", message: "Add at least one time in HH:MM format." });
+          setReminderEditorError("Add at least one time in HH:MM format.");
           return;
         }
         payload.timeSlots = timeSlots;
@@ -1315,7 +1918,7 @@ export default function App() {
         const endMinute = parseStrictWholeNumber(reminderForm.intervalEndMinute);
 
         if (intervalMinutes == null || intervalMinutes < 5 || intervalMinutes > 720) {
-          setReminderNotice({ type: "error", message: "Interval must be between 5 and 720 minutes." });
+          setReminderEditorError("Interval must be between 5 and 720 minutes.");
           return;
         }
         if (
@@ -1332,7 +1935,12 @@ export default function App() {
           endMinute < 0 ||
           endMinute > 59
         ) {
-          setReminderNotice({ type: "error", message: "Interval start and end times must be valid." });
+          setReminderEditorError("Interval start and end times must be valid.");
+          return;
+        }
+
+        if (endHour * 60 + endMinute <= startHour * 60 + startMinute) {
+          setReminderEditorError("Interval end time must be later than its start time.");
           return;
         }
 
@@ -1348,8 +1956,9 @@ export default function App() {
       await saveReminderItem(payload);
       const items = await refreshReminderItems();
       const sync = await syncReminderBuddyState(items, reminderCompletions);
-      const todayLabel = getIstTodayLabel();
+      const todayLabel = getDeviceTodayLabel();
       setReminderEditorOpen(false);
+      setReminderEditorError("");
       setReminderForm({
         ...INITIAL_REMINDER_FORM,
         dateLabel: todayLabel
@@ -1358,7 +1967,9 @@ export default function App() {
       setReminderNotice({ type: "success", message: sync.message });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save reminder.";
-      setReminderNotice({ type: "error", message });
+      setReminderEditorError(message);
+    } finally {
+      setReminderSaving(false);
     }
   };
 
@@ -1399,7 +2010,7 @@ export default function App() {
       await markReminderOccurrenceDone(item.reminderId, item.occurrenceTs);
       const completions = await refreshReminderCompletions();
       const sync = await syncReminderBuddyState(reminderItems, completions);
-      setReminderNotice({ type: "success", message: sync.message });
+      setReminderNotice({ type: "success", title: "Nice work!", message: sync.message });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not mark reminder as done.";
       setReminderNotice({ type: "error", message });
@@ -1422,42 +2033,155 @@ export default function App() {
     }, 10_000);
   };
 
-  const openPinModal = (mode: "unlock" | "reveal", entryId: number | null = null) => {
+  const copyVaultPassword = async (entryId: number) => {
+    const entry = vaultEntries.find((candidate) => candidate.id === entryId);
+    if (!entry) {
+      throw new Error("That password is no longer available.");
+    }
+
+    await clearCopiedVaultPassword();
+    await Clipboard.setStringAsync(entry.secret);
+    vaultClipboardValueRef.current = entry.secret;
+    vaultClipboardClearTimeoutRef.current = setTimeout(() => {
+      clearCopiedVaultPassword().catch(() => undefined);
+    }, 30_000);
+    setVaultNotice({ type: "success", message: "Password copied. Clipboard clears in 30 seconds." });
+  };
+
+  const requestVaultSensitiveAction = async (mode: "reveal" | "copy", entryId: number) => {
+    if (vaultBiometricActionInProgressRef.current) return;
+    if (!vaultBiometricsEnabled) {
+      openPinModal(mode, entryId);
+      return;
+    }
+
+    vaultBiometricActionInProgressRef.current = true;
+    try {
+      const [hasHardware, isEnrolled] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync()
+      ]);
+      if (!hasHardware || !isEnrolled) {
+        openPinModal(mode, entryId);
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: mode === "reveal" ? "Show password" : "Copy password",
+        cancelLabel: "Use PIN",
+        fallbackLabel: "Use PIN",
+        disableDeviceFallback: true
+      }).catch(() => null);
+
+      if (!result?.success) {
+        openPinModal(mode, entryId);
+        return;
+      }
+
+      vaultPinAttemptRef.current = registerVaultPinSuccess();
+      try {
+        if (mode === "reveal") {
+          setRevealedVaultIds((prev) => (prev.includes(entryId) ? prev : [...prev, entryId]));
+          scheduleRevealAutoHide(entryId);
+        } else {
+          await copyVaultPassword(entryId);
+        }
+      } catch (error) {
+        setVaultNotice({
+          type: "error",
+          message: error instanceof Error ? error.message : "Could not complete that password action."
+        });
+      }
+    } catch {
+      openPinModal(mode, entryId);
+    } finally {
+      vaultBiometricActionInProgressRef.current = false;
+    }
+  };
+
+  const openPinModal = (mode: "unlock" | "reveal" | "copy", entryId: number | null = null) => {
+    pinVerificationRequestRef.current += 1;
+    const attemptStatus = getVaultPinAttemptStatus(vaultPinAttemptRef.current, Date.now());
     setPinModalMode(mode);
     setPinModalTargetEntryId(entryId);
     setPinModalInput("");
-    setPinModalError("");
+    setPinModalError(
+      attemptStatus.canAttempt
+        ? ""
+        : `Too many incorrect attempts. Try again in ${attemptStatus.remainingWaitSeconds} seconds.`
+    );
+    setPinVerifying(false);
     setPinModalOpen(true);
   };
 
   const closePinModal = () => {
-    setPinModalOpen(false);
+    cancelPinVerification();
     setPinModalInput("");
     setPinModalError("");
+    setPinVerifying(false);
     setPinModalTargetEntryId(null);
   };
 
   const verifyPinModal = async () => {
+    if (pinVerifying) return;
+    const now = Date.now();
+    const attemptStatus = getVaultPinAttemptStatus(vaultPinAttemptRef.current, now);
+    if (!attemptStatus.canAttempt) {
+      setPinModalError(
+        `Too many incorrect attempts. Try again in ${attemptStatus.remainingWaitSeconds} seconds.`
+      );
+      return;
+    }
+
+    const requestId = ++pinVerificationRequestRef.current;
+    const requestedMode = pinModalMode;
+    const requestedEntryId = pinModalTargetEntryId;
+    const requestedPin = pinModalInput;
+    const requestIsCurrent = () => pinVerificationRequestRef.current === requestId;
+
+    setPinVerifying(true);
     try {
-      const valid = await verifyVaultPin(pinModalInput);
+      const valid = await verifyVaultPin(requestedPin);
+      if (!requestIsCurrent()) return;
       if (!valid) {
-        setPinModalError("Incorrect PIN.");
+        const nextAttemptState = registerVaultPinFailure(vaultPinAttemptRef.current, Date.now());
+        vaultPinAttemptRef.current = nextAttemptState;
+        const nextStatus = getVaultPinAttemptStatus(nextAttemptState, Date.now());
+        setPinModalError(
+          nextStatus.canAttempt
+            ? "Incorrect PIN."
+            : `Incorrect PIN. Try again in ${nextStatus.remainingWaitSeconds} seconds.`
+        );
         return;
       }
 
-      if (pinModalMode === "unlock") {
-        await refreshVaultEntries();
+      vaultPinAttemptRef.current = registerVaultPinSuccess();
+
+      if (requestedMode === "unlock") {
+        const entries = await getVaultEntries();
+        if (!requestIsCurrent()) return;
+        setVaultEntries(entries);
         setVaultUnlocked(true);
-      } else if (pinModalTargetEntryId != null) {
+      } else if (requestedMode === "reveal" && requestedEntryId != null) {
         setRevealedVaultIds((prev) =>
-          prev.includes(pinModalTargetEntryId) ? prev : [...prev, pinModalTargetEntryId]
+          prev.includes(requestedEntryId) ? prev : [...prev, requestedEntryId]
         );
-        scheduleRevealAutoHide(pinModalTargetEntryId);
+        scheduleRevealAutoHide(requestedEntryId);
+      } else if (requestedMode === "copy" && requestedEntryId != null) {
+        await copyVaultPassword(requestedEntryId);
+        if (!requestIsCurrent()) {
+          await clearCopiedVaultPassword();
+          setVaultNotice(null);
+          return;
+        }
       }
       closePinModal();
     } catch (error) {
+      if (!requestIsCurrent()) return;
       const message = error instanceof Error ? error.message : "Could not verify PIN.";
       setPinModalError(message);
+    } finally {
+      if (requestIsCurrent()) setPinVerifying(false);
     }
   };
 
@@ -1465,6 +2189,20 @@ export default function App() {
     const security = await refreshVaultSecurity();
     setActiveModule("password");
     if (security.hasPin) {
+      if (security.biometricsEnabled) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Unlock Password Buddy",
+          cancelLabel: "Use PIN",
+          fallbackLabel: "Use PIN",
+          disableDeviceFallback: true
+        }).catch(() => null);
+        if (result?.success) {
+          vaultPinAttemptRef.current = registerVaultPinSuccess();
+          await refreshVaultEntries();
+          setVaultUnlocked(true);
+          return;
+        }
+      }
       openPinModal("unlock");
     } else {
       setVaultUnlocked(false);
@@ -1484,6 +2222,7 @@ export default function App() {
         return;
       }
       await saveVaultPin(pin);
+      vaultPinAttemptRef.current = registerVaultPinSuccess();
       setVaultNewPin("");
       setVaultConfirmPin("");
       await refreshVaultSecurity();
@@ -1496,15 +2235,109 @@ export default function App() {
 
   const handleToggleVaultBiometrics = async () => {
     try {
-      await saveVaultBiometricsEnabled(!vaultBiometricsEnabled);
+      const enabling = !vaultBiometricsEnabled;
+      if (enabling) {
+        const [hasHardware, isEnrolled] = await Promise.all([
+          LocalAuthentication.hasHardwareAsync(),
+          LocalAuthentication.isEnrolledAsync()
+        ]);
+        if (!hasHardware || !isEnrolled) {
+          setVaultNotice({
+            type: "error",
+            message: "Set up fingerprint or face unlock in your device settings first."
+          });
+          return;
+        }
+
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Enable biometric unlock",
+          cancelLabel: "Cancel",
+          disableDeviceFallback: true
+        });
+        if (!result.success) {
+          setVaultNotice({ type: "error", message: "Biometric unlock was not enabled." });
+          return;
+        }
+      }
+
+      await saveVaultBiometricsEnabled(enabling);
       await refreshVaultSecurity();
+      setVaultNotice({
+        type: "success",
+        message: enabling ? "Biometric unlock enabled." : "Biometric unlock disabled."
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not update biometric setting.";
       setVaultNotice({ type: "error", message });
     }
   };
 
+  const openVaultResetPin = () => {
+    if (!vaultHasPin || !vaultUnlocked) return;
+    setVaultCurrentPin("");
+    setVaultReplacementPin("");
+    setVaultReplacementPinConfirm("");
+    setVaultResetPinError("");
+    setVaultResetPinOpen(true);
+  };
+
+  const closeVaultResetPin = () => {
+    if (vaultResetPinSaving) return;
+    setVaultResetPinOpen(false);
+    setVaultCurrentPin("");
+    setVaultReplacementPin("");
+    setVaultReplacementPinConfirm("");
+    setVaultResetPinError("");
+  };
+
+  const handleResetVaultPin = async () => {
+    if (vaultResetPinSaving || !vaultHasPin || !vaultUnlocked) return;
+
+    const currentPin = digitsOnly(vaultCurrentPin);
+    const nextPin = digitsOnly(vaultReplacementPin);
+    const confirmPin = digitsOnly(vaultReplacementPinConfirm);
+
+    if (currentPin.length < 4 || currentPin.length > 8) {
+      setVaultResetPinError("Enter your current 4 to 8 digit PIN.");
+      return;
+    }
+    if (nextPin.length < 4 || nextPin.length > 8) {
+      setVaultResetPinError("New PIN must be 4 to 8 digits.");
+      return;
+    }
+    if (nextPin !== confirmPin) {
+      setVaultResetPinError("New PINs do not match.");
+      return;
+    }
+    if (nextPin === currentPin) {
+      setVaultResetPinError("Choose a new PIN that is different from your current PIN.");
+      return;
+    }
+
+    setVaultResetPinSaving(true);
+    setVaultResetPinError("");
+    try {
+      await saveVaultPin(nextPin, currentPin);
+      vaultPinAttemptRef.current = registerVaultPinSuccess();
+      setVaultResetPinOpen(false);
+      setVaultCurrentPin("");
+      setVaultReplacementPin("");
+      setVaultReplacementPinConfirm("");
+      setVaultEntries([]);
+      setRevealedVaultIds([]);
+      setVaultUnlocked(false);
+      setVaultNotice({ type: "success", message: "Vault PIN reset. Unlock again with your new PIN." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not reset vault PIN.";
+      setVaultResetPinError(message);
+    } finally {
+      setVaultResetPinSaving(false);
+    }
+  };
+
   const openVaultEditor = (entry?: VaultEntry) => {
+    setVaultEditorError("");
+    setVaultSaving(false);
     if (!entry) {
       setVaultForm(INITIAL_VAULT_FORM);
       setVaultEditorOpen(true);
@@ -1520,6 +2353,9 @@ export default function App() {
   };
 
   const handleSaveVault = async () => {
+    if (vaultSaving) return;
+    setVaultSaving(true);
+    setVaultEditorError("");
     try {
       await saveVaultEntry(vaultForm);
       await refreshVaultEntries();
@@ -1528,7 +2364,9 @@ export default function App() {
       setVaultNotice({ type: "success", message: "Password saved." });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save password.";
-      setVaultNotice({ type: "error", message });
+      setVaultEditorError(message);
+    } finally {
+      setVaultSaving(false);
     }
   };
 
@@ -1558,7 +2396,7 @@ export default function App() {
       setRevealedVaultIds((prev) => prev.filter((id) => id !== entryId));
       return;
     }
-    openPinModal("reveal", entryId);
+    requestVaultSensitiveAction("reveal", entryId).catch(() => undefined);
   };
 
   const reminderPreview = useMemo(() => {
@@ -1579,7 +2417,7 @@ export default function App() {
 
     const leadMinutes = normalizeReminderLeadMinutes(parsedLeadMinutes);
     const previewLeads = leadMinutes.length > 0 ? leadMinutes : [60];
-    return `${formatTimeLabel(hour, minute)} IST workout time, remind ${previewLeads.join(", ")} min before`;
+    return `${formatTimeLabel(hour, minute)} workout time in ${settings.timezone}, remind ${previewLeads.join(", ")} min before`;
   }, [
     reminderHourText,
     reminderMinuteText,
@@ -1587,23 +2425,109 @@ export default function App() {
     reminderLeadTexts,
     settings.reminderHour,
     settings.reminderMinute,
-    settings.reminderLeadMinutes
+    settings.reminderLeadMinutes,
+    settings.timezone
   ]);
 
   const closeTimer = async (summary: WorkoutRunSummary) => {
     const finishedSessionId = activeSessionId;
     const finishedPlanName = activePlan?.name ?? "Workout";
+    setWorkoutCompletionTransition(true);
     try {
       await finalizeCurrentSession(summary);
     } finally {
-      setActivePlan(null);
-      setActiveSessionId(null);
-      await refreshData();
-      if (summary.completed && finishedSessionId) {
-        openSessionFeedback(finishedSessionId, finishedPlanName);
+      try {
+        await clearWorkoutRecovery();
+        setActivePlan(null);
+        setActiveSessionId(null);
+        setActiveTimerInitialState(null);
+        await refreshData();
+        if (summary.completed && finishedSessionId) {
+          openSessionFeedback(finishedSessionId, finishedPlanName);
+        }
+      } finally {
+        setWorkoutCompletionTransition(false);
       }
     }
   };
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (keyboardHeight > 0) {
+        Keyboard.dismiss();
+        return true;
+      }
+      if (activePlan) {
+        // TimerScreen owns workout exit confirmation and handles this event next.
+        return false;
+      }
+      if (feedbackNoteModalOpen) {
+        setFeedbackNoteModalOpen(false);
+        return true;
+      }
+      if (feedbackOpen) {
+        if (!feedbackSaving) setFeedbackOpen(false);
+        return true;
+      }
+      if (reminderEditorOpen) {
+        if (!reminderSaving) setReminderEditorOpen(false);
+        return true;
+      }
+      if (vaultResetPinOpen) {
+        closeVaultResetPin();
+        return true;
+      }
+      if (vaultEditorOpen) {
+        setVaultEditorOpen(false);
+        return true;
+      }
+      if (pinModalOpen) {
+        if (!pinVerifying) closePinModal();
+        return true;
+      }
+      if (editorOpen) {
+        setEditorOpen(false);
+        setEditingPlan(null);
+        return true;
+      }
+      if (activeModule === "workout" && activeTab !== "home") {
+        setActiveTab("home");
+        return true;
+      }
+      if (activeModule !== "hub") {
+        setActiveModule("hub");
+        return true;
+      }
+
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        return false;
+      }
+      lastBackPressRef.current = now;
+      ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [
+    activeModule,
+    activePlan,
+    activeTab,
+    editorOpen,
+    feedbackNoteModalOpen,
+    feedbackOpen,
+    feedbackSaving,
+    keyboardHeight,
+    pinModalOpen,
+    pinVerifying,
+    reminderEditorOpen,
+    reminderSaving,
+    vaultEditorOpen,
+    vaultResetPinOpen,
+    vaultResetPinSaving
+  ]);
 
   const tabTitle =
     activeTab === "home"
@@ -1616,44 +2540,54 @@ export default function App() {
             ? "Profile"
             : "Settings";
 
-  const currentWeekday = new Date().getDay();
-  const isWorkoutDayToday = matchesDay(settings.workoutDays, currentWeekday);
-  const workoutDaysLabel = useMemo(() => formatDays(settings.workoutDays), [settings.workoutDays]);
+  const currentWeekday = getDayPartsInTimeZone(
+    Date.now(),
+    0,
+    settings.timezone || deviceTimeZone
+  ).weekday;
+  const scheduledWorkoutDays = useMemo(
+    () => getScheduledWorkoutDays(plans, settings.workoutDays),
+    [plans, settings.workoutDays]
+  );
+  const isWorkoutDayToday = matchesDay(scheduledWorkoutDays, currentWeekday);
+  const workoutDaysLabel = useMemo(
+    () => formatDays(scheduledWorkoutDays),
+    [scheduledWorkoutDays]
+  );
   const qualifyingSessionCount = useMemo(
     () => history.filter((entry) => entry.progressPercent >= 40).length,
     [history]
   );
   const todaysPlans = useMemo(
-    () => plans.filter((plan) => matchesDay(plan.workoutDays, currentWeekday)),
+    () => getPlansForWeekday(plans, currentWeekday),
     [currentWeekday, plans]
   );
   const quickStartPlan = isWorkoutDayToday ? (todaysPlans[0] ?? null) : null;
+  const displayedPlans = planListMode === "today" ? todaysPlans : plans;
   const keyboardSafeBottomPadding = keyboardHeight > 0 ? keyboardHeight + 16 : 24;
-  const isDarkMode = colorScheme === "dark";
-  const statusBarStyle = isDarkMode ? "light" : "dark";
-  const appBackground = isDarkMode ? "#05070A" : "#F6FBFF";
-  const panelBackground = isDarkMode ? "#14181D" : "#FFFFFF";
-  const cardBackground = isDarkMode ? "#11161B" : "#FCFEFF";
-  const inputBackground = isDarkMode ? "#0B1014" : "#F5FAFD";
-  const borderColor = isDarkMode ? "rgba(255,255,255,0.12)" : "rgba(8,54,74,0.12)";
-  const textPrimary = isDarkMode ? "#F4FAFF" : "#0B364A";
-  const textMuted = isDarkMode ? "rgba(244,250,255,0.72)" : "#3D6F81";
-
-  const moduleThemes = useMemo(
-    () => ({
-      workout: resolveModuleTheme("workout", appThemeSelections, isDarkMode),
-      reminder: resolveModuleTheme("reminder", appThemeSelections, isDarkMode),
-      password: resolveModuleTheme("password", appThemeSelections, isDarkMode),
-      list: resolveModuleTheme("list", appThemeSelections, isDarkMode)
-    }),
-    [isDarkMode]
+  const semanticTheme = resolveTheme(themeMode, systemColorScheme);
+  const isDarkMode = semanticTheme.isDark;
+  const statusBarStyle = semanticTheme.statusBarStyle;
+  const appBackground = semanticTheme.colors.canvas;
+  const panelBackground = semanticTheme.colors.surface;
+  const cardBackground = semanticTheme.colors.surfaceElevated;
+  const inputBackground = semanticTheme.colors.surfaceSubtle;
+  const borderColor = semanticTheme.colors.border;
+  const textPrimary = semanticTheme.colors.textPrimary;
+  const textMuted = semanticTheme.colors.textSecondary;
+  const shouldStackWorkoutActions = windowWidth < 420 || fontScale >= 1.2;
+  const shouldStackWorkoutHeaders = windowWidth < 390 || fontScale >= 1.25;
+  const shouldStackWorkoutStats = windowWidth < 340 || fontScale >= 1.5;
+  const reminderCalendarDaySize = Math.max(
+    32,
+    Math.min(40, Math.floor((Math.min(windowWidth, 640) - 104) / 7))
   );
-  const workoutTheme = moduleThemes.workout;
-  const reminderTheme = moduleThemes.reminder;
-  const passwordTheme = moduleThemes.password;
-  const listTheme = moduleThemes.list;
-  const workoutCardStyle = { borderColor: workoutTheme.accentBorder, backgroundColor: panelBackground };
-  const workoutInputSurfaceStyle = { borderColor: workoutTheme.accentBorder, backgroundColor: inputBackground };
+
+  const moduleTheme = useMemo(() => resolveModuleTheme(isDarkMode), [isDarkMode]);
+  const workoutTheme = moduleTheme;
+  const reminderTheme = moduleTheme;
+  const workoutCardStyle = { borderColor, backgroundColor: cardBackground };
+  const workoutInputSurfaceStyle = { borderColor: semanticTheme.colors.borderStrong, backgroundColor: inputBackground };
 
   const heightCm = parsePositiveNumber(profileHeightCm);
   const weightKg = parsePositiveNumber(profileWeightKg);
@@ -1666,46 +2600,46 @@ export default function App() {
       return {
         label: "Add your metrics",
         note: "Enter height and weight to calculate BMI.",
-        textClass: "text-[#08364A] dark:text-white",
-        badgeClass: "bg-white/10",
-        badgeTextClass: "text-[#1E5B71] dark:text-white/80"
+        textColor: semanticTheme.colors.textPrimary,
+        badgeBackground: semanticTheme.colors.surfaceSubtle,
+        badgeTextColor: semanticTheme.colors.textSecondary
       };
     }
     if (roundedBmi < 18.5) {
       return {
         label: "Underweight",
         note: "BMI below 18.5",
-        textClass: "text-neon-amber",
-        badgeClass: "bg-neon-amber/20",
-        badgeTextClass: "text-neon-amber"
+        textColor: semanticTheme.colors.warning,
+        badgeBackground: semanticTheme.colors.warningSoft,
+        badgeTextColor: semanticTheme.colors.warning
       };
     }
     if (roundedBmi < 25) {
       return {
         label: "Healthy Range",
         note: "BMI between 18.5 and 24.9",
-        textClass: "text-neon-green",
-        badgeClass: "bg-neon-green/20",
-        badgeTextClass: "text-neon-green"
+        textColor: semanticTheme.colors.success,
+        badgeBackground: semanticTheme.colors.successSoft,
+        badgeTextColor: semanticTheme.colors.success
       };
     }
     if (roundedBmi < 30) {
       return {
         label: "Overweight",
         note: "BMI between 25 and 29.9",
-        textClass: "text-neon-red",
-        badgeClass: "bg-neon-red/20",
-        badgeTextClass: "text-neon-red"
+        textColor: semanticTheme.colors.warning,
+        badgeBackground: semanticTheme.colors.warningSoft,
+        badgeTextColor: semanticTheme.colors.warning
       };
     }
     return {
       label: "Obesity",
       note: "BMI 30 and above",
-      textClass: "text-neon-red",
-      badgeClass: "bg-neon-red/20",
-      badgeTextClass: "text-neon-red"
+      textColor: semanticTheme.colors.danger,
+      badgeBackground: semanticTheme.colors.dangerSoft,
+      badgeTextColor: semanticTheme.colors.danger
     };
-  }, [roundedBmi]);
+  }, [roundedBmi, semanticTheme.colors]);
 
   const reminderHistoryItems = useMemo(() => {
     const nowMs = Date.now();
@@ -1732,6 +2666,7 @@ export default function App() {
           title: reminder.title,
           note: reminder.note,
           mode: reminder.mode,
+          timezone: reminder.timezone || getDeviceTimeZone(),
           done: completionKeys.has(`${reminder.id}:${occurrenceTs}`)
         });
       }
@@ -1762,173 +2697,245 @@ export default function App() {
     [reminderCalendarMonth]
   );
 
+  const todayWorkoutPlans = todaysPlans;
+
+  const enabledReminderCount = useMemo(
+    () => reminderItems.filter((item) => item.enabled).length,
+    [reminderItems]
+  );
+
   let content;
 
   if (!ready) {
     content = (
-      <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} />
-      </View>
-    );
-  } else if (activeModule === "hub") {
-    content = (
-      <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} />
-        <View className="flex-1 px-5 pb-5 pt-5">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-4xl font-black tracking-[3px]" style={{ color: textPrimary }}>ANTHRA</Text>
+      <SafeAreaView
+        className="flex-1 items-center justify-center px-6"
+        edges={["top", "bottom"]}
+        style={{ flex: 1, backgroundColor: appBackground }}
+      >
+        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
+        {bootstrapError ? (
+          <View
+            accessibilityRole="alert"
+            className="w-full max-w-[440px] rounded-3xl border p-6"
+            style={{ borderColor, backgroundColor: panelBackground }}
+          >
+            <Text className="text-sm font-black uppercase tracking-[2px]" style={{ color: workoutTheme.accent }}>
+              Anthra
+            </Text>
+            <Text className="mt-3 text-2xl font-black" style={{ color: textPrimary }}>
+              We couldn’t finish starting the app
+            </Text>
+            <Text className="mt-2 text-base leading-6" style={{ color: textMuted }}>
+              Your data has not been changed. Retry the startup checks, or restart the app if the problem continues.
+            </Text>
+            <Text selectable className="mt-3 text-sm" style={{ color: textMuted }}>
+              {bootstrapError}
+            </Text>
             <Pressable
-              onPress={() => setColorScheme(isDarkMode ? "light" : "dark")}
-              className="rounded-full border px-4 py-2"
-              style={{ borderColor, backgroundColor: cardBackground }}
+              onPress={() => setBootstrapAttempt((attempt) => attempt + 1)}
+              accessibilityRole="button"
+              accessibilityLabel="Retry starting Anthra"
+              className="mt-5 min-h-[50px] items-center justify-center rounded-xl px-5"
+              style={{ backgroundColor: semanticTheme.colors.brandSolid }}
             >
-              <Text className="text-xs font-black uppercase tracking-[1px]" style={{ color: textMuted }}>
-                {isDarkMode ? "Dark" : "Light"}
-              </Text>
+              <Text className="text-base font-black" style={{ color: semanticTheme.colors.textOnBrandSolid }}>Retry</Text>
             </Pressable>
           </View>
-          <View className="mt-5 flex-1 gap-3">
-            <View className="flex-1 flex-row gap-3">
-              <Pressable
-                onPress={() => setActiveModule("workout")}
-                className="flex-1 items-center justify-center rounded-3xl border p-5"
-                style={{ borderColor: workoutTheme.accentBorder, backgroundColor: workoutTheme.accentSoft }}
-              >
-                <Dumbbell color={workoutTheme.icon} size={54} />
-                <Text className="mt-3 text-center text-3xl font-black" style={{ color: textPrimary }}>Workout Buddy</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setActiveModule("reminder")}
-                className="flex-1 items-center justify-center rounded-3xl border p-5"
-                style={{ borderColor: reminderTheme.accentBorder, backgroundColor: reminderTheme.accentSoft }}
-              >
-                <BellRing color={reminderTheme.icon} size={54} />
-                <Text className="mt-3 text-center text-3xl font-black" style={{ color: textPrimary }}>Reminder Buddy</Text>
-              </Pressable>
-            </View>
-            <View className="flex-1 flex-row gap-3">
-              <Pressable
-                onPress={() => {
-                  enterPasswordManager().catch(() => undefined);
-                }}
-                className="flex-1 items-center justify-center rounded-3xl border p-5"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: passwordTheme.accentSoft }}
-              >
-                <KeyRound color={passwordTheme.icon} size={54} />
-                <Text className="mt-3 text-center text-3xl font-black" style={{ color: textPrimary }}>Password Buddy</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setActiveModule("list")}
-                className="flex-1 items-center justify-center rounded-3xl border p-5"
-                style={{ borderColor: listTheme.accentBorder, backgroundColor: listTheme.accentSoft }}
-              >
-                <ListTodo color={listTheme.icon} size={54} />
-                <Text className="mt-3 text-center text-3xl font-black" style={{ color: textPrimary }}>List Buddy</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+        ) : (
+          <ActivityIndicator size="large" color={workoutTheme.accent} accessibilityLabel="Starting Anthra" />
+        )}
       </SafeAreaView>
     );
-  } else if (activeModule === "reminder") {
+  } else if (!activePlan && activeModule === "hub") {
+    content = (
+      <AnthraHomeScreen
+        stats={stats}
+        todayWorkoutCount={todayWorkoutPlans.length}
+        enabledReminderCount={enabledReminderCount}
+        recoverableWorkout={recoverableWorkout}
+        onOpenWorkout={() => {
+          setActiveModule("workout");
+          setPlanListMode("all");
+          setActiveTab("home");
+        }}
+        onChooseTodayWorkout={() => {
+          setActiveModule("workout");
+          setPlanListMode("today");
+          setActiveTab("plans");
+        }}
+        onOpenActivity={() => setActiveModule("activity")}
+        onOpenReminders={() => setActiveModule("reminder")}
+        onOpenTracker={() => setActiveModule("tracker")}
+        onOpenLists={() => setActiveModule("list")}
+        onOpenAlarms={() => setActiveModule("alarm")}
+        onOpenVault={() => {
+          enterPasswordManager().catch(() => undefined);
+        }}
+        onOpenProfile={() => {
+          setActiveModule("workout");
+          setActiveTab("profile");
+        }}
+        onOpenSettings={() => {
+          setActiveModule("workout");
+          setActiveTab("settings");
+        }}
+        onResumeWorkout={resumeInterruptedWorkout}
+        onEndWorkout={endInterruptedWorkout}
+      />
+    );
+  } else if (!activePlan && activeModule === "activity") {
+    content = (
+      <ActivityBuddyScreen
+        onBack={() => setActiveModule("hub")}
+      />
+    );
+  } else if (!activePlan && activeModule === "tracker") {
+    content = (
+      <TrackerBuddyScreen
+        onBack={() => setActiveModule("hub")}
+      />
+    );
+  } else if (!activePlan && activeModule === "alarm") {
+    content = (
+      <AlarmBuddyScreen
+        onBack={() => setActiveModule("hub")}
+      />
+    );
+  } else if (!activePlan && activeModule === "reminder") {
     content = (
       <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} />
-        <View className="border-b px-5 pb-3 pt-4" style={{ borderColor: reminderTheme.accentBorder }}>
-          <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={() => setActiveModule("hub")}
-              className="rounded-xl border px-3 py-2"
-              style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}
-            >
-              <Text className="text-sm font-semibold uppercase" style={{ color: textMuted }}>Back</Text>
-            </Pressable>
-            <Text className="text-2xl font-black" style={{ color: textPrimary }}>Reminder Buddy</Text>
-            <Pressable
-              onPress={() => openReminderEditor()}
-              className="rounded-xl px-3 py-2"
-              style={{ backgroundColor: reminderTheme.accent }}
-            >
-              <Text className="text-sm font-black uppercase" style={{ color: reminderTheme.onAccent }}>New</Text>
-            </Pressable>
-          </View>
+        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
+        <View
+          className="border-b px-5"
+          onLayout={(event) => setReminderHeaderBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
+          style={{ borderColor }}
+        >
+          <ScreenHeader
+            eyebrow="ORGANIZE"
+            title="Reminders"
+            subtitle={`${enabledReminderCount} active · ${deviceTimeZone}`}
+            onBack={() => setActiveModule("hub")}
+            backLabel="Back to Today"
+            action={<Button label="New" size="small" onPress={() => openReminderEditor()} />}
+            style={{ width: "100%", maxWidth: semanticTheme.layout.contentMaxWidth, alignSelf: "center" }}
+          />
         </View>
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ padding: 20, paddingTop: 20, paddingBottom: keyboardSafeBottomPadding }}
+          contentContainerStyle={{
+            width: "100%",
+            maxWidth: semanticTheme.layout.contentMaxWidth,
+            alignSelf: "center",
+            padding: 20,
+            paddingTop: 20,
+            paddingBottom: keyboardSafeBottomPadding
+          }}
           keyboardShouldPersistTaps="handled"
         >
           <View className="rounded-2xl border p-4" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: reminderTheme.accentSoft }}>
             <Text className="text-base font-semibold" style={{ color: textMuted }}>
-              Build one-time events, repeating daily reminders, multiple daily times, or interval nudges. All reminders run on IST (Asia/Kolkata).
+              Build one-time events, repeating reminders, multiple daily times, or interval nudges in your device timezone.
             </Text>
           </View>
-          <View className="mt-4 flex-row gap-2">
-            {([
-              { value: "reminders", label: "Reminders" },
-              { value: "history", label: "History" }
-            ] as { value: ReminderTrackerView; label: string }[]).map((option) => {
-              const selected = reminderTrackerView === option.value;
-              return (
-                <Pressable
-                  key={`reminder-view-${option.value}`}
-                  onPress={() => setReminderTrackerView(option.value)}
-                  className="flex-1 rounded-2xl border px-4 py-3"
-                  style={{
-                    borderColor: selected ? reminderTheme.accent : reminderTheme.accentBorder,
-                    backgroundColor: selected ? withAlpha(reminderTheme.accent, 0.18) : panelBackground
-                  }}
-                >
-                  <Text className="text-center text-sm font-black uppercase" style={{ color: selected ? reminderTheme.accent : textMuted }}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
 
+          <View className="mt-4 rounded-2xl border p-4" style={{ borderColor, backgroundColor: cardBackground }}>
+            <View className="flex-row items-start" style={{ gap: semanticTheme.spacing.md }}>
+              <View className="min-w-0 flex-1">
+                <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: reminderTheme.accent }}>
+                  Notifications
+                </Text>
+                <Text className="mt-1 text-base font-bold" style={{ color: textPrimary }}>
+                  {notificationHealthLoading
+                    ? "Checking device status…"
+                    : notificationHealth?.permission === "granted"
+                      ? `${notificationHealth.reminderCount} scheduled`
+                      : `Permission: ${notificationHealth?.permission ?? "unknown"}`}
+                </Text>
+              </View>
+              {notificationHealthLoading && <ActivityIndicator size="small" color={reminderTheme.accent} />}
+            </View>
+            <Text className="mt-3 text-sm font-semibold" style={{ color: textMuted }}>
+              {notificationHealth?.nextReminderTriggerAt
+                ? `Next: ${formatTimestampInTimeZone(notificationHealth.nextReminderTriggerAt, deviceTimeZone)}`
+                : notificationHealth?.supported === false
+                  ? "Use a development build to test native notifications."
+                  : "No upcoming reminder notification detected."}
+            </Text>
+            <View
+              className="mt-4"
+              style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.sm }}
+            >
+              <Button
+                label="Send test"
+                onPress={() => handleSendTestNotification().catch(() => undefined)}
+                variant="secondary"
+                size="small"
+                style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+              <Button
+                label="System settings"
+                onPress={() => Linking.openSettings().catch(() => undefined)}
+                variant="outline"
+                size="small"
+                style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+            </View>
+            {notificationTestNotice && (
+              <Text className="mt-3 text-sm font-semibold" style={{ color: reminderTheme.accent }}>
+                {notificationTestNotice}
+              </Text>
+            )}
+          </View>
           {reminderTrackerView === "reminders" && (
             <>
               {reminderItems.length === 0 && (
-                <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}>
+                <View className="mt-4 rounded-2xl border border-dashed p-5" style={{ borderColor, backgroundColor: cardBackground }}>
                   <Text className="text-base" style={{ color: textMuted }}>No reminders yet.</Text>
                 </View>
               )}
               {reminderItems.map((item) => (
-                <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}>
+                <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor, backgroundColor: cardBackground }}>
                   <View className="flex-row items-start justify-between">
                     <View className="flex-1 pr-3">
-                      <Text className="text-xl font-bold text-[#08364A] dark:text-white">{item.title}</Text>
+                      <Text className="text-xl font-bold" style={{ color: textPrimary }}>{item.title}</Text>
                       <Text className="mt-1 text-xs font-black uppercase tracking-[1.2px]" style={{ color: reminderTheme.accent }}>
                         {formatReminderModeLabel(item.mode)}
                       </Text>
-                      <Text className="mt-1 text-sm font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
+                      <Text className="mt-1 text-sm font-semibold uppercase tracking-[1.2px]" style={{ color: textMuted }}>
                         {formatReminderSchedule(item)}
                       </Text>
-                      {item.note.trim().length > 0 && <Text className="mt-2 text-base text-[#2A6A80] dark:text-white/75">{item.note}</Text>}
+                      {item.note.trim().length > 0 && <Text className="mt-2 text-base" style={{ color: textMuted }}>{item.note}</Text>}
                     </View>
-                    <Pressable
-                      onPress={() => handleToggleReminder(item).catch(() => undefined)}
-                      className="rounded-full px-3 py-2"
-                      style={{ backgroundColor: item.enabled ? withAlpha(reminderTheme.accent, 0.22) : withAlpha(textPrimary, 0.1) }}
-                    >
-                      <Text className="text-xs font-black uppercase" style={{ color: item.enabled ? reminderTheme.accent : textMuted }}>
-                        {item.enabled ? "On" : "Off"}
-                      </Text>
-                    </Pressable>
+                    <View className="items-end" style={{ gap: semanticTheme.spacing.xs }}>
+                      <Pressable
+                        onPress={() => handleToggleReminder(item).catch(() => undefined)}
+                        accessibilityRole="switch"
+                        accessibilityLabel={`${item.title} reminder`}
+                        accessibilityState={{ checked: item.enabled }}
+                        className="min-h-[44px] items-center justify-center rounded-full px-3 py-2"
+                        style={{ backgroundColor: item.enabled ? withAlpha(reminderTheme.accent, 0.22) : withAlpha(textPrimary, 0.1) }}
+                      >
+                        <Text className="text-xs font-black uppercase" style={{ color: item.enabled ? reminderTheme.accent : textMuted }}>
+                          {item.enabled ? "On" : "Off"}
+                        </Text>
+                      </Pressable>
+                      <IconButton
+                        icon={Trash2}
+                        onPress={() => handleDeleteReminder(item)}
+                        accessibilityLabel={`Delete ${item.title}`}
+                        variant="danger"
+                        size="small"
+                      />
+                    </View>
                   </View>
-                  <View className="mt-3 flex-row gap-2">
-                    <Pressable
-                      onPress={() => openReminderEditor(item)}
-                      className="flex-1 items-center rounded-xl py-2.5"
-                      style={{ backgroundColor: reminderTheme.accent }}
-                    >
-                      <Text className="text-sm font-black uppercase" style={{ color: reminderTheme.onAccent }}>Edit</Text>
-                    </Pressable>
-                    <Pressable onPress={() => handleDeleteReminder(item)} className="flex-1 items-center rounded-xl bg-neon-red/80 py-2.5">
-                      <Text className="text-sm font-black uppercase text-[#08364A] dark:text-white">Delete</Text>
-                    </Pressable>
-                  </View>
+                  <Button
+                    label="Edit reminder"
+                    onPress={() => openReminderEditor(item)}
+                    variant="outline"
+                    fullWidth
+                    style={{ marginTop: semanticTheme.spacing.md }}
+                  />
                 </View>
               ))}
             </>
@@ -1938,284 +2945,238 @@ export default function App() {
             <>
               {pendingReminderHistory.length === 0 &&
                 doneReminderHistory.length === 0 && (
-                  <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}>
-                    <Text className="text-base" style={{ color: textMuted }}>No reminder activity yet.</Text>
-                  </View>
+                  <Card variant="subtle" padding="large" style={{ alignItems: "center", marginTop: semanticTheme.spacing["2xl"] }}>
+                    <View style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.brandSoft }}>
+                      <HistoryIcon accessible={false} color={semanticTheme.colors.brand} size={24} />
+                    </View>
+                    <Text style={[semanticTheme.typography.titleSmall, { color: textPrimary, textAlign: "center", marginTop: semanticTheme.spacing.lg }]}>No reminder activity yet</Text>
+                    <Text style={[semanticTheme.typography.body, { color: textMuted, textAlign: "center", marginTop: semanticTheme.spacing.xs }]}>Completed and pending reminder occurrences will appear here.</Text>
+                  </Card>
                 )}
 
               {pendingReminderHistory.length > 0 && (
-                <View className="mt-4">
-                  <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: "#D97706" }}>Pending</Text>
-                  {pendingReminderHistory.map((item) => (
-                    <View
-                      key={`pending-${item.reminderId}-${item.occurrenceTs}`}
-                      className="mt-3 rounded-2xl border p-4"
-                      style={{ borderColor: "#F5A524", backgroundColor: panelBackground }}
-                    >
-                      <Text className="text-lg font-bold text-[#08364A] dark:text-white">{item.title}</Text>
-                      <Text className="mt-1 text-sm font-semibold uppercase tracking-[1.2px] text-[#B86A00]">
-                        {formatReminderOccurrenceLabel(item.occurrenceTs)}
-                      </Text>
-                      {item.note.trim().length > 0 && <Text className="mt-2 text-base text-[#2A6A80] dark:text-white/75">{item.note}</Text>}
-                      <Pressable
-                        onPress={() => handleMarkReminderDone(item).catch(() => undefined)}
-                        className="mt-3 items-center rounded-xl py-2.5"
-                        style={{ backgroundColor: "#16A34A" }}
-                      >
-                        <Text className="text-sm font-black uppercase text-white">Done</Text>
-                      </Pressable>
+                <View style={{ marginTop: semanticTheme.spacing["2xl"] }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: semanticTheme.spacing.md }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: semanticTheme.spacing.sm }}>
+                      <View style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.warningSoft }}>
+                        <Clock3 accessible={false} color={semanticTheme.colors.warning} size={18} />
+                      </View>
+                      <Text style={[semanticTheme.typography.titleSmall, { color: textPrimary }]}>Pending</Text>
                     </View>
-                  ))}
+                    <View style={{ minWidth: 28, height: 28, alignItems: "center", justifyContent: "center", paddingHorizontal: semanticTheme.spacing.sm, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.warningSoft }}>
+                      <Text style={[semanticTheme.typography.label, { color: semanticTheme.colors.warning }]}>{pendingReminderHistory.length}</Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: semanticTheme.spacing.md, marginTop: semanticTheme.spacing.md }}>
+                    {pendingReminderHistory.map((item) => (
+                      <Card key={`pending-${item.reminderId}-${item.occurrenceTs}`} padding="large">
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: semanticTheme.spacing.md }}>
+                          <View style={{ width: 40, height: 40, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.warningSoft }}>
+                            <Clock3 accessible={false} color={semanticTheme.colors.warning} size={20} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text numberOfLines={2} style={[semanticTheme.typography.titleSmall, { color: textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.warning, marginTop: semanticTheme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
+                          </View>
+                          <View style={{ paddingHorizontal: semanticTheme.spacing.sm, paddingVertical: semanticTheme.spacing.xs, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.warningSoft }}>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.warning }]}>PENDING</Text>
+                          </View>
+                        </View>
+                        {item.note.trim().length > 0 && (
+                          <View style={{ marginTop: semanticTheme.spacing.md, padding: semanticTheme.spacing.md, borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.surfaceSubtle }}>
+                            <Text style={[semanticTheme.typography.body, { color: textMuted }]}>{item.note}</Text>
+                          </View>
+                        )}
+                        <Button
+                          label="Mark as done"
+                          icon={CheckCircle2}
+                          onPress={() => handleMarkReminderDone(item).catch(() => undefined)}
+                          accessibilityLabel={`Mark ${item.title} done`}
+                          fullWidth
+                          style={{ marginTop: semanticTheme.spacing.lg }}
+                        />
+                      </Card>
+                    ))}
+                  </View>
                 </View>
               )}
 
               {doneReminderHistory.length > 0 && (
-                <View className="mt-4">
-                  <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: "#16A34A" }}>Done</Text>
-                  {doneReminderHistory.map((item) => (
-                    <View
-                      key={`done-${item.reminderId}-${item.occurrenceTs}`}
-                      className="mt-3 rounded-2xl border p-4"
-                      style={{ borderColor: "#16A34A", backgroundColor: withAlpha("#16A34A", 0.1) }}
-                    >
-                      <Text className="text-lg font-bold text-[#08364A] dark:text-white">{item.title}</Text>
-                      <Text className="mt-1 text-sm font-semibold uppercase tracking-[1.2px] text-[#15803D]">
-                        {formatReminderOccurrenceLabel(item.occurrenceTs)}
-                      </Text>
-                      {item.note.trim().length > 0 && <Text className="mt-2 text-base text-[#2A6A80] dark:text-white/75">{item.note}</Text>}
+                <View style={{ marginTop: semanticTheme.spacing["2xl"] }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: semanticTheme.spacing.md }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: semanticTheme.spacing.sm }}>
+                      <View style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.successSoft }}>
+                        <CheckCircle2 accessible={false} color={semanticTheme.colors.success} size={18} />
+                      </View>
+                      <Text style={[semanticTheme.typography.titleSmall, { color: textPrimary }]}>Completed</Text>
                     </View>
-                  ))}
+                    <View style={{ minWidth: 28, height: 28, alignItems: "center", justifyContent: "center", paddingHorizontal: semanticTheme.spacing.sm, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.successSoft }}>
+                      <Text style={[semanticTheme.typography.label, { color: semanticTheme.colors.success }]}>{doneReminderHistory.length}</Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: semanticTheme.spacing.md, marginTop: semanticTheme.spacing.md }}>
+                    {doneReminderHistory.map((item) => (
+                      <Card key={`done-${item.reminderId}-${item.occurrenceTs}`} padding="large">
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: semanticTheme.spacing.md }}>
+                          <View style={{ width: 40, height: 40, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.successSoft }}>
+                            <CheckCircle2 accessible={false} color={semanticTheme.colors.success} size={20} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text numberOfLines={2} style={[semanticTheme.typography.titleSmall, { color: textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.success, marginTop: semanticTheme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
+                          </View>
+                          <View style={{ paddingHorizontal: semanticTheme.spacing.sm, paddingVertical: semanticTheme.spacing.xs, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.successSoft }}>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.success }]}>DONE</Text>
+                          </View>
+                        </View>
+                        {item.note.trim().length > 0 && (
+                          <View style={{ marginTop: semanticTheme.spacing.md, padding: semanticTheme.spacing.md, borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.surfaceSubtle }}>
+                            <Text style={[semanticTheme.typography.body, { color: textMuted }]}>{item.note}</Text>
+                          </View>
+                        )}
+                      </Card>
+                    ))}
+                  </View>
                 </View>
               )}
             </>
           )}
 
-          {reminderNotice && (
-            <View
-              className={`mt-4 rounded-2xl border px-4 py-3 ${
-                reminderNotice.type === "success"
-                  ? "border-neon-green/40 bg-neon-green/15"
-                  : "border-neon-red/40 bg-neon-red/15"
-              }`}
-            >
-              <Text className={`text-base font-semibold ${reminderNotice.type === "success" ? "text-neon-green" : "text-neon-red"}`}>
-                {reminderNotice.message}
-              </Text>
-            </View>
-          )}
         </ScrollView>
-      </SafeAreaView>
-    );
-  } else if (activeModule === "password") {
-    content = (
-      <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} />
-        <View className="border-b px-5 pb-3 pt-4" style={{ borderColor: passwordTheme.accentBorder }}>
-          <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={() => setActiveModule("hub")}
-              className="rounded-xl border px-3 py-2"
-              style={{ borderColor: passwordTheme.accentBorder, backgroundColor: panelBackground }}
-            >
-              <Text className="text-sm font-semibold uppercase" style={{ color: textMuted }}>Back</Text>
-            </Pressable>
-            <Text className="text-2xl font-black" style={{ color: textPrimary }}>Password Manager</Text>
-            <View style={{ width: 58 }} />
+        <ReminderTabBar activeTab={reminderTrackerView} onChange={setReminderTrackerView} />
+        {reminderNotice && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: semanticTheme.layout.screenPadding,
+              right: semanticTheme.layout.screenPadding,
+              top: reminderHeaderBottom + semanticTheme.spacing.md,
+              zIndex: 20
+            }}
+          >
+            <StatusBanner
+              title={reminderNotice.title ?? (reminderNotice.type === "success" ? "Reminder updated" : "Reminder needs attention")}
+              message={reminderNotice.message}
+              variant={reminderNotice.type === "success" ? "success" : "danger"}
+              style={{
+                width: "100%",
+                maxWidth: 520,
+                alignSelf: "center",
+                shadowColor: semanticTheme.isDark ? "#000000" : reminderNotice.type === "success" ? "#173D2B" : "#5D1B16",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: semanticTheme.isDark ? 0.34 : 0.18,
+                shadowRadius: 18,
+                elevation: 10
+              }}
+            />
           </View>
-        </View>
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 20, paddingTop: 20, paddingBottom: keyboardSafeBottomPadding }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {!vaultHasPin && (
-            <View className="rounded-2xl border p-5" style={{ borderColor: passwordTheme.accentBorder, backgroundColor: passwordTheme.accentSoft }}>
-              <Text className="text-xl font-black" style={{ color: textPrimary }}>Set up your vault PIN</Text>
-              <TextInput
-                value={vaultNewPin}
-                onChangeText={(value) => setVaultNewPin(digitsOnly(value))}
-                secureTextEntry
-                keyboardType="number-pad"
-                maxLength={8}
-                placeholder="New PIN"
-                placeholderTextColor="#7A7A7A"
-                className="mt-4 rounded-2xl border px-4 py-3 text-lg font-semibold"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-              />
-              <TextInput
-                value={vaultConfirmPin}
-                onChangeText={(value) => setVaultConfirmPin(digitsOnly(value))}
-                secureTextEntry
-                keyboardType="number-pad"
-                maxLength={8}
-                placeholder="Confirm PIN"
-                placeholderTextColor="#7A7A7A"
-                className="mt-3 rounded-2xl border px-4 py-3 text-lg font-semibold"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-              />
-              <Pressable
-                onPress={() => handleSetupVaultPin().catch(() => undefined)}
-                className="mt-4 items-center rounded-xl py-3"
-                style={{ backgroundColor: passwordTheme.accent }}
-              >
-                <Text className="text-lg font-black" style={{ color: passwordTheme.onAccent }}>Save PIN</Text>
-              </Pressable>
-            </View>
-          )}
-          {vaultHasPin && !vaultUnlocked && (
-            <View className="rounded-2xl border p-5" style={{ borderColor: passwordTheme.accentBorder, backgroundColor: panelBackground }}>
-              <Text className="text-xl font-black" style={{ color: textPrimary }}>Vault Locked</Text>
-              <Text className="mt-2 text-base" style={{ color: textMuted }}>Use PIN modal to unlock.</Text>
-              <Pressable
-                onPress={() => openPinModal("unlock")}
-                className="mt-4 items-center rounded-xl py-3"
-                style={{ backgroundColor: passwordTheme.accent }}
-              >
-                <Text className="text-lg font-black" style={{ color: passwordTheme.onAccent }}>Unlock with PIN</Text>
-              </Pressable>
-            </View>
-          )}
-          {vaultHasPin && vaultUnlocked && (
-            <>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-2xl font-black" style={{ color: textPrimary }}>Saved Credentials</Text>
-                <Pressable
-                  onPress={() => openVaultEditor()}
-                  className="rounded-xl px-4 py-2"
-                  style={{ backgroundColor: passwordTheme.accent }}
-                >
-                  <Text className="text-sm font-black uppercase" style={{ color: passwordTheme.onAccent }}>Add</Text>
-                </Pressable>
-              </View>
-              <Pressable
-                onPress={() => handleToggleVaultBiometrics().catch(() => undefined)}
-                className={`mt-4 rounded-2xl border px-4 py-3 ${
-                  vaultBiometricsEnabled ? "border-neon-green/50 bg-neon-green/15" : "border-[#05AED5]/35 dark:border-white/20 bg-panel dark:bg-[#151515]"
-                }`}
-              >
-                <Text className={`text-base font-black uppercase ${vaultBiometricsEnabled ? "text-neon-green" : "text-[#2A6A80] dark:text-white/75"}`}>
-                  {vaultBiometricsEnabled ? "Fingerprint On" : "Fingerprint Off"}
-                </Text>
-              </Pressable>
-              {vaultEntries.length === 0 && (
-                <View className="mt-4 rounded-2xl border border-dashed border-[#05AED5]/35 dark:border-white/20 bg-panel dark:bg-[#151515] p-4">
-                  <Text className="text-base text-[#2A6A80] dark:text-white/75">No passwords saved yet.</Text>
-                </View>
-              )}
-              {vaultEntries.map((entry) => {
-                const isVisible = revealedVaultIds.includes(entry.id);
-                return (
-                  <View key={entry.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: passwordTheme.accentBorder, backgroundColor: panelBackground }}>
-                    <Text className="text-xl font-bold text-[#08364A] dark:text-white">{entry.appName}</Text>
-                    <Text className="mt-1 text-lg font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                      {entry.accountId}
-                    </Text>
-                    <Text className="mt-2 text-lg text-[#144E65] dark:text-white/85">{isVisible ? entry.secret : "••••••••••••"}</Text>
-                    <View className="mt-3 flex-row gap-2">
-                      <Pressable
-                        onPress={() => handleToggleShowPassword(entry.id, isVisible)}
-                        className="flex-1 items-center rounded-xl border border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505] py-2.5"
-                      >
-                        <Text className="text-sm font-bold uppercase text-[#1E5B71] dark:text-white/80">{isVisible ? "Hide" : "Show"}</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => openVaultEditor(entry)}
-                        className="flex-1 items-center rounded-xl py-2.5"
-                        style={{ backgroundColor: passwordTheme.accent }}
-                      >
-                        <Text className="text-sm font-black uppercase" style={{ color: passwordTheme.onAccent }}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleDeleteVault(entry)} className="flex-1 items-center rounded-xl bg-neon-red/80 py-2.5">
-                        <Text className="text-sm font-black uppercase text-[#08364A] dark:text-white">Delete</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              })}
-            </>
-          )}
-          {vaultNotice && (
-            <View
-              className={`mt-4 rounded-2xl border px-4 py-3 ${
-                vaultNotice.type === "success"
-                  ? "border-neon-green/40 bg-neon-green/15"
-                  : "border-neon-red/40 bg-neon-red/15"
-              }`}
-            >
-              <Text className={`text-base font-semibold ${vaultNotice.type === "success" ? "text-neon-green" : "text-neon-red"}`}>
-                {vaultNotice.message}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
+        )}
       </SafeAreaView>
     );
-  } else if (activeModule === "list") {
+  } else if (!activePlan && activeModule === "password") {
+    content = (
+      <PasswordManagerScreen
+        keyboardBottomPadding={keyboardSafeBottomPadding}
+        hasPin={vaultHasPin}
+        unlocked={vaultUnlocked}
+        newPin={vaultNewPin}
+        confirmPin={vaultConfirmPin}
+        biometricsEnabled={vaultBiometricsEnabled}
+        entries={vaultEntries}
+        revealedEntryIds={revealedVaultIds}
+        notice={vaultNotice}
+        onBack={() => setActiveModule("hub")}
+        onChangeNewPin={(value) => setVaultNewPin(digitsOnly(value))}
+        onChangeConfirmPin={(value) => setVaultConfirmPin(digitsOnly(value))}
+        onSetupPin={() => handleSetupVaultPin().catch(() => undefined)}
+        onUnlock={() => openPinModal("unlock")}
+        onToggleBiometrics={() => handleToggleVaultBiometrics().catch(() => undefined)}
+        onResetPin={openVaultResetPin}
+        onAddEntry={() => openVaultEditor()}
+        onEditEntry={openVaultEditor}
+        onDeleteEntry={handleDeleteVault}
+        onToggleEntryVisibility={handleToggleShowPassword}
+        onCopyEntryPassword={(entryId) => requestVaultSensitiveAction("copy", entryId).catch(() => undefined)}
+      />
+    );
+  } else if (!activePlan && activeModule === "list") {
     content = (
       <ListBuddyScreen
         onBack={() => {
           setActiveModule("hub");
         }}
-        isDarkMode={isDarkMode}
-        theme={listTheme}
       />
     );
   } else if (activePlan) {
     content = (
       <GestureHandlerRootView className="flex-1" style={{ flex: 1 }}>
-        <StatusBar style={statusBarStyle} />
+        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
         <TimerScreen
           plan={activePlan}
           onComplete={handleWorkoutComplete}
           onBack={closeTimer}
-          isDarkMode={isDarkMode}
+          initialState={activeTimerInitialState}
+          onStateChange={handleTimerStateChange}
           accentColor={workoutTheme.accent}
           accentSoftColor={workoutTheme.accentSoft}
-          accentTextColor={workoutTheme.onAccent}
         />
       </GestureHandlerRootView>
     );
   } else {
     content = (
       <GestureHandlerRootView className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} />
+        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: appBackground }}>
-          <View className="border-b px-5 pb-3 pt-7" style={{ borderColor: workoutTheme.accentBorder }}>
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-3xl font-black tracking-[3px]" style={{ color: workoutTheme.accent }}>ANTHRA</Text>
-                <Text className="mt-1 text-base font-black" style={{ color: textPrimary }}>{tabTitle}</Text>
-              </View>
-              <Pressable
-                onPress={() => setActiveModule("hub")}
-                className="rounded-xl border px-3 py-2"
-                style={{ borderColor: workoutTheme.accentBorder, backgroundColor: panelBackground }}
-              >
-                <Text className="text-sm font-semibold uppercase" style={{ color: textMuted }}>Hub</Text>
-              </Pressable>
-            </View>
+          <View className="border-b px-5" style={{ borderColor }}>
+            <ScreenHeader
+              eyebrow="MOVE"
+              title={tabTitle}
+              subtitle={activeTab === "home" ? `${workoutDaysLabel} schedule` : undefined}
+              onBack={() => setActiveModule("hub")}
+              backLabel="Back to Today"
+              style={{ width: "100%", maxWidth: semanticTheme.layout.contentMaxWidth, alignSelf: "center" }}
+            />
           </View>
 
           <ScrollView
             className="flex-1"
-            contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: keyboardSafeBottomPadding }}
+            contentContainerStyle={{
+              width: "100%",
+              maxWidth: semanticTheme.layout.contentMaxWidth,
+              alignSelf: "center",
+              padding: 20,
+              paddingTop: 24,
+              paddingBottom: keyboardSafeBottomPadding
+            }}
             keyboardShouldPersistTaps="handled"
           >
             {activeTab === "home" && (
               <>
                 <View className="rounded-3xl border p-5" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: workoutTheme.accentSoft }}>
-                  <View className="flex-row items-center justify-between">
+                  <View
+                    style={{
+                      flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
+                      alignItems: shouldStackWorkoutHeaders ? "flex-start" : "center",
+                      justifyContent: "space-between",
+                      gap: semanticTheme.spacing.sm
+                    }}
+                  >
                     <View className="rounded-full px-3 py-1" style={{ backgroundColor: withAlpha(workoutTheme.accent, 0.2) }}>
                       <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: workoutTheme.accent }}>
                         {isWorkoutDayToday ? "Workout Day" : "Recovery Day"}
                       </Text>
                     </View>
-                    <Text className="text-xs font-semibold uppercase tracking-[1.5px] text-[#4A8FA2] dark:text-white/60">
+                    <Text
+                      numberOfLines={shouldStackWorkoutHeaders ? undefined : 1}
+                      className="text-xs font-semibold uppercase tracking-[1.5px]"
+                      style={{ color: textMuted, flexShrink: 1, textAlign: shouldStackWorkoutHeaders ? "left" : "right" }}
+                    >
                       {workoutDaysLabel}
                     </Text>
                   </View>
 
-                  <Text className="mt-4 text-3xl font-black text-[#08364A] dark:text-white">
+                  <Text className="mt-4 text-3xl font-black" style={{ color: textPrimary }}>
                     {quickStartPlan
                       ? `Start ${quickStartPlan.name}`
                       : isWorkoutDayToday
@@ -2223,7 +3184,7 @@ export default function App() {
                         : "Today is for recovery"}
                   </Text>
 
-                  <Text className="mt-2 text-sm leading-6 text-[#34768B] dark:text-white/70">
+                  <Text className="mt-2 text-sm leading-6" style={{ color: textMuted }}>
                     {quickStartPlan
                       ? todaysPlans.length > 1
                         ? `${todaysPlans.length} plans match today. Anthra is ready to launch the first one.`
@@ -2233,64 +3194,90 @@ export default function App() {
                         : "No workout is scheduled today. You can review progress, adjust plans, or keep it as a rest day."}
                   </Text>
 
-                  <View className="mt-5 flex-row gap-3">
-                    <Pressable
+                  <View
+                    className="mt-5"
+                    style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.md }}
+                  >
+                    <Button
+                      label={quickStartPlan ? "Start workout" : isWorkoutDayToday ? "Choose plan" : "View history"}
                       onPress={() => {
                         if (quickStartPlan) {
                           handleStartPlan(quickStartPlan);
                           return;
                         }
+                        if (isWorkoutDayToday) setPlanListMode("all");
                         setActiveTab(isWorkoutDayToday ? "plans" : "history");
                       }}
-                      className="flex-1 items-center rounded-2xl py-3.5"
-                      style={{ backgroundColor: workoutTheme.accent }}
-                    >
-                      <Text className="text-base font-black" style={{ color: workoutTheme.onAccent }}>
-                        {quickStartPlan ? "Start Workout" : isWorkoutDayToday ? "Choose Plan" : "View History"}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setActiveTab("plans")}
-                      className="flex-1 items-center rounded-2xl border py-3.5"
-                      style={{ borderColor: workoutTheme.accentBorder, backgroundColor: panelBackground }}
-                    >
-                      <Text className="text-base font-black" style={{ color: textPrimary }}>Manage Plans</Text>
-                    </Pressable>
+                      fullWidth
+                      size="large"
+                      style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                    />
+                    <Button
+                      label="Manage plans"
+                      onPress={() => {
+                        setPlanListMode("all");
+                        setActiveTab("plans");
+                      }}
+                      variant="outline"
+                      fullWidth
+                      size="large"
+                      style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                    />
                   </View>
                 </View>
 
-                <View className="mt-5 flex-row gap-3">
-                  <View className="flex-1 rounded-2xl border p-4" style={workoutCardStyle}>
-                    <Text className="text-xs font-semibold uppercase tracking-[1.7px] text-[#4A8FA2] dark:text-white/60">Streak</Text>
+                <View
+                  className="mt-5"
+                  style={{ flexDirection: shouldStackWorkoutStats ? "column" : "row", gap: semanticTheme.spacing.md }}
+                >
+                  <View
+                    className="rounded-2xl border p-4"
+                    style={[workoutCardStyle, { flex: shouldStackWorkoutStats ? undefined : 1 }]}
+                  >
+                    <Text className="text-xs font-semibold uppercase tracking-[1.7px]" style={{ color: textMuted }}>Streak</Text>
                     <Text className="mt-2 text-4xl font-black" style={{ color: workoutTheme.accent }}>{stats.currentStreak}</Text>
-                    <Text className="text-sm font-semibold text-[#34768B] dark:text-white/70">days</Text>
+                    <Text className="text-sm font-semibold" style={{ color: textMuted }}>days</Text>
                   </View>
-                  <View className="flex-1 rounded-2xl border p-4" style={workoutCardStyle}>
-                    <Text className="text-xs font-semibold uppercase tracking-[1.7px] text-[#4A8FA2] dark:text-white/60">Sessions</Text>
-                    <Text className="mt-2 text-4xl font-black text-[#08364A] dark:text-white">{qualifyingSessionCount}</Text>
-                    <Text className="text-sm font-semibold text-[#34768B] dark:text-white/70">logged</Text>
+                  <View
+                    className="rounded-2xl border p-4"
+                    style={[workoutCardStyle, { flex: shouldStackWorkoutStats ? undefined : 1 }]}
+                  >
+                    <Text className="text-xs font-semibold uppercase tracking-[1.7px]" style={{ color: textMuted }}>Sessions</Text>
+                    <Text className="mt-2 text-4xl font-black" style={{ color: textPrimary }}>{qualifyingSessionCount}</Text>
+                    <Text className="text-sm font-semibold" style={{ color: textMuted }}>logged</Text>
                   </View>
                 </View>
 
                 <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
-                  <View className="flex-row items-center justify-between">
-                    <View>
-                      <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">
+                  <View
+                    style={{
+                      flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
+                      alignItems: shouldStackWorkoutHeaders ? "stretch" : "center",
+                      justifyContent: "space-between",
+                      gap: semanticTheme.spacing.md
+                    }}
+                  >
+                    <View className="min-w-0 flex-1">
+                      <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>
                         Weekly Progress
                       </Text>
-                      <Text className="mt-1 text-xl font-black text-[#08364A] dark:text-white">
+                      <Text className="mt-1 text-xl font-black" style={{ color: textPrimary }}>
                         {stats.weekCompleted >= stats.weekGoal ? "Goal on track" : "Keep the streak moving"}
                       </Text>
                     </View>
-                    <Pressable onPress={handleShare} className="rounded-xl px-4 py-2" style={{ backgroundColor: workoutTheme.accent }}>
-                      <Text className="text-sm font-black" style={{ color: workoutTheme.onAccent }}>Share</Text>
-                    </Pressable>
+                    <Button
+                      label="Share"
+                      onPress={handleShare}
+                      size="small"
+                      variant="secondary"
+                      style={{ alignSelf: shouldStackWorkoutHeaders ? "stretch" : "flex-start" }}
+                    />
                   </View>
 
                   <View className="mt-4">
                     <View className="mb-2 flex-row items-center justify-between">
-                      <Text className="text-sm font-semibold text-[#34768B] dark:text-white/70">Completed this week</Text>
-                      <Text className="text-sm font-semibold text-[#0D4158] dark:text-white/90">
+                      <Text className="text-sm font-semibold" style={{ color: textMuted }}>Completed this week</Text>
+                      <Text className="text-sm font-semibold" style={{ color: textPrimary }}>
                         {stats.weekCompleted}/{stats.weekGoal}
                       </Text>
                     </View>
@@ -2298,11 +3285,11 @@ export default function App() {
                       value={stats.weekCompleted}
                       max={stats.weekGoal}
                       fillColor={workoutTheme.accent}
-                      trackColor={isDarkMode ? "rgba(255,255,255,0.2)" : "#D6EDF5"}
+                      trackColor={semanticTheme.colors.progressTrack}
                     />
                   </View>
 
-                  <Text className="mt-3 text-xs font-semibold uppercase tracking-[1.5px] text-[#4A8FA2] dark:text-white/60">
+                  <Text className="mt-3 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
                     {stats.streakWeeks > 0
                       ? `Streak running for ${stats.streakWeeks} week${stats.streakWeeks === 1 ? "" : "s"}`
                       : "Finish this week strong to start your streak"}
@@ -2314,22 +3301,78 @@ export default function App() {
 
             {activeTab === "plans" && (
               <>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-2xl font-black text-[#08364A] dark:text-white">Your Plans</Text>
-                  <Pressable onPress={openCreatePlan} className="rounded-xl px-4 py-2" style={{ backgroundColor: workoutTheme.accent }}>
-                    <Text className="font-black" style={{ color: workoutTheme.onAccent }}>New</Text>
-                  </Pressable>
+                <View
+                  style={{
+                    flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
+                    alignItems: shouldStackWorkoutHeaders ? "stretch" : "center",
+                    justifyContent: "space-between",
+                    gap: semanticTheme.spacing.md
+                  }}
+                >
+                  <View className="min-w-0 flex-1">
+                    <Text className="text-2xl font-black" style={{ color: textPrimary }}>
+                      {planListMode === "today" ? "Choose today’s workout" : "Your Plans"}
+                    </Text>
+                    {planListMode === "today" && (
+                      <Text className="mt-1 text-sm" style={{ color: textMuted }}>
+                        {displayedPlans.length === 1
+                          ? "One plan matches today’s schedule."
+                          : `${displayedPlans.length} plans match today’s schedule.`}
+                      </Text>
+                    )}
+                  </View>
+                  <View
+                    style={{
+                      alignSelf: shouldStackWorkoutHeaders ? "stretch" : "flex-start",
+                      flexDirection: "row",
+                      gap: semanticTheme.spacing.sm
+                    }}
+                  >
+                    {planListMode === "all" && (
+                      <Button
+                        label="Import"
+                        onPress={handleImportPlan}
+                        size="small"
+                        variant="outline"
+                        style={{ flex: shouldStackWorkoutHeaders ? 1 : undefined }}
+                      />
+                    )}
+                    <Button
+                      label={planListMode === "today" ? "View all" : "New plan"}
+                      onPress={() => {
+                        if (planListMode === "today") {
+                          setPlanListMode("all");
+                          return;
+                        }
+                        openCreatePlan();
+                      }}
+                      size="small"
+                      variant={planListMode === "today" ? "outline" : "primary"}
+                      style={{ flex: shouldStackWorkoutHeaders ? 1 : undefined }}
+                    />
+                  </View>
                 </View>
 
-                {plans.length === 0 && (
-                  <View className="mt-4 rounded-2xl border border-dashed p-4" style={workoutCardStyle}>
-                    <Text className="text-sm text-[#34768B] dark:text-white/70">
-                      Create your first plan to unlock the timer flow.
+                {displayedPlans.length === 0 && (
+                  <View className="mt-4 rounded-2xl border border-dashed p-5" style={workoutCardStyle}>
+                    <Text className="text-lg font-bold" style={{ color: textPrimary }}>
+                      {planListMode === "today" ? "No plan is assigned today" : "Build your first workout"}
                     </Text>
+                    <Text className="mt-1 text-sm" style={{ color: textMuted }}>
+                      {planListMode === "today"
+                        ? "View all plans to start an unscheduled workout, or edit a plan’s training days."
+                        : "Choose work, rest, rounds, and days. Anthra will guide the session from there."}
+                    </Text>
+                    <Button
+                      label={planListMode === "today" ? "View all plans" : "Create a plan"}
+                      onPress={() => planListMode === "today" ? setPlanListMode("all") : openCreatePlan()}
+                      variant={planListMode === "today" ? "outline" : "primary"}
+                      style={{ marginTop: 16 }}
+                    />
                   </View>
                 )}
 
-                {plans.map((plan) => {
+                {displayedPlans.map((plan) => {
                   const setCount = plan.sections.length;
                   const exerciseCount = plan.sections.reduce(
                     (total, section) => total + section.exercises.length,
@@ -2342,34 +3385,48 @@ export default function App() {
                       renderRightActions={() => (
                         <Pressable
                           onPress={() => handleDeletePlan(plan)}
-                          className="ml-3 mt-4 items-center justify-center rounded-2xl bg-neon-red px-6"
+                          accessibilityRole="button"
+                          accessibilityLabel={`Delete ${plan.name}`}
+                          className="ml-3 mt-4 items-center justify-center rounded-2xl px-6"
+                          style={{ backgroundColor: semanticTheme.colors.dangerSolid }}
                         >
-                          <Text className="font-bold text-[#08364A] dark:text-white">Delete</Text>
+                          <Text className="font-bold" style={{ color: semanticTheme.colors.textOnDangerSolid }}>Delete</Text>
                         </Pressable>
                       )}
                     >
                       <View className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
-                        <View className="flex-row items-start justify-between">
-                          <View className="flex-1 pr-3">
-                            <Text className="text-lg font-bold text-[#08364A] dark:text-white">{plan.name}</Text>
-                            <Text className="mt-1 text-sm text-[#3E8196] dark:text-white/65">
-                              {setCount} set(s) • {exerciseCount} exercise(s)
+                        <View className="min-w-0">
+                            <Text className="text-lg font-bold" style={{ color: textPrimary }}>{plan.name}</Text>
+                            <Text className="mt-1 text-sm" style={{ color: semanticTheme.colors.textTertiary }}>
+                              {setCount} {setCount === 1 ? "set" : "sets"} · {exerciseCount} {exerciseCount === 1 ? "exercise" : "exercises"}
                             </Text>
-                            <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px] text-[#559AAE] dark:text-white/55">
+                            <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: semanticTheme.colors.textTertiary }}>
                               {formatDays(plan.workoutDays)}
                             </Text>
-                          </View>
-                          <Pressable onPress={() => openEditPlan(plan)}>
-                            <Text className="font-semibold" style={{ color: workoutTheme.accent }}>Edit</Text>
-                          </Pressable>
                         </View>
-                        <Pressable
+                        <View className="mt-4 flex-row" style={{ gap: semanticTheme.spacing.sm }}>
+                          <Button
+                            label="Share"
+                            icon={Share2}
+                            onPress={() => handleSharePlan(plan)}
+                            variant="secondary"
+                            size="small"
+                            style={{ flex: 1, alignSelf: "stretch" }}
+                          />
+                          <Button
+                            label="Edit"
+                            onPress={() => openEditPlan(plan)}
+                            variant="outline"
+                            size="small"
+                            style={{ flex: 1, alignSelf: "stretch" }}
+                          />
+                        </View>
+                        <Button
+                          label="Start workout"
                           onPress={() => handleStartPlan(plan)}
-                          className="mt-4 rounded-xl py-3"
-                          style={{ backgroundColor: workoutTheme.accent }}
-                        >
-                          <Text className="text-center text-base font-black" style={{ color: workoutTheme.onAccent }}>Let's Begin</Text>
-                        </Pressable>
+                          fullWidth
+                          style={{ marginTop: 16 }}
+                        />
                       </View>
                     </Swipeable>
                   );
@@ -2379,14 +3436,31 @@ export default function App() {
 
             {activeTab === "history" && (
               <>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-2xl font-black text-[#08364A] dark:text-white">Workout History</Text>
-                  <Text className="text-sm font-semibold text-[#4A8FA2] dark:text-white/60">{history.length} sessions</Text>
+                <View
+                  style={{
+                    flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
+                    alignItems: shouldStackWorkoutHeaders ? "flex-start" : "center",
+                    justifyContent: "space-between",
+                    gap: semanticTheme.spacing.xs
+                  }}
+                >
+                  <Text className="text-2xl font-black" style={{ color: textPrimary }}>Workout History</Text>
+                  <Text className="text-sm font-semibold" style={{ color: textMuted }}>{history.length} sessions</Text>
                 </View>
 
                 {history.length === 0 && (
-                  <View className="mt-4 rounded-2xl border border-dashed p-4" style={workoutCardStyle}>
-                    <Text className="text-sm text-[#34768B] dark:text-white/70">No workout history yet. Start your first session.</Text>
+                  <View className="mt-4 rounded-2xl border border-dashed p-5" style={workoutCardStyle}>
+                    <Text className="text-lg font-bold" style={{ color: textPrimary }}>Your history starts here</Text>
+                    <Text className="mt-1 text-sm" style={{ color: textMuted }}>Completed and partial sessions will appear with progress, time, and your notes.</Text>
+                    <Button
+                      label="Browse plans"
+                      onPress={() => {
+                        setPlanListMode("all");
+                        setActiveTab("plans");
+                      }}
+                      variant="outline"
+                      style={{ marginTop: 16 }}
+                    />
                   </View>
                 )}
 
@@ -2394,24 +3468,28 @@ export default function App() {
                   <View key={entry.id} className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
                     <View className="flex-row items-start justify-between">
                       <View className="flex-1 pr-4">
-                        <Text className="text-base font-bold text-[#08364A] dark:text-white">{entry.planName}</Text>
-                        <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px] text-[#4A8FA2] dark:text-white/60">
+                        <Text className="text-base font-bold" style={{ color: textPrimary }}>{entry.planName}</Text>
+                        <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
                           {formatHistoryDate(entry.startedAt)}
                         </Text>
                       </View>
                       <View className="items-end gap-2">
-                        <Pressable onPress={() => handleDeleteHistoryEntry(entry)} className="h-8 w-8 items-center justify-center">
-                          <Trash2 size={16} color={isDarkMode ? "#FF8D98" : "#D95464"} />
+                        <Pressable
+                          onPress={() => handleDeleteHistoryEntry(entry)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Delete ${entry.planName} workout from history`}
+                          className="h-11 w-11 items-center justify-center rounded-full"
+                          style={{ backgroundColor: semanticTheme.colors.dangerSoft }}
+                        >
+                          <Trash2 size={18} color={semanticTheme.colors.danger} />
                         </Pressable>
                         <View
-                          className={`rounded-lg px-2 py-1 ${
-                            entry.completed ? "bg-neon-green/25" : "bg-neon-amber/25"
-                          }`}
+                          className="rounded-lg px-2 py-1"
+                          style={{ backgroundColor: entry.completed ? semanticTheme.colors.successSoft : semanticTheme.colors.warningSoft }}
                         >
                           <Text
-                            className={`text-xs font-black uppercase ${
-                              entry.completed ? "text-neon-green" : "text-neon-amber"
-                            }`}
+                            className="text-xs font-black uppercase"
+                            style={{ color: entry.completed ? semanticTheme.colors.success : semanticTheme.colors.warning }}
                           >
                             {entry.completed ? "Completed" : "Partial"}
                           </Text>
@@ -2421,8 +3499,8 @@ export default function App() {
 
                     <View className="mt-3">
                       <View className="mb-1 flex-row items-center justify-between">
-                        <Text className="text-sm font-semibold text-[#34768B] dark:text-white/70">Progress</Text>
-                        <Text className="text-sm font-semibold text-[#0D4158] dark:text-white/90">
+                        <Text className="text-sm font-semibold" style={{ color: textMuted }}>Progress</Text>
+                        <Text className="text-sm font-semibold" style={{ color: textPrimary }}>
                           {Math.round(entry.progressPercent)}%
                         </Text>
                       </View>
@@ -2430,23 +3508,34 @@ export default function App() {
                         value={entry.progressPercent}
                         max={100}
                         fillColor={workoutTheme.accent}
-                        trackColor={isDarkMode ? "rgba(255,255,255,0.2)" : "#D6EDF5"}
+                        trackColor={semanticTheme.colors.progressTrack}
                       />
                     </View>
 
-                    <Text className="mt-2 text-xs text-[#3E8196] dark:text-white/65">
+                    <Text className="mt-2 text-xs" style={{ color: semanticTheme.colors.textTertiary }}>
                       {entry.completedSegments}/{entry.totalSegments} segments • {formatDuration(entry.elapsedSeconds)}
                     </Text>
 
                     {entry.rating != null && (
-                      <Text className="mt-2 text-xs font-semibold uppercase tracking-[1.2px] text-neon-amber">
-                        {"*".repeat(entry.rating)} ({entry.rating}/5)
-                      </Text>
+                      <View className="mt-2 flex-row items-center" style={{ gap: semanticTheme.spacing.xs }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={`${entry.id}-rating-${star}`}
+                            accessible={false}
+                            size={14}
+                            color={semanticTheme.colors.warning}
+                            fill={star <= entry.rating! ? semanticTheme.colors.warning : "transparent"}
+                          />
+                        ))}
+                        <Text className="ml-1 text-xs font-semibold" style={{ color: textMuted }}>
+                          {entry.rating}/5
+                        </Text>
+                      </View>
                     )}
 
                     {entry.comment.trim().length > 0 && (
                       <View className="mt-2 rounded-xl border px-3 py-2" style={workoutInputSurfaceStyle}>
-                        <Text className="text-xs text-[#2A6A80] dark:text-white/75">{entry.comment}</Text>
+                        <Text className="text-xs" style={{ color: textMuted }}>{entry.comment}</Text>
                       </View>
                     )}
                   </View>
@@ -2457,91 +3546,92 @@ export default function App() {
             {activeTab === "profile" && (
               <>
                 <View className="rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">Body Metrics</Text>
-                  <View className="mt-4 flex-row gap-3">
-                    <View className="flex-1">
-                      <Text className="mb-2 text-xs font-semibold text-[#3E8196] dark:text-white/65">Height (cm)</Text>
-                      <TextInput
+                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>Body Metrics</Text>
+                  <View
+                    className="mt-4"
+                    style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.md }}
+                  >
+                    <View style={{ flex: shouldStackWorkoutActions ? undefined : 1 }}>
+                      <TextField
+                        label="Height (cm)"
                         value={profileHeightCm}
                         onChangeText={handleProfileHeightChange}
                         keyboardType="decimal-pad"
                         placeholder="170"
-                        placeholderTextColor="#7A7A7A"
-                        className="rounded-2xl border px-4 py-3 text-base font-semibold text-[#08364A] dark:text-white"
-                        style={workoutInputSurfaceStyle}
+                        returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => profileWeightInputRef.current?.focus()}
+                        accessibilityHint="Enter your height in centimetres"
                       />
                     </View>
-                    <View className="flex-1">
-                      <Text className="mb-2 text-xs font-semibold text-[#3E8196] dark:text-white/65">Weight (kg)</Text>
-                      <TextInput
+                    <View style={{ flex: shouldStackWorkoutActions ? undefined : 1 }}>
+                      <TextField
+                        ref={profileWeightInputRef}
+                        label="Weight (kg)"
                         value={profileWeightKg}
                         onChangeText={handleProfileWeightChange}
                         keyboardType="decimal-pad"
                         placeholder="70"
-                        placeholderTextColor="#7A7A7A"
-                        className="rounded-2xl border px-4 py-3 text-base font-semibold text-[#08364A] dark:text-white"
-                        style={workoutInputSurfaceStyle}
+                        returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => profileGoalInputRef.current?.focus()}
+                        accessibilityHint="Enter your weight in kilograms"
                       />
                     </View>
                   </View>
                 </View>
 
                 <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">BMI</Text>
-                    <View className={`rounded-full px-3 py-1 ${bmiSummary.badgeClass}`}>
-                      <Text className={`text-xs font-black uppercase ${bmiSummary.badgeTextClass}`}>
+                  <View
+                    style={{
+                      flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
+                      alignItems: shouldStackWorkoutHeaders ? "flex-start" : "center",
+                      justifyContent: "space-between",
+                      gap: semanticTheme.spacing.sm
+                    }}
+                  >
+                    <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>BMI</Text>
+                    <View className="rounded-full px-3 py-1" style={{ backgroundColor: bmiSummary.badgeBackground }}>
+                      <Text className="text-xs font-black uppercase" style={{ color: bmiSummary.badgeTextColor }}>
                         {bmiSummary.label}
                       </Text>
                     </View>
                   </View>
-                  <Text className={`mt-3 text-6xl font-black ${bmiSummary.textClass}`}>
+                  <Text className="mt-3 text-6xl font-black" style={{ color: bmiSummary.textColor }}>
                     {roundedBmi != null ? roundedBmi : "--"}
                   </Text>
-                  <Text className="mt-2 text-sm text-[#34768B] dark:text-white/70">{bmiSummary.note}</Text>
+                  <Text className="mt-2 text-sm" style={{ color: textMuted }}>{bmiSummary.note}</Text>
                 </View>
 
                 <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">Goals</Text>
-                  <TextInput
+                  <TextField
+                    ref={profileGoalInputRef}
+                    label="Goals"
                     value={profileGoal}
                     onChangeText={handleProfileGoalChange}
                     multiline
                     textAlignVertical="top"
                     placeholder="Example: Reach 68kg and train 4 days/week."
-                    placeholderTextColor="#7A7A7A"
-                    className="mt-3 min-h-[120px] rounded-2xl border px-4 py-3 text-base text-[#08364A] dark:text-white"
-                    style={workoutInputSurfaceStyle}
+                    helperText="Keep this specific and achievable; it stays on this device."
                   />
                 </View>
 
-                <Pressable
+                <Button
+                  label="Save profile"
                   onPress={handleSaveProfile}
-                  className="mt-5 items-center rounded-2xl py-4"
-                  style={{ backgroundColor: workoutTheme.accent }}
-                  disabled={profileSaving}
-                >
-                  <Text className="text-base font-black" style={{ color: workoutTheme.onAccent }}>
-                    {profileSaving ? "Saving..." : "Save Profile"}
-                  </Text>
-                </Pressable>
+                  loading={profileSaving}
+                  fullWidth
+                  size="large"
+                  style={{ marginTop: 20 }}
+                />
 
                 {profileNotice && (
-                  <View
-                    className={`mt-3 rounded-2xl border px-4 py-3 ${
-                      profileNotice.type === "success"
-                        ? "border-neon-green/40 bg-neon-green/15"
-                        : "border-neon-red/40 bg-neon-red/15"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-semibold ${
-                        profileNotice.type === "success" ? "text-neon-green" : "text-neon-red"
-                      }`}
-                    >
-                      {profileNotice.message}
-                    </Text>
-                  </View>
+                  <StatusBanner
+                    className="mt-3"
+                    title={profileNotice.type === "success" ? "Profile saved" : "Profile not saved"}
+                    message={profileNotice.message}
+                    variant={profileNotice.type === "success" ? "success" : "danger"}
+                  />
                 )}
               </>
             )}
@@ -2549,22 +3639,26 @@ export default function App() {
             {activeTab === "settings" && (
               <>
                 <View className="rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">
-                    Workout Schedule
+                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>
+                    Default Plan Schedule
                   </Text>
-                  <Text className="mt-2 text-sm text-[#34768B] dark:text-white/70">
-                    Active days: {workoutDaysLabel}. Select the days you plan to train.
+                  <Text className="mt-2 text-sm" style={{ color: textMuted }}>
+                    New plans start with {formatDays(settings.workoutDays)}. Existing plan days control Today and workout reminders.
                   </Text>
 
-                  <View className="mt-4 flex-row flex-wrap gap-2">
+                  <View className="mt-4 flex-row flex-wrap" style={{ gap: semanticTheme.spacing.sm }}>
                     {WEEKDAY_OPTIONS.map((day) => {
                       const isActive = settings.workoutDays.includes(day.value);
                       return (
                         <Pressable
                           key={day.value}
                           onPress={() => toggleGlobalWorkoutDay(day.value)}
-                          className="rounded-full border px-3 py-2"
+                          accessibilityRole="checkbox"
+                          accessibilityLabel={day.label}
+                          accessibilityState={{ checked: isActive }}
+                          className="min-h-[48px] items-center justify-center rounded-xl border px-2 py-2"
                           style={{
+                            width: windowWidth < 520 || fontScale >= 1.2 ? "22%" : "12%",
                             borderColor: isActive ? workoutTheme.accent : workoutTheme.accentBorder,
                             backgroundColor: isActive ? withAlpha(workoutTheme.accent, 0.22) : inputBackground
                           }}
@@ -2578,8 +3672,8 @@ export default function App() {
                   </View>
 
                   <View className="mt-5">
-                    <Text className="mb-2 text-xs font-semibold text-[#3E8196] dark:text-white/65">Weekly Streak Goal (1-7)</Text>
-                    <TextInput
+                    <TextField
+                      label="Weekly streak goal"
                       value={weeklyGoalText}
                       onChangeText={(value) => {
                         if (settingsNotice) setSettingsNotice(null);
@@ -2587,85 +3681,136 @@ export default function App() {
                       }}
                       keyboardType="number-pad"
                       placeholder="4"
-                      placeholderTextColor="#7A7A7A"
-                      className="rounded-2xl border px-4 py-3 text-base font-semibold text-[#08364A] dark:text-white"
-                      style={workoutInputSurfaceStyle}
+                      maxLength={1}
+                      helperText="Choose 1–7 completed workout days per week."
                     />
-                    <Text className="mt-2 text-xs text-[#4A8FA2] dark:text-white/60">
-                      Streak increments when completed workout days reach this weekly goal.
-                    </Text>
                   </View>
                 </View>
 
                 <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#4A8FA2] dark:text-white/60">
+                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>
                     Reminder Settings
                   </Text>
-                  <Text className="mt-2 text-sm text-[#34768B] dark:text-white/70">
+                  <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                     Choose workout time and set up to 3 reminder intervals.
                   </Text>
-                  <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
-                    Scheduled in IST (Asia/Kolkata)
+                  <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.2px]" style={{ color: textMuted }}>
+                    Scheduled in {settings.timezone}
                   </Text>
 
-                  <Pressable
-                    onPress={() => {
+                  <View className="mt-3 flex-row flex-wrap gap-2">
+                    {workoutTimeZoneOptions.map((timezone) => {
+                      const active = settings.timezone === timezone;
+                      return (
+                        <Pressable
+                          key={timezone}
+                          onPress={() => {
+                            if (settingsNotice) setSettingsNotice(null);
+                            setSettings((current) => ({ ...current, timezone }));
+                          }}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
+                          style={{
+                            borderColor: active ? workoutTheme.accent : workoutTheme.accentBorder,
+                            backgroundColor: active ? withAlpha(workoutTheme.accent, 0.2) : inputBackground
+                          }}
+                        >
+                          <Text className="text-xs font-black" style={{ color: active ? workoutTheme.accent : textMuted }}>
+                            {timezone === deviceTimeZone ? `Device · ${timezone}` : timezone}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <SwitchRow
+                    label="Workout reminders"
+                    description={settings.notificationsEnabled
+                      ? "Anthra will use the delivery method, workout time, and lead times below."
+                      : "Turn this on to schedule workout notifications or alarms."}
+                    value={settings.notificationsEnabled}
+                    onValueChange={(enabled) => {
                       if (settingsNotice) setSettingsNotice(null);
                       setSettings((prev) => ({
                         ...prev,
-                        notificationsEnabled: !prev.notificationsEnabled
+                        notificationsEnabled: enabled
                       }));
                     }}
-                    className={`mt-4 rounded-2xl border px-4 py-3 ${
-                      settings.notificationsEnabled
-                        ? "border-neon-green/50 bg-neon-green/15"
-                        : "border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505]"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-black uppercase ${
-                        settings.notificationsEnabled ? "text-neon-green" : "text-[#2A6A80] dark:text-white/75"
-                      }`}
-                    >
-                      {settings.notificationsEnabled ? "Reminders On" : "Reminders Off"}
-                    </Text>
-                  </Pressable>
+                    style={{ marginTop: semanticTheme.spacing.lg }}
+                  />
 
-                  <View className="mt-4 flex-row gap-3">
-                    <View className="flex-1">
-                      <Text className="mb-2 text-xs font-semibold text-[#3E8196] dark:text-white/65">Hour (0-23)</Text>
-                      <TextInput
-                        value={reminderHourText}
-                        onChangeText={(value) => {
-                          if (settingsNotice) setSettingsNotice(null);
-                          setReminderHourText(digitsOnly(value));
-                        }}
-                        keyboardType="number-pad"
-                        placeholder="18"
-                        placeholderTextColor="#7A7A7A"
-                        className="rounded-2xl border px-4 py-3 text-base font-semibold text-[#08364A] dark:text-white"
-                        style={workoutInputSurfaceStyle}
-                      />
+                  <View className="mt-4">
+                    <Text className="mb-2 text-xs font-semibold" style={{ color: semanticTheme.colors.textTertiary }}>
+                      How should Anthra remind you?
+                    </Text>
+                    <View className="flex-row gap-2">
+                      {([
+                        { value: "notification", label: "Notification" },
+                        { value: "alarm", label: "Alarm" },
+                        { value: "both", label: "Both" }
+                      ] as const).map((option) => {
+                        const active = settings.reminderDelivery === option.value;
+                        const platformUnsupported =
+                          Platform.OS !== "android" && option.value !== "notification";
+                        return (
+                          <Pressable
+                            key={option.value}
+                            disabled={platformUnsupported}
+                            onPress={() => {
+                              if (settingsNotice) setSettingsNotice(null);
+                              setSettings((current) => ({
+                                ...current,
+                                reminderDelivery: option.value
+                              }));
+                            }}
+                            accessibilityRole="radio"
+                            accessibilityLabel={`${option.label} workout reminders`}
+                            accessibilityState={{ checked: active, selected: active }}
+                            className="min-h-[48px] flex-1 items-center justify-center rounded-xl border px-2 py-2"
+                            style={{
+                              borderColor: active ? workoutTheme.accent : workoutTheme.accentBorder,
+                              backgroundColor: active ? withAlpha(workoutTheme.accent, 0.2) : inputBackground,
+                              opacity: platformUnsupported ? 0.35 : settings.notificationsEnabled ? 1 : 0.55
+                            }}
+                          >
+                            <Text className="text-center text-xs font-black" style={{ color: active ? workoutTheme.accent : textMuted }}>
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
                     </View>
-                    <View className="flex-1">
-                      <Text className="mb-2 text-xs font-semibold text-[#3E8196] dark:text-white/65">Minute (0-59)</Text>
-                      <TextInput
-                        value={reminderMinuteText}
-                        onChangeText={(value) => {
-                          if (settingsNotice) setSettingsNotice(null);
-                          setReminderMinuteText(digitsOnly(value));
-                        }}
-                        keyboardType="number-pad"
-                        placeholder="00"
-                        placeholderTextColor="#7A7A7A"
-                        className="rounded-2xl border px-4 py-3 text-base font-semibold text-[#08364A] dark:text-white"
-                        style={workoutInputSurfaceStyle}
-                      />
-                    </View>
+                    <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                      Workout alarms ring full-screen on Android and use a regular Dismiss button. Push-up verification is only used by Alarm Buddy.
+                    </Text>
                   </View>
 
                   <View className="mt-4">
-                    <Text className="mb-2 text-xs font-semibold text-[#3E8196] dark:text-white/65">How many reminders?</Text>
+                    <TimePickerField
+                      label="Workout time"
+                      hour={parseStrictWholeNumber(reminderHourText) ?? 18}
+                      minute={parseStrictWholeNumber(reminderMinuteText) ?? 0}
+                      onChange={(hour, minute) => {
+                        if (settingsNotice) setSettingsNotice(null);
+                        setReminderHourText(String(hour));
+                        setReminderMinuteText(String(minute));
+                      }}
+                      accentColor={workoutTheme.accent}
+                      borderColor={workoutTheme.accentBorder}
+                      backgroundColor={inputBackground}
+                      textColor={textPrimary}
+                      mutedColor={textMuted}
+                      presets={[
+                        { label: "Morning · 7 AM", hour: 7, minute: 0 },
+                        { label: "Evening · 6 PM", hour: 18, minute: 0 },
+                        { label: "Night · 8 PM", hour: 20, minute: 0 }
+                      ]}
+                    />
+                  </View>
+
+                  <View className="mt-4">
+                    <Text className="mb-2 text-xs font-semibold" style={{ color: semanticTheme.colors.textTertiary }}>How many reminders?</Text>
                     <View className="flex-row gap-2">
                       {[1, 2, 3].map((count) => {
                         const active = reminderCount === count;
@@ -2676,7 +3821,10 @@ export default function App() {
                               if (settingsNotice) setSettingsNotice(null);
                               setReminderCount(count);
                             }}
-                            className="flex-1 items-center rounded-xl border py-2"
+                            accessibilityRole="radio"
+                            accessibilityLabel={`${count} workout reminder${count === 1 ? "" : "s"}`}
+                            accessibilityState={{ checked: active, selected: active }}
+                            className="min-h-[44px] flex-1 items-center justify-center rounded-xl border py-2"
                             style={{
                               borderColor: active ? workoutTheme.accent : workoutTheme.accentBorder,
                               backgroundColor: active ? withAlpha(workoutTheme.accent, 0.2) : inputBackground
@@ -2693,116 +3841,96 @@ export default function App() {
 
                   <View className="mt-4 gap-2">
                     {Array.from({ length: reminderCount }).map((_, index) => (
-                      <View key={`lead-${index}`}>
-                        <Text className="mb-1 text-xs font-semibold text-[#3E8196] dark:text-white/65">
-                          Reminder {index + 1} lead (0-720 min before)
-                        </Text>
-                        <TextInput
+                      <TextField
+                        key={`lead-${index}`}
+                        label={`Reminder ${index + 1} lead time`}
                           value={reminderLeadTexts[index] ?? ""}
                           onChangeText={(value) => updateReminderLeadText(index, value)}
                           keyboardType="number-pad"
                           placeholder={index === 0 ? "30" : index === 1 ? "15" : "5"}
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-base font-semibold text-[#08364A] dark:text-white"
-                          style={workoutInputSurfaceStyle}
-                        />
-                      </View>
+                          maxLength={3}
+                          helperText="Minutes before the workout (0–720)."
+                      />
                     ))}
                   </View>
 
-                  <Text className="mt-3 text-xs font-semibold uppercase tracking-[1.5px] text-[#4A8FA2] dark:text-white/60">
+                  <Text className="mt-3 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
                     {reminderPreview}
                   </Text>
                 </View>
 
-                <Pressable
+                <Button
+                  label="Save settings"
                   onPress={handleSaveSettings}
-                  className="mt-5 items-center rounded-2xl py-4"
-                  style={{ backgroundColor: workoutTheme.accent }}
-                  disabled={settingsSaving}
-                >
-                  <Text className="text-base font-black" style={{ color: workoutTheme.onAccent }}>
-                    {settingsSaving ? "Saving..." : "Save Settings"}
-                  </Text>
-                </Pressable>
+                  loading={settingsSaving}
+                  fullWidth
+                  size="large"
+                  style={{ marginTop: 20 }}
+                />
 
                 {settingsNotice && (
-                  <View
-                    className={`mt-3 rounded-2xl border px-4 py-3 ${
-                      settingsNotice.type === "success"
-                        ? "border-neon-green/40 bg-neon-green/15"
-                        : "border-neon-red/40 bg-neon-red/15"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-semibold ${
-                        settingsNotice.type === "success" ? "text-neon-green" : "text-neon-red"
-                      }`}
-                    >
-                      {settingsNotice.message}
-                    </Text>
-                  </View>
+                  <StatusBanner
+                    className="mt-3"
+                    title={settingsNotice.type === "success" ? "Settings saved" : "Settings not saved"}
+                    message={settingsNotice.message}
+                    variant={settingsNotice.type === "success" ? "success" : "danger"}
+                  />
                 )}
+
+                <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
+                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>Backup & Restore</Text>
+                  <Text className="mt-2 text-sm" style={{ color: textMuted }}>
+                    Save workouts, history, alarms, reminders, lists, profile, and settings as a JSON file. Password Buddy stays in secure device storage and is never exported.
+                  </Text>
+                  <View
+                    className="mt-4"
+                    style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.md }}
+                  >
+                    <Button
+                      label={backupBusy ? "Working…" : "Export"}
+                      onPress={() => handleExportBackup().catch(() => undefined)}
+                      disabled={backupBusy}
+                      accessibilityLabel="Export Anthra backup"
+                      style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                    />
+                    <Button
+                      label="Restore"
+                      onPress={() => handleImportBackup().catch(() => undefined)}
+                      disabled={backupBusy}
+                      accessibilityLabel="Restore Anthra backup"
+                      variant="outline"
+                      style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                    />
+                  </View>
+                </View>
+
+                <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
+                  <AppearanceControl />
+                </View>
               </>
             )}
           </ScrollView>
 
-          <View className="border-t px-4 pb-4 pt-3" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: appBackground }}>
-            <View className="flex-row gap-2">
-              <Pressable
-                onPress={() => setActiveTab("home")}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: activeTab === "home" ? workoutTheme.accent : panelBackground }}
-              >
-                <Text className="text-xs font-bold" style={{ color: activeTab === "home" ? workoutTheme.onAccent : textMuted }}>
-                  Home
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setActiveTab("plans")}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: activeTab === "plans" ? workoutTheme.accent : panelBackground }}
-              >
-                <Text className="text-xs font-bold" style={{ color: activeTab === "plans" ? workoutTheme.onAccent : textMuted }}>
-                  Plans
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setActiveTab("history")}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: activeTab === "history" ? workoutTheme.accent : panelBackground }}
-              >
-                <Text className="text-xs font-bold" style={{ color: activeTab === "history" ? workoutTheme.onAccent : textMuted }}>
-                  History
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setActiveTab("profile")}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: activeTab === "profile" ? workoutTheme.accent : panelBackground }}
-              >
-                <Text className="text-xs font-bold" style={{ color: activeTab === "profile" ? workoutTheme.onAccent : textMuted }}>
-                  Profile
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setActiveTab("settings")}
-                className="flex-1 items-center rounded-xl py-3"
-                style={{ backgroundColor: activeTab === "settings" ? workoutTheme.accent : panelBackground }}
-              >
-                <Text className="text-xs font-bold" style={{ color: activeTab === "settings" ? workoutTheme.onAccent : textMuted }}>
-                  Settings
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+          <WorkoutTabBar
+            activeTab={activeTab}
+            onChange={(tab) => {
+              if (tab === "plans") setPlanListMode("all");
+              setActiveTab(tab);
+            }}
+          />
         </SafeAreaView>
 
-        <View className="absolute -left-[2000px] -top-[2000px]">
+        <View
+          className="absolute -left-[2000px] -top-[2000px]"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           <View ref={shareCardRef} collapsable={false}>
             <StreakCard
               streakDays={stats.currentStreak}
-              streakWeeks={stats.streakWeeks}
+              bestStreak={stats.bestStreak}
+              totalWorkouts={stats.totalWorkouts}
+              averageWorkoutSeconds={stats.averageWorkoutSeconds}
               weekCompleted={stats.weekCompleted}
               weekGoal={stats.weekGoal}
               accentColor={workoutTheme.accent}
@@ -2831,27 +3959,44 @@ export default function App() {
         >
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-6"
+            className="flex-1 px-6"
+            style={{ backgroundColor: semanticTheme.colors.scrim }}
           >
-            <View className="rounded-3xl border p-5" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: panelBackground }}>
+            <KeyboardAwareScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+              contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingVertical: 24 }}
+            >
+            <View
+              accessibilityViewIsModal
+              className="w-full rounded-3xl border p-5"
+              style={{ borderColor, backgroundColor: cardBackground, maxWidth: 520, alignSelf: "center" }}
+            >
               <Text className="text-xl font-black" style={{ color: textPrimary }}>Rate Session</Text>
-              <Text className="mt-2 text-sm text-[#34768B] dark:text-white/70">
+              <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                 {feedbackPlanName} is complete. Add a quick rating and optional note for your history.
               </Text>
 
-              <View className="mt-4 flex-row justify-between rounded-2xl border px-3 py-3" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: inputBackground }}>
+              <View className="mt-4 flex-row justify-between rounded-2xl border px-3 py-3" style={{ borderColor, backgroundColor: inputBackground }}>
                 {[1, 2, 3, 4, 5].map((star) => {
                   const active = feedbackRating >= star;
                   return (
                     <Pressable
                       key={`rating-${star}`}
                       onPress={() => setFeedbackRating(star)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Rate ${star} out of 5`}
+                      accessibilityState={{ selected: feedbackRating === star }}
                       className="h-11 w-11 items-center justify-center rounded-xl"
                       style={{ backgroundColor: active ? withAlpha(workoutTheme.accent, 0.25) : panelBackground }}
                     >
-                      <Text className="text-xl font-black" style={{ color: active ? workoutTheme.accent : isDarkMode ? "rgba(255,255,255,0.4)" : "#78BFCE" }}>
-                        *
-                      </Text>
+                      <Star
+                        accessible={false}
+                        size={23}
+                        color={active ? workoutTheme.accent : semanticTheme.colors.textTertiary}
+                        fill={active ? workoutTheme.accent : "transparent"}
+                      />
                     </Pressable>
                   );
                 })}
@@ -2859,36 +4004,41 @@ export default function App() {
 
               <Pressable
                 onPress={() => setFeedbackNoteModalOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Add or edit session note"
                 className="mt-4 min-h-[110px] rounded-2xl border px-4 py-3"
-                style={{ borderColor: workoutTheme.accentBorder, backgroundColor: inputBackground }}
+                style={{ borderColor: semanticTheme.colors.borderStrong, backgroundColor: inputBackground }}
               >
-                <Text className="text-xs font-semibold uppercase tracking-[1.2px] text-[#4A8FA2] dark:text-white/60">
+                <Text className="text-xs font-semibold uppercase tracking-[1.2px]" style={{ color: textMuted }}>
                   Session Note
                 </Text>
-                <Text className={`mt-2 text-sm ${feedbackComment.trim() ? "text-[#08364A] dark:text-white" : "text-[#61A7B9] dark:text-white/50"}`}>
+                <Text
+                  className="mt-2 text-sm"
+                  style={{ color: feedbackComment.trim() ? textPrimary : semanticTheme.colors.textTertiary }}
+                >
                   {feedbackComment.trim() || "Tap to add how this session felt."}
                 </Text>
               </Pressable>
 
               <View className="mt-5 flex-row gap-3">
-                <Pressable
+                <Button
+                  label="Later"
                   onPress={() => setFeedbackOpen(false)}
-                  className="flex-1 items-center rounded-xl border py-3"
-                  style={{ borderColor: workoutTheme.accentBorder, backgroundColor: inputBackground }}
                   disabled={feedbackSaving}
-                >
-                  <Text className="font-semibold text-[#2A6A80] dark:text-white/75">Later</Text>
-                </Pressable>
-                <Pressable
+                  variant="outline"
+                  fullWidth
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Save feedback"
                   onPress={handleSubmitFeedback}
-                  className="flex-1 items-center rounded-xl py-3"
-                  style={{ backgroundColor: workoutTheme.accent }}
-                  disabled={feedbackSaving}
-                >
-                  <Text className="font-black" style={{ color: workoutTheme.onAccent }}>{feedbackSaving ? "Saving..." : "Save Feedback"}</Text>
-                </Pressable>
+                  loading={feedbackSaving}
+                  fullWidth
+                  style={{ flex: 1 }}
+                />
               </View>
             </View>
+            </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
 
@@ -2900,41 +4050,54 @@ export default function App() {
         >
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-6"
+            className="flex-1 px-6"
+            style={{ backgroundColor: semanticTheme.colors.scrim }}
           >
-            <View className="rounded-3xl border p-5" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: panelBackground }}>
+            <KeyboardAwareScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+              contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingVertical: 24 }}
+            >
+            <View
+              accessibilityViewIsModal
+              className="w-full rounded-3xl border p-5"
+              style={{ borderColor, backgroundColor: cardBackground, maxWidth: 520, alignSelf: "center" }}
+            >
               <Text className="text-xl font-black" style={{ color: textPrimary }}>Session Note</Text>
-              <TextInput
+              <TextField
+                label="How did it feel?"
                 value={feedbackComment}
                 onChangeText={setFeedbackComment}
                 multiline
+                autoFocus
                 textAlignVertical="top"
                 maxLength={400}
-                placeholder="How did this session feel?"
-                placeholderTextColor="#7A7A7A"
-                className="mt-4 min-h-[140px] rounded-2xl border px-4 py-3 text-sm text-[#08364A] dark:text-white"
-                style={{ borderColor: workoutTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
+                placeholder="Energy, effort, pain, or anything worth remembering"
+                helperText={`${feedbackComment.length}/400 characters`}
+                containerStyle={{ marginTop: 16 }}
               />
               <View className="mt-5 flex-row gap-3">
-                <Pressable
+                <Button
+                  label="Done"
                   onPress={() => setFeedbackNoteModalOpen(false)}
-                  className="flex-1 items-center rounded-xl border py-3"
-                  style={{ borderColor: workoutTheme.accentBorder, backgroundColor: inputBackground }}
-                >
-                  <Text className="font-semibold text-[#2A6A80] dark:text-white/75">Done</Text>
-                </Pressable>
-                <Pressable
+                  variant="outline"
+                  fullWidth
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Clear note"
                   onPress={() => {
                     setFeedbackComment("");
                     setFeedbackNoteModalOpen(false);
                   }}
-                  className="flex-1 items-center rounded-xl py-3"
-                  style={{ backgroundColor: workoutTheme.accent }}
-                >
-                  <Text className="font-black" style={{ color: workoutTheme.onAccent }}>Clear</Text>
-                </Pressable>
+                  variant="secondary"
+                  fullWidth
+                  style={{ flex: 1 }}
+                />
               </View>
             </View>
+            </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
       </GestureHandlerRootView>
@@ -2942,8 +4105,9 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <View className="flex-1" style={{ flex: 1 }}>
+    <ThemeProvider mode={themeMode} onModeChange={handleThemeModeChange}>
+      <SafeAreaProvider>
+        <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
         {content}
         <Modal
           visible={reminderEditorOpen}
@@ -2953,27 +4117,56 @@ export default function App() {
         >
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-6"
+            className="flex-1"
+            style={{ backgroundColor: semanticTheme.colors.scrim }}
           >
-            <View className="rounded-3xl border p-5" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}>
-              <Text className="text-2xl font-black" style={{ color: textPrimary }}>
+            <SafeAreaView
+              edges={["bottom"]}
+              style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 16 }}
+            >
+            <View
+              accessibilityViewIsModal
+              className="w-full rounded-3xl border p-5"
+              style={{
+                borderColor,
+                backgroundColor: cardBackground,
+                maxWidth: 640,
+                maxHeight: "92%",
+                alignSelf: "center"
+              }}
+            >
+              <Text accessibilityRole="header" className="text-2xl font-black" style={{ color: textPrimary }}>
                 {reminderForm.id ? "Edit Reminder" : "New Reminder"}
               </Text>
-              <ScrollView
-                className="mt-2 max-h-[520px]"
+              {reminderEditorError.length > 0 && (
+                <StatusBanner
+                  className="mt-3"
+                  title="Check this reminder"
+                  message={reminderEditorError}
+                  variant="danger"
+                />
+              )}
+              <KeyboardAwareScrollView
+                className="mt-2"
+                style={{ flexShrink: 1 }}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
                 contentContainerStyle={{ paddingBottom: 8 }}
               >
-                <TextInput
+                <TextField
+                  label="Title"
                   value={reminderForm.title}
                   onChangeText={(value) => setReminderForm((prev) => ({ ...prev, title: value }))}
-                  placeholder="Title"
-                  placeholderTextColor="#7A7A7A"
-                  className="mt-2 rounded-2xl border px-4 py-3 text-lg font-semibold"
-                  style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
+                  placeholder="What should Anthra remind you about?"
+                  autoFocus
+                  selectTextOnFocus={Boolean(reminderForm.id)}
+                  returnKeyType="done"
+                  required
+                  containerStyle={{ marginTop: 8 }}
                 />
-                <Text className="mb-2 mt-3 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Reminder Type</Text>
-                <View className="flex-row flex-wrap gap-2">
+                <Text className="mb-2 mt-3 text-sm font-semibold" style={{ color: textMuted }}>Reminder Type</Text>
+                <View className="flex-row flex-wrap" style={{ gap: semanticTheme.spacing.sm }}>
                   {([
                     { value: "time", label: "Recurring" },
                     { value: "multi", label: "Multiple Times" },
@@ -2985,7 +4178,7 @@ export default function App() {
                       <Pressable
                         key={`reminder-mode-${option.value}`}
                         onPress={() => {
-                          const nextDateLabel = reminderForm.dateLabel || getIstTodayLabel();
+                          const nextDateLabel = reminderForm.dateLabel || getDeviceTodayLabel();
                           setReminderForm((prev) => ({
                             ...prev,
                             mode: option.value,
@@ -2995,20 +4188,25 @@ export default function App() {
                             setReminderCalendarMonth(getReminderCalendarMonthFromDateLabel(nextDateLabel));
                           }
                         }}
-                        className="rounded-full border px-3 py-2"
+                        accessibilityRole="radio"
+                        accessibilityLabel={option.label}
+                        accessibilityState={{ checked: selected, selected }}
+                        className="min-h-[48px] items-center justify-center rounded-xl border px-3 py-2"
                         style={{
+                          flexBasis: "47%",
+                          flexGrow: 1,
                           borderColor: selected ? reminderTheme.accent : reminderTheme.accentBorder,
                           backgroundColor: selected ? withAlpha(reminderTheme.accent, 0.18) : inputBackground
                         }}
                       >
-                        <Text className="text-xs font-black uppercase" style={{ color: selected ? reminderTheme.accent : textMuted }}>
+                        <Text className="text-center text-xs font-black uppercase" style={{ color: selected ? reminderTheme.accent : textMuted }}>
                           {option.label}
                         </Text>
                       </Pressable>
                     );
                   })}
                 </View>
-                <Text className="mt-2 text-xs text-[#4A8FA2] dark:text-white/60">
+                <Text className="mt-2 text-xs" style={{ color: textMuted }}>
                   {reminderForm.mode === "interval"
                     ? "Best for things like drink water every hour."
                     : reminderForm.mode === "multi"
@@ -3020,35 +4218,33 @@ export default function App() {
 
                 {(reminderForm.mode === "time" || reminderForm.mode === "once") && (
                   <>
-                    <View className="mt-3 flex-row gap-3">
-                      <View className="flex-1">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Hour</Text>
-                        <TextInput
-                          value={reminderForm.hour}
-                          onChangeText={(value) => setReminderForm((prev) => ({ ...prev, hour: digitsOnly(value) }))}
-                          keyboardType="number-pad"
-                          placeholder="9"
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Minute</Text>
-                        <TextInput
-                          value={reminderForm.minute}
-                          onChangeText={(value) => setReminderForm((prev) => ({ ...prev, minute: digitsOnly(value) }))}
-                          keyboardType="number-pad"
-                          placeholder="00"
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                        />
-                      </View>
+                    <View className="mt-3">
+                      <TimePickerField
+                        label="Reminder time"
+                        hour={parseStrictWholeNumber(reminderForm.hour) ?? 9}
+                        minute={parseStrictWholeNumber(reminderForm.minute) ?? 0}
+                        onChange={(hour, minute) =>
+                          setReminderForm((current) => ({
+                            ...current,
+                            hour: String(hour),
+                            minute: String(minute)
+                          }))
+                        }
+                        accentColor={reminderTheme.accent}
+                        borderColor={reminderTheme.accentBorder}
+                        backgroundColor={inputBackground}
+                        textColor={textPrimary}
+                        mutedColor={textMuted}
+                        presets={[
+                          { label: "Morning", hour: 8, minute: 0 },
+                          { label: "Afternoon", hour: 13, minute: 0 },
+                          { label: "Evening", hour: 18, minute: 0 }
+                        ]}
+                      />
                     </View>
                     {reminderForm.mode === "once" && (
                       <View className="mt-3">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Date</Text>
+                        <Text className="mb-2 text-sm font-semibold" style={{ color: textMuted }}>Date</Text>
                         <View
                           className="rounded-2xl border p-3"
                           style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}
@@ -3056,7 +4252,9 @@ export default function App() {
                           <View className="flex-row items-center justify-between">
                             <Pressable
                               onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))}
-                              className="rounded-xl border px-3 py-2"
+                              accessibilityRole="button"
+                              accessibilityLabel="Previous month"
+                              className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
                               style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}
                             >
                               <Text className="text-xs font-black uppercase" style={{ color: textMuted }}>Prev</Text>
@@ -3066,7 +4264,9 @@ export default function App() {
                             </Text>
                             <Pressable
                               onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))}
-                              className="rounded-xl border px-3 py-2"
+                              accessibilityRole="button"
+                              accessibilityLabel="Next month"
+                              className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
                               style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}
                             >
                               <Text className="text-xs font-black uppercase" style={{ color: textMuted }}>Next</Text>
@@ -3094,10 +4294,15 @@ export default function App() {
                                   }}
                                   className="mb-2 w-[14.2857%] items-center"
                                   disabled={disabled}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={day.dateLabel}
+                                  accessibilityState={{ disabled, selected }}
                                 >
                                   <View
-                                    className="h-10 w-10 items-center justify-center rounded-full border"
+                                    className="items-center justify-center rounded-full border"
                                     style={{
+                                      width: reminderCalendarDaySize,
+                                      height: reminderCalendarDaySize,
                                       borderColor: selected
                                         ? reminderTheme.accent
                                         : day.isToday
@@ -3129,8 +4334,8 @@ export default function App() {
                             })}
                           </View>
                         </View>
-                        <Text className="mt-2 text-xs text-[#4A8FA2] dark:text-white/60">
-                          Selected: {reminderForm.dateLabel || getIstTodayLabel()} in IST.
+                        <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                          Selected: {reminderForm.dateLabel || getDeviceTodayLabel()} in {getDeviceTimeZone()}.
                         </Text>
                       </View>
                     )}
@@ -3139,29 +4344,70 @@ export default function App() {
 
                 {reminderForm.mode === "multi" && (
                   <View className="mt-3">
-                    <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Times</Text>
-                    <View className="flex-row flex-wrap gap-3">
-                      {reminderForm.timeSlots.map((slot, index) => (
-                        <View key={`slot-${index}`} className="w-[47%]">
-                          <TextInput
-                            value={slot}
-                            onChangeText={(value) =>
-                              setReminderForm((prev) => {
-                                const nextSlots = [...prev.timeSlots];
-                                nextSlots[index] = normalizeReminderTimeInput(value);
-                                return { ...prev, timeSlots: ensureReminderTimeInputs(nextSlots) };
-                              })
-                            }
-                            placeholder={["08:00", "13:00", "20:00", "22:00"][index]}
-                            placeholderTextColor="#7A7A7A"
-                            className="rounded-2xl border px-4 py-3 text-base font-semibold"
-                            style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                          />
-                        </View>
-                      ))}
+                    <Text className="mb-2 text-sm font-semibold" style={{ color: textMuted }}>Times</Text>
+                    <View className="gap-3">
+                      {reminderForm.timeSlots.map((slot, index) => {
+                        if (!slot.trim()) return null;
+                        const parsed = parseReminderTimeSlotInput(slot) ?? { hour: 8, minute: 0 };
+                        return (
+                          <View key={`slot-${index}`} className="rounded-2xl border p-3" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}>
+                            <TimePickerField
+                              label={`Time ${index + 1}`}
+                              hour={parsed.hour}
+                              minute={parsed.minute}
+                              onChange={(hour, minute) =>
+                                setReminderForm((prev) => {
+                                  const nextSlots = [...prev.timeSlots];
+                                  nextSlots[index] = formatTimeLabel(hour, minute);
+                                  return { ...prev, timeSlots: ensureReminderTimeInputs(nextSlots) };
+                                })
+                              }
+                              accentColor={reminderTheme.accent}
+                              borderColor={reminderTheme.accentBorder}
+                              backgroundColor={panelBackground}
+                              textColor={textPrimary}
+                              mutedColor={textMuted}
+                            />
+                            {reminderForm.timeSlots.filter((value) => value.trim()).length > 1 && (
+                              <Pressable
+                                onPress={() =>
+                                  setReminderForm((prev) => {
+                                    const compacted = prev.timeSlots.filter((_, slotIndex) => slotIndex !== index && prev.timeSlots[slotIndex].trim());
+                                    return { ...prev, timeSlots: ensureReminderTimeInputs(compacted) };
+                                  })
+                                }
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove time ${index + 1}`}
+                                className="mt-2 min-h-[44px] items-center justify-center rounded-xl border"
+                                style={{ borderColor: semanticTheme.colors.danger, backgroundColor: semanticTheme.colors.dangerSoft }}
+                              >
+                                <Text className="text-sm font-black uppercase" style={{ color: semanticTheme.colors.danger }}>Remove</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
-                    <Text className="mt-2 text-xs text-[#4A8FA2] dark:text-white/60">
-                      Add up to 4 daily times in `HH:MM` format.
+                    {reminderForm.timeSlots.filter((value) => value.trim()).length < 4 && (
+                      <Pressable
+                        onPress={() =>
+                          setReminderForm((prev) => {
+                            const compacted = prev.timeSlots.filter((value) => value.trim());
+                            const last = parseReminderTimeSlotInput(compacted[compacted.length - 1] ?? "08:00") ?? { hour: 8, minute: 0 };
+                            const nextHour = (last.hour + 4) % 24;
+                            return { ...prev, timeSlots: ensureReminderTimeInputs([...compacted, formatTimeLabel(nextHour, last.minute)]) };
+                          })
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel="Add another reminder time"
+                        className="mt-3 min-h-[48px] items-center justify-center rounded-xl border"
+                        style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}
+                      >
+                        <Text className="text-sm font-black uppercase" style={{ color: reminderTheme.accent }}>Add another time</Text>
+                      </Pressable>
+                    )}
+                    <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                      Add up to 4 daily times. Anthra handles the time format for you.
                     </Text>
                   </View>
                 )}
@@ -3169,92 +4415,80 @@ export default function App() {
                 {reminderForm.mode === "interval" && (
                   <>
                     <View className="mt-3">
-                      <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Repeat Every (minutes)</Text>
-                      <TextInput
+                      <TextField
+                        label="Repeat every"
                         value={reminderForm.intervalMinutes}
                         onChangeText={(value) => setReminderForm((prev) => ({ ...prev, intervalMinutes: digitsOnly(value) }))}
                         keyboardType="number-pad"
-                        placeholder="60"
-                        placeholderTextColor="#7A7A7A"
-                        className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                        style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
+                        placeholder="60 minutes"
+                        helperText="Choose an interval from 1 to 720 minutes."
+                        maxLength={3}
                       />
                     </View>
-                    <View className="mt-3 flex-row gap-3">
-                      <View className="flex-1">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Start Hour</Text>
-                        <TextInput
-                          value={reminderForm.intervalStartHour}
-                          onChangeText={(value) => setReminderForm((prev) => ({ ...prev, intervalStartHour: digitsOnly(value) }))}
-                          keyboardType="number-pad"
-                          placeholder="8"
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Start Minute</Text>
-                        <TextInput
-                          value={reminderForm.intervalStartMinute}
-                          onChangeText={(value) => setReminderForm((prev) => ({ ...prev, intervalStartMinute: digitsOnly(value) }))}
-                          keyboardType="number-pad"
-                          placeholder="00"
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                        />
-                      </View>
+                    <View className="mt-3">
+                      <TimePickerField
+                        label="Start time"
+                        hour={parseStrictWholeNumber(reminderForm.intervalStartHour) ?? 8}
+                        minute={parseStrictWholeNumber(reminderForm.intervalStartMinute) ?? 0}
+                        onChange={(hour, minute) =>
+                          setReminderForm((current) => ({
+                            ...current,
+                            intervalStartHour: String(hour),
+                            intervalStartMinute: String(minute)
+                          }))
+                        }
+                        accentColor={reminderTheme.accent}
+                        borderColor={reminderTheme.accentBorder}
+                        backgroundColor={inputBackground}
+                        textColor={textPrimary}
+                        mutedColor={textMuted}
+                      />
                     </View>
-                    <View className="mt-3 flex-row gap-3">
-                      <View className="flex-1">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">End Hour</Text>
-                        <TextInput
-                          value={reminderForm.intervalEndHour}
-                          onChangeText={(value) => setReminderForm((prev) => ({ ...prev, intervalEndHour: digitsOnly(value) }))}
-                          keyboardType="number-pad"
-                          placeholder="22"
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="mb-2 text-sm font-semibold text-[#2A6A80] dark:text-white/75">End Minute</Text>
-                        <TextInput
-                          value={reminderForm.intervalEndMinute}
-                          onChangeText={(value) => setReminderForm((prev) => ({ ...prev, intervalEndMinute: digitsOnly(value) }))}
-                          keyboardType="number-pad"
-                          placeholder="00"
-                          placeholderTextColor="#7A7A7A"
-                          className="rounded-2xl border px-4 py-3 text-lg font-semibold"
-                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-                        />
-                      </View>
+                    <View className="mt-3">
+                      <TimePickerField
+                        label="End time"
+                        hour={parseStrictWholeNumber(reminderForm.intervalEndHour) ?? 22}
+                        minute={parseStrictWholeNumber(reminderForm.intervalEndMinute) ?? 0}
+                        onChange={(hour, minute) =>
+                          setReminderForm((current) => ({
+                            ...current,
+                            intervalEndHour: String(hour),
+                            intervalEndMinute: String(minute)
+                          }))
+                        }
+                        accentColor={reminderTheme.accent}
+                        borderColor={reminderTheme.accentBorder}
+                        backgroundColor={inputBackground}
+                        textColor={textPrimary}
+                        mutedColor={textMuted}
+                      />
                     </View>
                   </>
                 )}
-                <TextInput
+                <TextField
+                  label="Note"
                   value={reminderForm.note}
                   onChangeText={(value) => setReminderForm((prev) => ({ ...prev, note: value }))}
                   multiline
-                  placeholder="Note (optional)"
-                  placeholderTextColor="#7A7A7A"
-                  className="mt-3 min-h-[90px] rounded-2xl border px-4 py-3 text-base text-[#08364A] dark:text-white"
-                  style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
+                  placeholder="Add helpful context (optional)"
+                  containerStyle={{ marginTop: 12 }}
                 />
                 {reminderForm.mode !== "once" && (
                   <>
-                    <Text className="mb-2 mt-3 text-sm font-semibold text-[#2A6A80] dark:text-white/75">Days</Text>
-                    <View className="flex-row flex-wrap gap-2">
+                    <Text className="mb-2 mt-3 text-sm font-semibold" style={{ color: textMuted }}>Days</Text>
+                    <View className="flex-row flex-wrap" style={{ gap: semanticTheme.spacing.sm }}>
                       {WEEKDAY_OPTIONS.map((day) => {
                         const selected = reminderForm.days.includes(day.value);
                         return (
                           <Pressable
                             key={`rday-${day.value}`}
                             onPress={() => toggleReminderDay(day.value)}
-                            className="rounded-full border px-3 py-2"
+                            accessibilityRole="checkbox"
+                            accessibilityLabel={day.label}
+                            accessibilityState={{ checked: selected }}
+                            className="min-h-[48px] items-center justify-center rounded-xl border px-2 py-2"
                             style={{
+                              width: windowWidth < 520 || fontScale >= 1.2 ? "22%" : "12%",
                               borderColor: selected ? reminderTheme.accent : reminderTheme.accentBorder,
                               backgroundColor: selected ? withAlpha(reminderTheme.accent, 0.2) : inputBackground
                             }}
@@ -3266,190 +4500,124 @@ export default function App() {
                         );
                       })}
                     </View>
-                    <Text className="mt-2 text-xs text-[#4A8FA2] dark:text-white/60">
+                    <Text className="mt-2 text-xs" style={{ color: textMuted }}>
                       Leave all days off to repeat every day.
                     </Text>
                   </>
                 )}
-                <Pressable
-                  onPress={() => setReminderForm((prev) => ({ ...prev, enabled: !prev.enabled }))}
-                  className={`mt-4 rounded-2xl border px-4 py-3 ${
-                    reminderForm.enabled
-                      ? "border-neon-green/50 bg-neon-green/15"
-                      : "border-[#05AED5]/35 dark:border-white/20 bg-ink dark:bg-[#050505]"
-                  }`}
-                >
-                  <Text className={`text-sm font-black uppercase ${reminderForm.enabled ? "text-neon-green" : "text-[#2A6A80] dark:text-white/75"}`}>
-                    {reminderForm.enabled ? "Reminder Enabled" : "Reminder Disabled"}
-                  </Text>
-                </Pressable>
-              </ScrollView>
-              <View className="mt-5 flex-row gap-3">
-                <Pressable
-                  onPress={() => setReminderEditorOpen(false)}
-                  className="flex-1 items-center rounded-xl border py-3"
-                  style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}
-                >
-                  <Text className="text-base font-semibold text-[#2A6A80] dark:text-white/75">Cancel</Text>
-                </Pressable>
-                <Pressable
+                <SwitchRow
+                  label="Reminder enabled"
+                  description={reminderForm.enabled
+                    ? "This reminder will be scheduled after you save."
+                    : "Save it without scheduling notifications yet."}
+                  value={reminderForm.enabled}
+                  onValueChange={(enabled) => setReminderForm((prev) => ({ ...prev, enabled }))}
+                  style={{ marginTop: semanticTheme.spacing.lg }}
+                />
+              </KeyboardAwareScrollView>
+              <View
+                className="mt-5"
+                style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.md }}
+              >
+                <Button
+                  label="Cancel"
+                  onPress={() => {
+                    setReminderEditorOpen(false);
+                    setReminderEditorError("");
+                  }}
+                  variant="outline"
+                  fullWidth
+                  style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                />
+                <Button
+                  label="Save reminder"
                   onPress={() => handleSaveReminder().catch(() => undefined)}
-                  className="flex-1 items-center rounded-xl py-3"
-                  style={{ backgroundColor: reminderTheme.accent }}
-                >
-                  <Text className="text-base font-black" style={{ color: reminderTheme.onAccent }}>Save</Text>
-                </Pressable>
+                  loading={reminderSaving}
+                  fullWidth
+                  style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                />
               </View>
             </View>
+            </SafeAreaView>
           </KeyboardAvoidingView>
         </Modal>
 
-        <Modal
+        <VaultEntryModal
           visible={vaultEditorOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setVaultEditorOpen(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-6"
-          >
-            <View className="rounded-3xl border p-5" style={{ borderColor: passwordTheme.accentBorder, backgroundColor: panelBackground }}>
-              <Text className="text-2xl font-black" style={{ color: textPrimary }}>{vaultForm.id ? "Edit Password" : "Add Password"}</Text>
-              <TextInput
-                value={vaultForm.appName}
-                onChangeText={(value) => setVaultForm((prev) => ({ ...prev, appName: value }))}
-                placeholder="App or website"
-                placeholderTextColor="#7A7A7A"
-                className="mt-4 rounded-2xl border px-4 py-3 text-lg font-semibold"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-              />
-              <TextInput
-                value={vaultForm.accountId}
-                onChangeText={(value) => setVaultForm((prev) => ({ ...prev, accountId: value }))}
-                placeholder="Login ID / username"
-                placeholderTextColor="#7A7A7A"
-                className="mt-3 rounded-2xl border px-4 py-3 text-lg"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-              />
-              <TextInput
-                value={vaultForm.secret}
-                onChangeText={(value) => setVaultForm((prev) => ({ ...prev, secret: value }))}
-                placeholder="Password"
-                placeholderTextColor="#7A7A7A"
-                className="mt-3 rounded-2xl border px-4 py-3 text-lg"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-              />
-              <View className="mt-5 flex-row gap-3">
-                <Pressable
-                  onPress={() => setVaultEditorOpen(false)}
-                  className="flex-1 items-center rounded-xl border py-3"
-                  style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground }}
-                >
-                  <Text className="text-base font-semibold text-[#2A6A80] dark:text-white/75">Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => handleSaveVault().catch(() => undefined)}
-                  className="flex-1 items-center rounded-xl py-3"
-                  style={{ backgroundColor: passwordTheme.accent }}
-                >
-                  <Text className="text-base font-black" style={{ color: passwordTheme.onAccent }}>Save</Text>
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+          editing={vaultForm.id != null}
+          appName={vaultForm.appName}
+          accountId={vaultForm.accountId}
+          secret={vaultForm.secret}
+          error={vaultEditorError}
+          saving={vaultSaving}
+          onChangeAppName={(value) => {
+            setVaultForm((prev) => ({ ...prev, appName: value }));
+            if (vaultEditorError) setVaultEditorError("");
+          }}
+          onChangeAccountId={(value) => {
+            setVaultForm((prev) => ({ ...prev, accountId: value }));
+            if (vaultEditorError) setVaultEditorError("");
+          }}
+          onChangeSecret={(value) => {
+            setVaultForm((prev) => ({ ...prev, secret: value }));
+            if (vaultEditorError) setVaultEditorError("");
+          }}
+          onGenerateSecret={async () => {
+            const secret = await generateStrongPassword();
+            setVaultForm((prev) => ({ ...prev, secret }));
+          }}
+          onClose={() => {
+            setVaultEditorOpen(false);
+            setVaultForm(INITIAL_VAULT_FORM);
+            setVaultEditorError("");
+            setVaultSaving(false);
+          }}
+          onSave={() => handleSaveVault().catch(() => undefined)}
+        />
 
-        <Modal
+        <VaultResetPinModal
+          visible={vaultResetPinOpen && vaultHasPin && vaultUnlocked}
+          currentPin={vaultCurrentPin}
+          newPin={vaultReplacementPin}
+          confirmPin={vaultReplacementPinConfirm}
+          saving={vaultResetPinSaving}
+          error={vaultResetPinError}
+          onChangeCurrentPin={(value) => {
+            setVaultCurrentPin(digitsOnly(value));
+            if (vaultResetPinError) setVaultResetPinError("");
+          }}
+          onChangeNewPin={(value) => {
+            setVaultReplacementPin(digitsOnly(value));
+            if (vaultResetPinError) setVaultResetPinError("");
+          }}
+          onChangeConfirmPin={(value) => {
+            setVaultReplacementPinConfirm(digitsOnly(value));
+            if (vaultResetPinError) setVaultResetPinError("");
+          }}
+          onClose={closeVaultResetPin}
+          onSubmit={() => handleResetVaultPin().catch(() => undefined)}
+        />
+        <VaultPinModal
           visible={pinModalOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={closePinModal}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center bg-black/70 px-6"
-          >
-            <View className="rounded-3xl border p-5" style={{ borderColor: passwordTheme.accentBorder, backgroundColor: panelBackground }}>
-              <Text className="text-2xl font-black" style={{ color: textPrimary }}>
-                {pinModalMode === "unlock" ? "Unlock Password Manager" : "Verify PIN"}
-              </Text>
-              <Text className="mt-2 text-base text-[#2A6A80] dark:text-white/75">
-                {pinModalMode === "unlock" ? "Enter PIN to open vault." : "Enter PIN to reveal password."}
-              </Text>
-              <TextInput
-                value={pinModalInput}
-                onChangeText={(value) => {
-                  setPinModalInput(digitsOnly(value));
-                  if (pinModalError) setPinModalError("");
-                }}
-                secureTextEntry
-                keyboardType="number-pad"
-                maxLength={8}
-                placeholder="PIN"
-                placeholderTextColor="#7A7A7A"
-                className="mt-4 rounded-2xl border px-4 py-3 text-lg font-semibold"
-                style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground, color: textPrimary }}
-              />
-              {pinModalError.length > 0 && (
-                <Text className="mt-2 text-base font-semibold text-neon-red">{pinModalError}</Text>
-              )}
-              <View className="mt-5 flex-row gap-3">
-                <Pressable
-                  onPress={closePinModal}
-                  className="flex-1 items-center rounded-xl border py-3"
-                  style={{ borderColor: passwordTheme.accentBorder, backgroundColor: inputBackground }}
-                >
-                  <Text className="text-base font-semibold text-[#2A6A80] dark:text-white/75">Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => verifyPinModal().catch(() => undefined)}
-                  className="flex-1 items-center rounded-xl py-3"
-                  style={{ backgroundColor: passwordTheme.accent }}
-                >
-                  <Text className="text-base font-black" style={{ color: passwordTheme.onAccent }}>Verify</Text>
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+          mode={pinModalMode}
+          pin={pinModalInput}
+          error={pinModalError}
+          verifying={pinVerifying}
+          onChangePin={(value) => {
+            setPinModalInput(digitsOnly(value));
+            if (pinModalError) setPinModalError("");
+          }}
+          onClose={closePinModal}
+          onVerify={() => verifyPinModal().catch(() => undefined)}
+        />
 
         {showSplashOverlay && (
-          <Animated.View
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              opacity: splashOpacity
-            }}
-          >
-            <View className="flex-1 items-center justify-center px-8" style={{ flex: 1, backgroundColor: appBackground }}>
-              <StatusBar style={statusBarStyle} />
-              <View className="w-full max-w-[360px] rounded-3xl border px-8 py-10" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: panelBackground }}>
-                <View className="items-center">
-                  <Image
-                    source={require("./assets/icons/icon.png")}
-                    className="h-24 w-24 rounded-3xl"
-                    resizeMode="cover"
-                  />
-                  <Text className="mt-5 text-4xl font-black tracking-[4px]" style={{ color: workoutTheme.accent }}>ANTHRA</Text>
-                  <Text className="mt-2 text-sm font-semibold uppercase tracking-[2px] text-[#34768B] dark:text-white/70">
-                    Personal Planner
-                  </Text>
-                  <View className="mt-8 items-center">
-                    <ActivityIndicator size="large" color={workoutTheme.accent} />
-                    <Text className="mt-4 text-xs font-semibold uppercase tracking-[1.5px] text-[#4A8FA2] dark:text-white/60">
-                      Crafting...
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </Animated.View>
+          <LaunchOverlay
+            opacity={splashOpacity}
+          />
         )}
-      </View>
-    </SafeAreaProvider>
+        </View>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }

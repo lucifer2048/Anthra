@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 
 import { normalizeDays } from "../constants/schedule";
 import type { UserSettings } from "../types";
+import { syncWorkoutAlarmReminders } from "./alarmNative";
+import { getDayPartsInTimeZone, getDeviceTimeZone, zonedDateTimeToTimestamp } from "./timezone";
 
 type PermissionResponse = {
   granted?: boolean;
@@ -83,7 +85,6 @@ export type ReminderSyncResult = {
 
 const ANDROID_CHANNEL_ID = "workout-reminders";
 const WORKOUT_REMINDER_SOURCE = "workout-buddy";
-const IST_OFFSET_MINUTES = 330;
 const WORKOUT_SCHEDULE_HORIZON_DAYS = 56;
 const MAX_SCHEDULED_WORKOUT_NOTIFICATIONS = 320;
 let notificationHandlerConfigured = false;
@@ -122,36 +123,6 @@ function isExpoGoClient(): boolean {
   return appOwnership === "expo" || executionEnvironment === "storeClient";
 }
 
-function toIstDayParts(baseMs: number, dayOffset: number): {
-  year: number;
-  month: number;
-  day: number;
-  weekday: number;
-} {
-  const shifted = baseMs + IST_OFFSET_MINUTES * 60_000;
-  const baseIstDate = new Date(shifted);
-  const utcMs = Date.UTC(
-    baseIstDate.getUTCFullYear(),
-    baseIstDate.getUTCMonth(),
-    baseIstDate.getUTCDate() + dayOffset,
-    0,
-    0,
-    0,
-    0
-  );
-  const dayDate = new Date(utcMs);
-  return {
-    year: dayDate.getUTCFullYear(),
-    month: dayDate.getUTCMonth() + 1,
-    day: dayDate.getUTCDate(),
-    weekday: dayDate.getUTCDay()
-  };
-}
-
-function istToUtcTimestamp(year: number, month: number, day: number, hour: number, minute: number): number {
-  return Date.UTC(year, month - 1, day, hour, minute, 0, 0) - IST_OFFSET_MINUTES * 60_000;
-}
-
 function isGranted(response: PermissionResponse | null | undefined): boolean {
   if (!response) return false;
   return response.granted === true || response.status === "granted";
@@ -186,7 +157,7 @@ async function ensureAndroidChannel(notifications: NotificationModule): Promise<
       importance: notifications.AndroidImportance?.HIGH ?? notifications.AndroidImportance?.DEFAULT,
       sound: "default",
       vibrationPattern: [0, 350, 180, 350],
-      lightColor: "#52B7FF"
+      lightColor: "#C8102E"
     });
 
     if (typeof notifications.getNotificationChannelAsync !== "function") {
@@ -205,7 +176,9 @@ async function clearExistingWorkoutNotifications(notifications: NotificationModu
     typeof notifications.getAllScheduledNotificationsAsync !== "function" ||
     typeof notifications.cancelScheduledNotificationAsync !== "function"
   ) {
-    await notifications.cancelAllScheduledNotificationsAsync?.();
+    // Do NOT call cancelAllScheduledNotificationsAsync here — it would also
+    // cancel notifications owned by reminder buddy.  Without per-notification
+    // cancel support we simply skip cleanup and let the new batch overlap.
     return;
   }
 
@@ -216,7 +189,10 @@ async function clearExistingWorkoutNotifications(notifications: NotificationModu
   );
 }
 
-export async function syncWorkoutReminders(settings: UserSettings): Promise<ReminderSyncResult> {
+export async function syncWorkoutReminders(
+  settings: UserSettings,
+  workoutDays: number[] = settings.workoutDays
+): Promise<ReminderSyncResult> {
   if (Platform.OS === "android" && isExpoGoClient()) {
     return {
       supported: false,
@@ -245,11 +221,13 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
   try {
     await clearExistingWorkoutNotifications(notifications);
 
-    if (!settings.notificationsEnabled) {
+    const usesNotifications =
+      settings.reminderDelivery === "notification" || settings.reminderDelivery === "both";
+    if (!settings.notificationsEnabled || !usesNotifications) {
       return {
         supported: true,
         scheduledCount: 0,
-        message: "Reminders disabled."
+        message: settings.notificationsEnabled ? "Workout notifications disabled." : "Reminders disabled."
       };
     }
 
@@ -270,7 +248,8 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
     const channelId = await ensureAndroidChannel(notifications);
 
     const nowMs = Date.now();
-    const sourceDays = normalizeDays(settings.workoutDays);
+    const timeZone = settings.timezone || getDeviceTimeZone();
+    const sourceDays = normalizeDays(workoutDays);
     const scheduledDays = sourceDays.length > 0 ? sourceDays : [0, 1, 2, 3, 4, 5, 6];
     const leadMinutesList = settings.reminderLeadMinutes
       .map((value) => Math.max(0, Math.floor(Number(value) || 0)))
@@ -285,10 +264,17 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
     const candidates: { timestamp: number; messageIndex: number }[] = [];
 
     for (let dayOffset = 0; dayOffset <= WORKOUT_SCHEDULE_HORIZON_DAYS; dayOffset += 1) {
-      const slot = toIstDayParts(nowMs, dayOffset);
+      const slot = getDayPartsInTimeZone(nowMs, dayOffset, timeZone);
       if (!daySet.has(slot.weekday)) continue;
 
-      const workoutTimestamp = istToUtcTimestamp(slot.year, slot.month, slot.day, hour, minute);
+      const workoutTimestamp = zonedDateTimeToTimestamp(
+        slot.year,
+        slot.month,
+        slot.day,
+        hour,
+        minute,
+        timeZone
+      );
       for (let leadIndex = 0; leadIndex < effectiveLeadMinutes.length; leadIndex += 1) {
         const lead = effectiveLeadMinutes[leadIndex];
         const reminderTimestamp = workoutTimestamp - lead * 60_000;
@@ -317,8 +303,8 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
           title: message.title,
           body: message.body,
           sound: true,
-          color: "#52B7FF",
-          data: { source: WORKOUT_REMINDER_SOURCE, timezone: "Asia/Kolkata" }
+          color: "#C8102E",
+          data: { source: WORKOUT_REMINDER_SOURCE, timezone: timeZone }
         },
         trigger: {
           type: "date",
@@ -334,10 +320,11 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
       scheduledCount,
       message:
         scheduledCount > 0
-          ? `Scheduled ${scheduledCount} reminders in IST (Asia/Kolkata).`
+          ? `Scheduled ${scheduledCount} reminders in ${timeZone}.`
           : "No reminders scheduled."
     };
   } catch (error) {
+    await clearExistingWorkoutNotifications(notifications).catch(() => undefined);
     const reason = error instanceof Error ? error.message : "Unknown reminder error.";
     return {
       supported: true,
@@ -345,4 +332,29 @@ export async function syncWorkoutReminders(settings: UserSettings): Promise<Remi
       message: `Reminder sync failed: ${reason}`
     };
   }
+}
+
+export async function syncWorkoutReminderDelivery(
+  settings: UserSettings,
+  workoutDays: number[] = settings.workoutDays
+): Promise<ReminderSyncResult> {
+  const notificationResult = await syncWorkoutReminders(settings, workoutDays);
+  const alarmResult = await syncWorkoutAlarmReminders(settings, workoutDays).catch((error) => ({
+    supported: true,
+    scheduledCount: 0,
+    message: `Alarm sync failed: ${error instanceof Error ? error.message : "Unknown alarm error."}`
+  }));
+
+  if (!settings.notificationsEnabled) {
+    return { supported: true, scheduledCount: 0, message: "Workout reminders disabled." };
+  }
+  if (settings.reminderDelivery === "notification") return notificationResult;
+  if (settings.reminderDelivery === "alarm") return alarmResult;
+
+  const supported = notificationResult.supported && alarmResult.supported;
+  return {
+    supported,
+    scheduledCount: notificationResult.scheduledCount + alarmResult.scheduledCount,
+    message: `Notifications: ${notificationResult.message} Alarms: ${alarmResult.message}`
+  };
 }

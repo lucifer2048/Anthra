@@ -8,6 +8,7 @@ Source of truth for how this app is built. Cursor rules in `.cursor/rules/` are 
 
 | Doc | Covers |
 |-----|--------|
+| [app-providers.md](./app-providers.md) | Root provider tree (`AppProviders`) |
 | [change-checklist.md](./change-checklist.md) | **Mandatory gate** — docs + kit search before every UI/feature change |
 | [principles.md](./principles.md) | Ethics, offline-first, type safety, when docs override the user |
 | [architecture.md](./architecture.md) | Modules, data layer, native bridges, navigation model |

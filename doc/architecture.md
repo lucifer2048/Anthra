@@ -2,11 +2,11 @@
 
 ## Product shape
 
-Anthra is an Expo / React Native Android app (package `com.anthra.timer`). Entry: `App.tsx` switches `activeModule`:
+Entry: Expo → `App.tsx` → `AppProviders` (`src/providers/AppProviders.tsx`: GestureHandler → SafeAreaProvider → ThemeProvider) → module screens.
 
-`hub | workout | reminder | password | list | alarm | activity | tracker`
+Module switch: `activeModule` = `hub | workout | reminder | password | list | alarm | activity | tracker`
 
-There is no Expo Router / React Navigation stack for module routing. Buddy screens own their own tab bars where needed.
+There is no Expo Router / React Navigation stack for module routing. Buddy screens own their own tab bars where needed. See [app-providers.md](./app-providers.md).
 
 ## Layers
 

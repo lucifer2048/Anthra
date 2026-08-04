@@ -21,14 +21,14 @@ import {
   useWindowDimensions,
   View
 } from "react-native";
-import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
+import { Swipeable } from "react-native-gesture-handler";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as Clipboard from "expo-clipboard";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CheckCircle2, Clock3, History as HistoryIcon, Share2, Star, Trash2 } from "lucide-react-native";
 
 import "./global.css";
@@ -53,7 +53,8 @@ import { ActivityBuddyScreen } from "./src/features/activity/ActivityBuddyScreen
 import { AnthraHomeScreen } from "./src/features/hub/AnthraHomeScreen";
 import { TrackerBuddyScreen } from "./src/features/tracker/TrackerBuddyScreen";
 import { syncTrackerNotifications } from "./src/features/tracker/trackerNotifications";
-import { createScreenBackgrounds, resolveTheme, ThemeProvider, themes, type ThemeMode } from "./src/design-system";
+import { AppProviders } from "./src/providers";
+import { createScreenBackgrounds, resolveTheme, themes, type ThemeMode } from "./src/design-system";
 import { Button, Card, IconButton, KeyboardAwareScrollView, ScreenHeader, StatusBanner, SwitchRow, TextField } from "./src/components/ui";
 import {
   clearActiveWorkoutSnapshot,
@@ -3111,22 +3112,20 @@ export default function App() {
     );
   } else if (activePlan) {
     content = (
-      <GestureHandlerRootView className="flex-1" style={{ flex: 1 }}>
-        <TimerScreen
-          plan={activePlan}
-          onComplete={handleWorkoutComplete}
-          onBack={closeTimer}
-          initialState={activeTimerInitialState}
-          onStateChange={handleTimerStateChange}
-          accentColor={workoutTheme.accent}
-          accentSoftColor={workoutTheme.accentSoft}
-        />
-      </GestureHandlerRootView>
+      <TimerScreen
+        plan={activePlan}
+        onComplete={handleWorkoutComplete}
+        onBack={closeTimer}
+        initialState={activeTimerInitialState}
+        onStateChange={handleTimerStateChange}
+        accentColor={workoutTheme.accent}
+        accentSoftColor={workoutTheme.accentSoft}
+      />
     );
   } else {
     content = (
-      <GestureHandlerRootView className="flex-1" style={{ flex: 1, backgroundColor: "transparent" }}>
-        <ScreenLayout {...screenBackgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
+      <>
+      <ScreenLayout {...screenBackgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
           <View className="border-b px-5" style={{ borderColor }}>
             <ScreenHeader
               eyebrow="MOVE"
@@ -4099,14 +4098,13 @@ export default function App() {
             </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
-      </GestureHandlerRootView>
+      </>
     );
   }
 
   return (
-    <ThemeProvider mode={themeMode} onModeChange={handleThemeModeChange}>
-      <SafeAreaProvider>
-        <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
+    <AppProviders themeMode={themeMode} onThemeModeChange={handleThemeModeChange}>
+      <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
         {content}
         <Modal
           visible={reminderEditorOpen}
@@ -4616,7 +4614,6 @@ export default function App() {
           />
         )}
         </View>
-      </SafeAreaProvider>
-    </ThemeProvider>
+    </AppProviders>
   );
 }

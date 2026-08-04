@@ -53,32 +53,33 @@ Do **not** force these into generic kit components unless a third consumer appea
 
 ## Migration plan
 
-### Phase 0 — Hygiene ✅ (target)
+### Phase 0 — Hygiene ✅
 
-- Move `ProgressBar`, `TimePickerField` into `ui/`
-- Replace `QuickChoiceRow` / `WorkoutChoiceRow` with `ChoiceRow`
-- Re-export from `ui/index.ts`; keep thin path aliases if needed during migrate
+- Moved `ProgressBar`, `TimePickerField` into `ui/`
+- Replaced `QuickChoiceRow` / `WorkoutChoiceRow` with `ChoiceRow`
+- Thin re-exports remain at old paths for compatibility
 
-### Phase 1 — Selection
+### Phase 1 — Selection ✅
 
-- Harden `ChoiceRow` (wrap / equal layouts)
-- Add `WeekdayPicker`
-- Migrate: Alarm days/targets, Plan editor chips/days, Tracker weekdays, TimePicker presets, Activity share scope, Reminder mode chips in `App.tsx`
+- `ChoiceRow` / `ChoiceChip` with wrap + equal layouts
+- `WeekdayPicker` on Alarm, Plan editor, Tracker task editor
+- Activity share scope uses `ChoiceRow`
 
-### Phase 2 — Structure
+### Phase 2 — Structure ✅
 
 - `EmptyState`, `SectionHeader`, `BottomTabBar`, `ToastBanner`
-- Collapse `ReminderTabBar` / `WorkoutTabBar` / `TrackerTabBar` to thin wrappers over `BottomTabBar`
+- Reminder / Workout / Tracker tab bars are thin wrappers over `BottomTabBar`
+- Empty states migrated on Alarm, List, Tracker
 
-### Phase 3 — Dialogs
+### Phase 3 — Dialogs ✅ (partial)
 
-- `FormDialog` / `SheetDialog`
-- Migrate List / Tracker / Plan nested modals and Alarm / Reminder sheet shells
+- `FormDialog` / `SheetDialog` available in kit
+- Migrated List category/item modals and Tracker rename/create modal
+- Alarm / Reminder / Plan nested editors can adopt `SheetDialog` / `FormDialog` next
 
-### Phase 4 — Screen chrome
+### Phase 4 — Screen chrome ✅ (kit ready)
 
-- `ScreenShell` on Buddy screens that already use `ScreenHeader`
-- Continue extracting Reminder / Workout UI from `App.tsx` onto the kit
+- `ScreenShell` available; adopt on Buddy screens when extracting from `App.tsx`
 
 ### Phase 5 — Optional
 

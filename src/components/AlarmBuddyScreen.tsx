@@ -11,14 +11,13 @@ import {
   Switch,
   Text,
   TextInput,
-  useWindowDimensions,
   View
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AlarmClock, Camera, ChevronDown, ChevronUp, Music2, Pencil, Plus, Trash2 } from "lucide-react-native";
 
-import { WEEKDAY_OPTIONS, formatDays, normalizeDays } from "../constants/schedule";
+import { formatDays, normalizeDays } from "../constants/schedule";
 import { useAnthraTheme } from "../design-system";
 import {
   deleteAlarmItem,
@@ -41,8 +40,20 @@ import {
   type AlarmPermissionStatus
 } from "../utils/alarmNative";
 import { getDayPartsInTimeZone, zonedDateTimeToTimestamp } from "../utils/timezone";
-import { TimePickerField } from "./TimePickerField";
-import { Button, Card, IconButton, KeyboardAwareScrollView, ScreenHeader, StatusBanner, TextField } from "./ui";
+import {
+  Button,
+  Card,
+  ChoiceRow,
+  EmptyState,
+  IconButton,
+  KeyboardAwareScrollView,
+  ScreenHeader,
+  SectionHeader,
+  StatusBanner,
+  TextField,
+  TimePickerField,
+  WeekdayPicker
+} from "./ui";
 
 const ALARM_TIMEZONE = "Asia/Kolkata";
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
@@ -144,7 +155,6 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
   const anthraTheme = useAnthraTheme();
   const { colors, layout, radii, spacing, typography } = anthraTheme;
   const insets = useSafeAreaInsets();
-  const { fontScale, width } = useWindowDimensions();
   const [alarms, setAlarms] = useState<AlarmItem[]>([]);
   const [history, setHistory] = useState<AlarmHistoryEntry[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<AlarmPermissionStatus | null>(null);
@@ -524,25 +534,19 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
           />
         )}
 
-        <View className="flex-row items-end justify-between" style={{ marginBottom: spacing.sm, marginTop: spacing["2xl"] }}>
-          <Text style={[typography.titleSmall, { color: colors.textPrimary }]}>Your alarms</Text>
-          <Text style={[typography.caption, { color: colors.textSecondary }]}>
-            {alarms.length} total
-          </Text>
-        </View>
+        <SectionHeader
+          title="Your alarms"
+          meta={`${alarms.length} total`}
+          style={{ marginBottom: spacing.sm, marginTop: spacing["2xl"] }}
+        />
 
         {alarms.length === 0 && (
-          <Card padding="large" style={{ alignItems: "center" }}>
-            <View
-              className="items-center justify-center"
-              style={{ width: 64, height: 64, borderRadius: radii.full, backgroundColor: colors.brandSoft }}
-            >
-              <AlarmClock accessible={false} color={colors.brand} size={30} />
-            </View>
-            <Text style={[typography.titleMedium, { color: colors.textPrimary, textAlign: "center", marginTop: spacing.lg }]}>No alarms yet</Text>
-            <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.sm }]}>Create an alarm, test camera placement, and Anthra will handle the hard part.</Text>
-            <Button label="Create alarm" icon={Plus} onPress={() => openEditor()} style={{ marginTop: spacing.xl }} />
-          </Card>
+          <EmptyState
+            icon={AlarmClock}
+            title="No alarms yet"
+            description="Create an alarm, test camera placement, and Anthra will handle the hard part."
+            action={{ label: "Create alarm", icon: Plus, onPress: () => openEditor() }}
+          />
         )}
 
         {alarms.map((alarm) => {
@@ -711,41 +715,15 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                   />
                 </View>
 
-                <Text style={[typography.label, { color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.lg }]}>Repeat days</Text>
-                <View className="flex-row flex-wrap" style={{ gap: spacing.sm }}>
-                  {WEEKDAY_OPTIONS.map((day) => {
-                    const selected = form.days.includes(day.value);
-                    return (
-                      <Pressable
-                        key={day.value}
-                        onPress={() => {
-                          setForm((current) => ({
-                            ...current,
-                            days: selected
-                              ? current.days.filter((value) => value !== day.value)
-                              : normalizeDays([...current.days, day.value])
-                          }));
-                          if (editorError) setEditorError(null);
-                        }}
-                        accessibilityRole="checkbox"
-                        accessibilityLabel={`Repeat on ${day.label}`}
-                        accessibilityState={{ checked: selected }}
-                        className="items-center justify-center"
-                        style={({ pressed }) => ({
-                          width: width < 520 || fontScale >= 1.2 ? "22%" : "12%",
-                          minHeight: layout.minTouchTarget,
-                          paddingHorizontal: spacing.sm,
-                          borderRadius: radii.md,
-                          borderWidth: selected ? 2 : 1,
-                          borderColor: selected ? colors.brand : colors.borderStrong,
-                          backgroundColor: selected ? colors.brandSoft : pressed ? colors.surfacePressed : colors.surface
-                        })}
-                      >
-                        <Text style={[typography.label, { color: selected ? colors.brand : colors.textSecondary }]}>{day.short}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <WeekdayPicker
+                  label="Repeat days"
+                  value={form.days}
+                  onChange={(days) => {
+                    setForm((current) => ({ ...current, days }));
+                    if (editorError) setEditorError(null);
+                  }}
+                  style={{ marginTop: spacing.lg }}
+                />
 
                 <TextField
                   ref={pushupTargetInputRef}
@@ -761,33 +739,21 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                   returnKeyType="done"
                   containerStyle={{ marginTop: spacing.lg }}
                 />
-                <View className="flex-row" style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-                  {[5, 10, 15, 20].map((target) => {
-                    const selected = form.pushupTarget === String(target);
-                    return (
-                      <Pressable
-                        key={target}
-                        onPress={() => {
-                          setForm((current) => ({ ...current, pushupTarget: String(target) }));
-                          if (editorError) setEditorError(null);
-                        }}
-                        accessibilityRole="radio"
-                        accessibilityLabel={`${target} push-ups`}
-                        accessibilityState={{ checked: selected, selected }}
-                        className="flex-1 items-center justify-center"
-                        style={({ pressed }) => ({
-                          minHeight: layout.minTouchTarget,
-                          borderRadius: radii.md,
-                          borderWidth: selected ? 2 : 1,
-                          borderColor: selected ? colors.brand : colors.borderStrong,
-                          backgroundColor: selected ? colors.brandSoft : pressed ? colors.surfacePressed : colors.surface
-                        })}
-                      >
-                        <Text style={[typography.labelLarge, { color: selected ? colors.brand : colors.textSecondary }]}>{target}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <ChoiceRow
+                  options={[
+                    { label: "5", value: "5" },
+                    { label: "10", value: "10" },
+                    { label: "15", value: "15" },
+                    { label: "20", value: "20" }
+                  ]}
+                  value={form.pushupTarget}
+                  onChange={(pushupTarget) => {
+                    setForm((current) => ({ ...current, pushupTarget }));
+                    if (editorError) setEditorError(null);
+                  }}
+                  layout="equal"
+                  style={{ marginTop: spacing.sm }}
+                />
 
                 <Text style={[typography.label, { color: colors.textSecondary, marginBottom: spacing.sm, marginTop: spacing.lg }]}>Alarm sound</Text>
                 <Pressable

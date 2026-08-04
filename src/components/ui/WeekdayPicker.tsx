@@ -1,4 +1,4 @@
-import { Text, View, useWindowDimensions } from "react-native";
+import { Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
 import { useAnthraTheme } from "../../design-system";
 import { WEEKDAY_OPTIONS, normalizeDays } from "../../constants/schedule";
 import { ChoiceChip } from "./ChoiceRow";
@@ -9,13 +9,15 @@ export type WeekdayPickerProps = {
   onChange: (days: number[]) => void;
   /** When true, at least one day must remain selected. */
   requireOne?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function WeekdayPicker({
   label,
   value,
   onChange,
-  requireOne = false
+  requireOne = false,
+  style
 }: WeekdayPickerProps) {
   const theme = useAnthraTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -34,7 +36,7 @@ export function WeekdayPicker({
   };
 
   return (
-    <View>
+    <View style={style}>
       {label ? (
         <Text
           style={[
@@ -49,17 +51,15 @@ export function WeekdayPicker({
         {WEEKDAY_OPTIONS.map((day) => {
           const active = selected.includes(day.value);
           return (
-            <View
-              key={day.value}
-              style={{ width: compact ? "22%" : "12%" }}
-            >
+            <View key={day.value} style={{ width: compact ? "22%" : "12%" }}>
               <ChoiceChip
                 option={{ label: day.short, value: String(day.value) }}
                 selected={active}
                 onPress={() => toggle(day.value)}
                 size="comfortable"
                 equal
-                accessibilityLabelPrefix={label ?? "Day"}
+                accessibilityRole="checkbox"
+                accessibilityLabelPrefix={day.label}
               />
             </View>
           );

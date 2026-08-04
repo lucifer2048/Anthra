@@ -24,7 +24,8 @@ export function ChoiceChip<T extends string = string>({
   onPress,
   size = "comfortable",
   equal = false,
-  accessibilityLabelPrefix
+  accessibilityLabelPrefix,
+  accessibilityRole = "radio"
 }: {
   option: ChoiceOption<T>;
   selected: boolean;
@@ -32,6 +33,7 @@ export function ChoiceChip<T extends string = string>({
   size?: "compact" | "comfortable";
   equal?: boolean;
   accessibilityLabelPrefix?: string;
+  accessibilityRole?: "radio" | "checkbox" | "button";
 }) {
   const theme = useAnthraTheme();
   const Icon = option.icon;
@@ -41,7 +43,7 @@ export function ChoiceChip<T extends string = string>({
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="radio"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={
         accessibilityLabelPrefix ? `${accessibilityLabelPrefix}, ${option.label}` : option.label
       }
@@ -102,7 +104,7 @@ export function ChoiceRow<T extends string = string>({
         </Text>
       ) : null}
       <View
-        className="flex-row flex-wrap"
+        className={layout === "equal" ? "flex-row" : "flex-row flex-wrap"}
         style={{ gap: theme.spacing.sm }}
       >
         {options.map((option) => (

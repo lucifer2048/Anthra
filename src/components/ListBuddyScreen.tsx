@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   BackHandler,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -27,8 +25,18 @@ import {
   setListItemCompleted
 } from "../db";
 import type { ListBuddyCategory, ListBuddyItem } from "../types";
-import { ProgressBar } from "./ProgressBar";
-import { Button, Card, IconButton, KeyboardAwareScrollView, ScreenHeader, StatusBanner, TextField } from "./ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  FormDialog,
+  IconButton,
+  ProgressBar,
+  ScreenHeader,
+  SectionHeader,
+  StatusBanner,
+  TextField
+} from "./ui";
 
 type ListBuddyScreenProps = {
   onBack: () => void;
@@ -514,36 +522,23 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
             </Card>
 
             {categories.length === 0 ? (
-              <Card padding="large" style={{ alignItems: "center" }}>
-                <View
-                  className="items-center justify-center"
-                  style={{ width: 64, height: 64, borderRadius: radii.full, backgroundColor: colors.brandSoft }}
-                >
-                  <ListTodo accessible={false} size={28} color={colors.brand} />
-                </View>
-                <Text style={[typography.titleMedium, { color: colors.textPrimary, textAlign: "center", marginTop: spacing.lg }]}>
-                  Create your first list
-                </Text>
-                <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.sm }]}>
-                  Groceries, movies, errands—start with anything you want out of your head.
-                </Text>
-                <Button
-                  label="New list"
-                  icon={Plus}
-                  onPress={() => openCategoryModal()}
-                  style={{ marginTop: spacing.xl }}
-                />
-              </Card>
+              <EmptyState
+                icon={ListTodo}
+                title="Create your first list"
+                description="Groceries, movies, errands—start with anything you want out of your head."
+                action={{ label: "New list", icon: Plus, onPress: () => openCategoryModal() }}
+              />
             ) : (
               <View>
-                <View className="mb-3 flex-row items-end justify-between">
-                  <Text style={[typography.titleSmall, { color: colors.textPrimary }]}>Your lists</Text>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                    {listSearchText.trim()
+                <SectionHeader
+                  title="Your lists"
+                  meta={
+                    listSearchText.trim()
                       ? `${filteredCategories.length} of ${categories.length}`
-                      : `${categories.length} ${categories.length === 1 ? "list" : "lists"}`}
-                  </Text>
-                </View>
+                      : `${categories.length} ${categories.length === 1 ? "list" : "lists"}`
+                  }
+                  style={{ marginBottom: spacing.md }}
+                />
                 <TextField
                   label="Search lists"
                   value={listSearchText}
@@ -806,162 +801,98 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
         )}
       </ScrollView>
 
-      <Modal
+      <FormDialog
         visible={categoryModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
+        title={editingCategoryId ? "Edit list" : "New list"}
+        subtitle="Give it a short name that will be easy to scan later."
+        onClose={() => {
           if (!savingCategory) setCategoryModalOpen(false);
         }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, backgroundColor: colors.scrim }}
-        >
-          <KeyboardAwareScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl }}
-          >
-          <Card
-            variant="elevated"
-            padding="large"
-            accessibilityViewIsModal
-            style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
-          >
-            <Text accessibilityRole="header" style={[typography.titleLarge, { color: colors.textPrimary }]}>
-              {editingCategoryId ? "Edit list" : "New list"}
-            </Text>
-            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.xl }]}>
-              Give it a short name that will be easy to scan later.
-            </Text>
-            <TextField
-              label="List name"
-              value={categoryNameText}
-              onChangeText={(value) => {
-                setCategoryNameText(value);
-                if (categoryError) setCategoryError(null);
-              }}
-              error={categoryError ?? undefined}
-              helperText={`${categoryNameText.length}/${MAX_LIST_NAME_LENGTH} characters`}
-              placeholder="Movies to watch"
-              maxLength={MAX_LIST_NAME_LENGTH}
-              autoFocus
-              disabled={savingCategory}
-              returnKeyType="done"
-              onSubmitEditing={() => handleSaveCategory().catch(() => undefined)}
-            />
-
-            <View className="flex-row" style={{ gap: spacing.md, marginTop: spacing.xl }}>
-              <Button
-                label="Cancel"
-                variant="outline"
-                fullWidth
-                disabled={savingCategory}
-                onPress={() => setCategoryModalOpen(false)}
-                style={{ flex: 1 }}
-              />
-              <Button
-                label="Save list"
-                fullWidth
-                disabled={!categoryNameText.trim()}
-                loading={savingCategory}
-                onPress={() => handleSaveCategory().catch(() => undefined)}
-                style={{ flex: 1 }}
-              />
-            </View>
-
-            {editingCategory && (
-              <Button
-                label="Delete list"
-                variant="danger"
-                icon={Trash2}
-                fullWidth
-                disabled={savingCategory}
-                onPress={() =>
+        primaryAction={{
+          label: "Save list",
+          onPress: () => {
+            handleSaveCategory().catch(() => undefined);
+          },
+          loading: savingCategory,
+          disabled: !categoryNameText.trim()
+        }}
+        secondaryAction={{
+          label: "Cancel",
+          onPress: () => setCategoryModalOpen(false),
+          disabled: savingCategory
+        }}
+        destructiveAction={
+          editingCategory
+            ? {
+                label: "Delete list",
+                icon: Trash2,
+                disabled: savingCategory,
+                onPress: () =>
                   handleDeleteCategory(editingCategory, () => {
                     setCategoryModalOpen(false);
                     setCategoryNameText("");
                     setEditingCategoryId(null);
                   })
-                }
-                style={{ marginTop: spacing.md }}
-              />
-            )}
-          </Card>
-          </KeyboardAwareScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+              }
+            : undefined
+        }
+      >
+        <TextField
+          label="List name"
+          value={categoryNameText}
+          onChangeText={(value) => {
+            setCategoryNameText(value);
+            if (categoryError) setCategoryError(null);
+          }}
+          error={categoryError ?? undefined}
+          helperText={`${categoryNameText.length}/${MAX_LIST_NAME_LENGTH} characters`}
+          placeholder="Movies to watch"
+          maxLength={MAX_LIST_NAME_LENGTH}
+          autoFocus
+          disabled={savingCategory}
+          returnKeyType="done"
+          onSubmitEditing={() => handleSaveCategory().catch(() => undefined)}
+        />
+      </FormDialog>
 
-      <Modal
+      <FormDialog
         visible={itemModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
+        title={editingItemId ? "Edit item" : "New item"}
+        subtitle={selectedCategory ? `Add one clear action to ${selectedCategory.name}.` : "Add one clear action."}
+        onClose={() => {
           if (!savingItem) setItemModalOpen(false);
         }}
+        primaryAction={{
+          label: "Save item",
+          onPress: () => {
+            handleSaveItem().catch(() => undefined);
+          },
+          loading: savingItem,
+          disabled: !itemText.trim()
+        }}
+        secondaryAction={{
+          label: "Cancel",
+          onPress: () => setItemModalOpen(false),
+          disabled: savingItem
+        }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, backgroundColor: colors.scrim }}
-        >
-          <KeyboardAwareScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: spacing.xl }}
-          >
-          <Card
-            variant="elevated"
-            padding="large"
-            accessibilityViewIsModal
-            style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
-          >
-            <Text accessibilityRole="header" style={[typography.titleLarge, { color: colors.textPrimary }]}>
-              {editingItemId ? "Edit item" : "New item"}
-            </Text>
-            <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.xl }]}>
-              {selectedCategory ? `Add one clear action to ${selectedCategory.name}.` : "Add one clear action."}
-            </Text>
-            <TextField
-              label="Item"
-              value={itemText}
-              onChangeText={(value) => {
-                setItemText(value);
-                if (itemError) setItemError(null);
-              }}
-              error={itemError ?? undefined}
-              helperText={`${itemText.length}/${MAX_LIST_ITEM_LENGTH} characters`}
-              placeholder="Watch Inception"
-              maxLength={MAX_LIST_ITEM_LENGTH}
-              autoFocus
-              disabled={savingItem}
-              returnKeyType="done"
-              onSubmitEditing={() => handleSaveItem().catch(() => undefined)}
-            />
-            <View className="flex-row" style={{ gap: spacing.md, marginTop: spacing.xl }}>
-              <Button
-                label="Cancel"
-                variant="outline"
-                fullWidth
-                disabled={savingItem}
-                onPress={() => setItemModalOpen(false)}
-                style={{ flex: 1 }}
-              />
-              <Button
-                label="Save item"
-                fullWidth
-                disabled={!itemText.trim()}
-                loading={savingItem}
-                onPress={() => handleSaveItem().catch(() => undefined)}
-                style={{ flex: 1 }}
-              />
-            </View>
-          </Card>
-          </KeyboardAwareScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+        <TextField
+          label="Item"
+          value={itemText}
+          onChangeText={(value) => {
+            setItemText(value);
+            if (itemError) setItemError(null);
+          }}
+          error={itemError ?? undefined}
+          helperText={`${itemText.length}/${MAX_LIST_ITEM_LENGTH} characters`}
+          placeholder="Watch Inception"
+          maxLength={MAX_LIST_ITEM_LENGTH}
+          autoFocus
+          disabled={savingItem}
+          returnKeyType="done"
+          onSubmitEditing={() => handleSaveItem().catch(() => undefined)}
+        />
+      </FormDialog>
     </SafeAreaView>
   );
 }

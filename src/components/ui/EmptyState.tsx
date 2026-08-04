@@ -33,12 +33,13 @@ export function EmptyState({
           width: variant === "inline" ? 52 : 64,
           height: variant === "inline" ? 52 : 64,
           borderRadius: theme.radii.full,
-          backgroundColor: variant === "brand" ? theme.colors.brand : theme.colors.brandSoft
+          backgroundColor:
+            variant === "brand" ? theme.colors.surface : theme.colors.brandSoft
         }}
       >
         <Icon
           accessible={false}
-          color={variant === "brand" ? theme.colors.textOnBrandSolid : theme.colors.brand}
+          color={theme.colors.brand}
           size={variant === "inline" ? 24 : 30}
         />
       </View>
@@ -85,7 +86,11 @@ export function EmptyState({
   }
 
   return (
-    <Card padding="large" style={style}>
+    <Card
+      padding="large"
+      variant={variant === "brand" ? "brand" : "default"}
+      style={style}
+    >
       {content}
     </Card>
   );

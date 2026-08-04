@@ -10,7 +10,6 @@ import {
   useWindowDimensions,
   View
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,6 +29,7 @@ import {
 } from "lucide-react-native";
 
 import { ProgressBar } from "../../components/ProgressBar";
+import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import {
   Button,
   Card,
@@ -268,6 +268,7 @@ function SourceCard({
 
 export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { width: viewportWidth } = useWindowDimensions();
   const previewAvailableWidth = Math.max(0, viewportWidth - theme.spacing["2xl"]);
   const previewScale = Math.min(
@@ -696,11 +697,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: theme.colors.canvas }}
-        edges={["top", "bottom"]}
-      >
-        <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider }}>
           <View
             style={{
@@ -793,7 +790,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             </View>
           )}
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
@@ -805,12 +802,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const syncMessage = `Last successful refresh: ${formatSyncTime(syncState.lastSuccessAt)}.`;
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: theme.colors.canvas }}
-      edges={["top", "bottom"]}
-    >
-      <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
-
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
       <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider }}>
         <View
           style={{
@@ -1321,6 +1313,6 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

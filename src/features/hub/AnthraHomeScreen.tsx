@@ -1,8 +1,6 @@
 import type { ComponentType } from "react";
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -27,6 +25,7 @@ import {
   type LucideProps
 } from "lucide-react-native";
 
+import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import { useAnthraTheme } from "../../design-system";
 import type { ActiveWorkoutSnapshot, DashboardStats } from "../../types";
 import { Button, Card } from "../../components/ui";
@@ -208,6 +207,7 @@ export function AnthraHomeScreen({
   onEndWorkout
 }: AnthraHomeScreenProps) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const reduceMotion = useReducedMotion();
   const { fontScale, width } = useWindowDimensions();
   const shouldStackCompactRows = width < 360 || fontScale >= 1.3;
@@ -237,8 +237,7 @@ export function AnthraHomeScreen({
   ];
 
   return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: theme.colors.canvas }}>
-      <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+    <ScreenLayout {...backgrounds.brandWash} safeAreaEdges={["top", "left", "right"]}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -446,6 +445,6 @@ export function AnthraHomeScreen({
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

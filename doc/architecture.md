@@ -39,3 +39,5 @@ Native-only features require a development / EAS build — not Expo Go.
 ## Design system
 
 `src/design-system/` provides light/dark semantic colors, spacing, radii, typography, motion, and layout. Screens consume via `useAnthraTheme()`.
+
+Module roots wrap in `ScreenLayout` (`src/components/layout`) with backgrounds from `useScreenBackgrounds()` so fills go edge-to-edge while content respects safe areas. See [screen-layout-system.md](./screen-layout-system.md).

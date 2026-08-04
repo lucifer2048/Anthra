@@ -28,9 +28,12 @@ Group by feature under `src/features/<domain>/` when extracting from `App.tsx` o
 |---------|------|
 | Semantic theme | `src/design-system/` |
 | Shared UI | `src/components/ui/` |
+| Screen chrome | `src/components/layout/` (`ScreenLayout`) |
 | Feature limits / knobs | `src/constants/<domain>.ts` |
 | Persistence | `src/db/` + feature repositories |
 | Native bridges | `src/utils/*Native.ts` / `src/features/*/…Native.ts` |
+
+Before any UI or feature change: follow `doc/change-checklist.md` (search kit → reuse or extract → implement).
 
 ## Additive change discipline
 

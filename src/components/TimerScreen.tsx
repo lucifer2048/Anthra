@@ -16,7 +16,7 @@ import {
   Volume2,
   VolumeX
 } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenLayout, useScreenBackgrounds } from "./layout";
 
 import { useAnthraTheme } from "../design-system";
 import type {
@@ -54,6 +54,7 @@ export function TimerScreen({
 }: TimerScreenProps) {
   useKeepAwake();
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { fontScale, height, width } = useWindowDimensions();
   const timeline = useMemo(() => buildWorkoutTimeline(plan), [plan]);
   const segments = timeline.segments;
@@ -338,11 +339,7 @@ export function TimerScreen({
   }, [requestExit]);
 
   return (
-    <SafeAreaView
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.canvas }}
-      edges={["top", "bottom"]}
-    >
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -720,6 +717,6 @@ export function TimerScreen({
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

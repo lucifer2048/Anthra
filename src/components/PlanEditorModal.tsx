@@ -24,7 +24,6 @@ import {
   Trash2,
   X
 } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { formatDays, normalizeDays } from "../constants/schedule";
 import { clearPlanEditorDraft, getPlanEditorDraft, savePlanEditorDraft } from "../db";
@@ -34,6 +33,7 @@ import {
   formatWorkoutDuration
 } from "../features/workout/workoutTimeline";
 import type { Exercise, WorkoutPlan, WorkoutPlanInput, WorkoutSection } from "../types";
+import { ScreenLayout, useScreenBackgrounds } from "./layout";
 import { Button, ChoiceRow, IconButton, KeyboardAwareScrollView, Surface, TextField, WeekdayPicker } from "./ui";
 
 type EditableExercise = {
@@ -239,6 +239,7 @@ export function PlanEditorModal({
   onSave
 }: PlanEditorModalProps) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { fontScale, width } = useWindowDimensions();
   const shouldStackControls = width < 420 || fontScale >= 1.2;
   const isEditing = useMemo(() => Boolean(initialPlan), [initialPlan]);
@@ -930,7 +931,7 @@ export function PlanEditorModal({
 
   return (
     <Modal animationType="slide" visible={visible} onRequestClose={handleClose}>
-      <SafeAreaView className="flex-1" style={{ backgroundColor: theme.colors.canvas }} edges={["top", "bottom"]}>
+      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="flex-1"
@@ -1353,7 +1354,7 @@ export function PlanEditorModal({
             </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
-      </SafeAreaView>
+      </ScreenLayout>
     </Modal>
   );
 }

@@ -8,10 +8,9 @@ import {
   Text,
   View
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Check, ListTodo, Pencil, Plus, Search, Trash2, X } from "lucide-react-native";
 
+import { ScreenLayout, useScreenBackgrounds } from "./layout";
 import { useAnthraTheme } from "../design-system";
 import { MAX_LIST_ITEM_LENGTH, MAX_LIST_NAME_LENGTH } from "../constants/listBuddy";
 import {
@@ -44,6 +43,7 @@ type ListBuddyScreenProps = {
 
 export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
   const anthraTheme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { colors, layout, radii, spacing, typography } = anthraTheme;
   const [categories, setCategories] = useState<ListBuddyCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -445,13 +445,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
     : 0;
 
   return (
-    <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ backgroundColor: colors.canvas }}>
-      <StatusBar
-        style={anthraTheme.statusBarStyle}
-        backgroundColor={colors.canvas}
-        translucent={false}
-      />
-
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
       <View
         style={{
           paddingHorizontal: layout.screenPadding,
@@ -893,6 +887,6 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
           onSubmitEditing={() => handleSaveItem().catch(() => undefined)}
         />
       </FormDialog>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

@@ -6,18 +6,20 @@ alwaysApply: false
 
 # Reusable UI components
 
-Follow `doc/reusable-ui.md`.
+Follow `doc/reusable-ui.md` and the always-on gate `doc/change-checklist.md` / `ui-reuse-gate.mdc`.
 
 ## Must
 
 - Import shared UI from `src/components/ui` (Button, ChoiceRow, WeekdayPicker, EmptyState, FormDialog, SheetDialog, ScreenShell, BottomTabBar, …).
-- If a pattern repeats or matches the inventory, **reuse or extend the kit** — do not paste a new chip row, empty state, modal shell, or tab bar.
-- After adding a shared component, export it from `src/components/ui/index.ts` and update `doc/reusable-ui.md`.
+- Wrap every **screen** in `ScreenLayout` from `src/components/layout` (see `doc/screen-layout-system.md`).
+- If a pattern repeats **or** is generic kit material, **reuse or extract** — do not paste a new chip row, empty state, modal shell, or tab bar.
+- After adding a kit component, export it from `src/components/ui/index.ts` (or `layout/`) and update `doc/reusable-ui.md`.
 
 ## Must not
 
 - Reimplement choice chips, weekday toggles, empty states, bottom tab bars, or centered/sheet dialog chrome inline.
 - Put DB / repository / native-bridge calls inside `src/components/ui/*`.
+- Skip the inventory check in `doc/change-checklist.md`.
 
 ## Exceptions
 

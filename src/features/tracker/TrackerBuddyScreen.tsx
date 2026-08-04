@@ -10,8 +10,7 @@ import {
   View
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 import Animated, {
   FadeInDown,
@@ -42,6 +41,7 @@ import {
 } from "lucide-react-native";
 
 import { formatDays } from "../../constants/schedule";
+import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import { Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, StatusBanner, TextField } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { getDeviceTimeZone } from "../../utils/timezone";
@@ -414,6 +414,7 @@ function TaskActivityCard({
 
 export function TrackerBuddyScreen({ onBack }: Props) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const timezone = useMemo(() => getDeviceTimeZone(), []);
@@ -708,8 +709,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: theme.colors.canvas }}>
-      <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "left", "right"]}>
       <View
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingHorizontal: theme.layout.screenPadding }}
@@ -1205,6 +1205,6 @@ export function TrackerBuddyScreen({ onBack }: Props) {
           onSave={submitTask}
         />
       )}
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

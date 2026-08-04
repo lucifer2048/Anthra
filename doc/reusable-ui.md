@@ -3,16 +3,19 @@
 **Kit home:** `src/components/ui/`  
 **Import:** `import { Button, ChoiceRow, … } from "../components/ui"` (adjust depth)
 
-This doc is the source of truth for shared UI. Cursor rule `reusable-ui-components.mdc` enforces it.
+This doc is the source of truth for shared UI. Cursor rules `ui-reuse-gate.mdc` (always on) and `reusable-ui-components.mdc` enforce it. Full process: `doc/change-checklist.md`.
 
 ## Mandatory rule
 
-When building or editing screens:
+When building or editing screens **or adding any feature with UI**:
 
-1. **Prefer an existing kit component** over a new `Pressable`/`Text`/`View` cluster that duplicates kit visuals.
-2. If nothing fits, **extend the kit** (new props or a new file under `ui/`) instead of copying markup into a screen.
-3. Feature-only chrome (timer focus layout, vault PIN security copy, share-card export layouts, charts) may stay local — see [Leave feature-specific](#leave-feature-specific).
-4. After adding a kit component, **export it from** `src/components/ui/index.ts` and list it below.
+1. **Read** `doc/change-checklist.md` and this inventory first.
+2. **Prefer an existing kit component** over a new `Pressable`/`Text`/`View` cluster that duplicates kit visuals.
+3. If the same UI already exists in a screen but is not reusable, **extract it into the kit**, then use it.
+4. If nothing fits but the pattern is generic (chips, empty state, dialog, section header, tab bar, form chrome), **add it to the kit** — do not wait for a second copy.
+5. Feature-only chrome may stay local only if listed under [Leave feature-specific](#leave-feature-specific).
+6. After adding a kit component, **export it from** `src/components/ui/index.ts` (or `layout/`) and list it below.
+7. Every screen uses `ScreenLayout` — see `doc/screen-layout-system.md`.
 
 ## Inventory
 
@@ -35,7 +38,8 @@ When building or editing screens:
 | `ToastBanner` | Absolutely positioned status toast |
 | `FormDialog` | Centered modal shell + footer actions |
 | `SheetDialog` | Bottom sheet modal shell + footer actions |
-| `ScreenShell` | SafeArea + header + padded body + optional footer |
+| `ScreenShell` | Header + padded scroll + footer (composes `ScreenLayout`) |
+| `ScreenLayout` | **Required** outer wrapper — `src/components/layout` — see `doc/screen-layout-system.md` |
 | `TimePickerField` | Time field + optional preset chips |
 
 ## Leave feature-specific

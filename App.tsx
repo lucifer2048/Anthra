@@ -21,7 +21,6 @@ import {
   useWindowDimensions,
   View
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -49,11 +48,12 @@ import { VaultEntryModal } from "./src/components/VaultEntryModal";
 import { VaultPinModal } from "./src/components/VaultPinModal";
 import { WorkoutTabBar, type WorkoutTab } from "./src/components/WorkoutTabBar";
 import { ReminderTabBar, type ReminderTab } from "./src/components/ReminderTabBar";
+import { ScreenLayout } from "./src/components/layout";
 import { ActivityBuddyScreen } from "./src/features/activity/ActivityBuddyScreen";
 import { AnthraHomeScreen } from "./src/features/hub/AnthraHomeScreen";
 import { TrackerBuddyScreen } from "./src/features/tracker/TrackerBuddyScreen";
 import { syncTrackerNotifications } from "./src/features/tracker/trackerNotifications";
-import { resolveTheme, ThemeProvider, themes, type ThemeMode } from "./src/design-system";
+import { createScreenBackgrounds, resolveTheme, ThemeProvider, themes, type ThemeMode } from "./src/design-system";
 import { Button, Card, IconButton, KeyboardAwareScrollView, ScreenHeader, StatusBanner, SwitchRow, TextField } from "./src/components/ui";
 import {
   clearActiveWorkoutSnapshot,
@@ -2567,8 +2567,11 @@ export default function App() {
   const keyboardSafeBottomPadding = keyboardHeight > 0 ? keyboardHeight + 16 : 24;
   const semanticTheme = resolveTheme(themeMode, systemColorScheme);
   const isDarkMode = semanticTheme.isDark;
-  const statusBarStyle = semanticTheme.statusBarStyle;
   const appBackground = semanticTheme.colors.canvas;
+  const screenBackgrounds = useMemo(
+    () => createScreenBackgrounds(semanticTheme.colors),
+    [semanticTheme.colors]
+  );
   const panelBackground = semanticTheme.colors.surface;
   const cardBackground = semanticTheme.colors.surfaceElevated;
   const inputBackground = semanticTheme.colors.surfaceSubtle;
@@ -2708,12 +2711,11 @@ export default function App() {
 
   if (!ready) {
     content = (
-      <SafeAreaView
-        className="flex-1 items-center justify-center px-6"
-        edges={["top", "bottom"]}
-        style={{ flex: 1, backgroundColor: appBackground }}
+      <ScreenLayout
+        {...screenBackgrounds.canvas}
+        safeAreaEdges={["top", "bottom"]}
+        contentStyle={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}
       >
-        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
         {bootstrapError ? (
           <View
             accessibilityRole="alert"
@@ -2745,7 +2747,7 @@ export default function App() {
         ) : (
           <ActivityIndicator size="large" color={workoutTheme.accent} accessibilityLabel="Starting Anthra" />
         )}
-      </SafeAreaView>
+      </ScreenLayout>
     );
   } else if (!activePlan && activeModule === "hub") {
     content = (
@@ -2804,8 +2806,7 @@ export default function App() {
     );
   } else if (!activePlan && activeModule === "reminder") {
     content = (
-      <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
+      <ScreenLayout {...screenBackgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <View
           className="border-b px-5"
           onLayout={(event) => setReminderHeaderBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
@@ -3072,7 +3073,7 @@ export default function App() {
             />
           </View>
         )}
-      </SafeAreaView>
+      </ScreenLayout>
     );
   } else if (!activePlan && activeModule === "password") {
     content = (
@@ -3111,7 +3112,6 @@ export default function App() {
   } else if (activePlan) {
     content = (
       <GestureHandlerRootView className="flex-1" style={{ flex: 1 }}>
-        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
         <TimerScreen
           plan={activePlan}
           onComplete={handleWorkoutComplete}
@@ -3125,9 +3125,8 @@ export default function App() {
     );
   } else {
     content = (
-      <GestureHandlerRootView className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
-        <StatusBar style={statusBarStyle} backgroundColor={appBackground} translucent={false} />
-        <SafeAreaView className="flex-1" edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: appBackground }}>
+      <GestureHandlerRootView className="flex-1" style={{ flex: 1, backgroundColor: "transparent" }}>
+        <ScreenLayout {...screenBackgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
           <View className="border-b px-5" style={{ borderColor }}>
             <ScreenHeader
               eyebrow="MOVE"
@@ -3918,7 +3917,7 @@ export default function App() {
               setActiveTab(tab);
             }}
           />
-        </SafeAreaView>
+        </ScreenLayout>
 
         <View
           className="absolute -left-[2000px] -top-[2000px]"

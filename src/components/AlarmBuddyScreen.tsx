@@ -13,11 +13,11 @@ import {
   TextInput,
   View
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AlarmClock, Camera, ChevronDown, ChevronUp, Music2, Pencil, Plus, Trash2 } from "lucide-react-native";
 
 import { formatDays, normalizeDays } from "../constants/schedule";
+import { ScreenLayout, useScreenBackgrounds } from "./layout";
 import { useAnthraTheme } from "../design-system";
 import {
   deleteAlarmItem,
@@ -153,6 +153,7 @@ function formatTimeRemaining(timestamp: number, now: number): string {
 
 export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
   const anthraTheme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { colors, layout, radii, spacing, typography } = anthraTheme;
   const insets = useSafeAreaInsets();
   const [alarms, setAlarms] = useState<AlarmItem[]>([]);
@@ -393,8 +394,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
     || Boolean(notice && /could not|not scheduled|attention|unavailable|permission|required|allow/i.test(notice));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "bottom"]}>
-      <StatusBar style={anthraTheme.statusBarStyle} backgroundColor={colors.canvas} translucent={false} />
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
       <View
         style={{
           paddingHorizontal: layout.screenPadding,
@@ -796,6 +796,6 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

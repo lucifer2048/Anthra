@@ -6,9 +6,7 @@ import {
   Alert,
   BackHandler,
   Keyboard,
-  KeyboardAvoidingView,
   Linking,
-  Modal,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -21,38 +19,32 @@ import {
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import * as LocalAuthentication from "expo-local-authentication";
 import * as Clipboard from "expo-clipboard";
-import { Star } from "lucide-react-native";
 
 import "./global.css";
 import "./src/utils/reminderNotificationTask";
-import { PasswordManagerScreen } from "./src/components/PasswordManagerScreen";
 import { TimerScreen } from "./src/components/TimerScreen";
-import { ListBuddyScreen } from "./src/components/ListBuddyScreen";
 import { AlarmBuddyScreen } from "./src/components/AlarmBuddyScreen";
 import { LaunchOverlay } from "./src/components/LaunchOverlay";
-import { VaultResetPinModal } from "./src/components/VaultResetPinModal";
-import { VaultEntryModal } from "./src/components/VaultEntryModal";
-import { VaultPinModal } from "./src/components/VaultPinModal";
 import { type WorkoutTab } from "./src/components/WorkoutTabBar";
 import type { ReminderTab } from "./src/components/ReminderTabBar";
 import { ScreenLayout } from "./src/components/layout";
 import { ActivityBuddyScreen } from "./src/features/activity/ActivityBuddyScreen";
 import { AnthraHomeScreen } from "./src/features/hub/AnthraHomeScreen";
+import { ListBuddyScreen } from "./src/features/list/ListBuddyScreen";
 import { TrackerBuddyScreen } from "./src/features/tracker/TrackerBuddyScreen";
 import { ReminderBuddyScreen } from "./src/features/reminder/ReminderBuddyScreen";
+import { VaultBuddyScreen } from "./src/features/vault/VaultBuddyScreen";
 import { WorkoutBuddyScreen } from "./src/features/workout/WorkoutBuddyScreen";
+import { WorkoutFeedbackModals } from "./src/features/workout/WorkoutFeedbackModals";
 import { syncTrackerNotifications } from "./src/features/tracker/trackerNotifications";
 import { AppProviders } from "./src/providers";
 import { createScreenBackgrounds, resolveTheme, themes, type ThemeMode } from "./src/design-system";
-import { Button, KeyboardAwareScrollView, TextField } from "./src/components/ui";
 import {
   clearActiveWorkoutSnapshot,
   createAnthraBackup,
   deletePlan,
   deleteWorkoutSession,
-  deleteVaultEntry,
   finalizeWorkoutSession,
   getActiveWorkoutSnapshot,
   getAppThemeMode,
@@ -63,8 +55,6 @@ import {
   getReminderItems,
   getUserProfile,
   getUserSettings,
-  getVaultEntries,
-  getVaultSecuritySettings,
   getWorkoutHistory,
   initDatabase,
   logWorkoutCompletion,
@@ -72,15 +62,11 @@ import {
   saveActiveWorkoutSnapshot,
   saveAppThemeMode,
   savePlan,
-  saveVaultEntry,
-  saveVaultPin,
   saveWorkoutSessionFeedback,
-  setVaultBiometricsEnabled as saveVaultBiometricsEnabled,
   saveUserProfile,
   saveUserSettings,
   startWorkoutSession,
-  restoreAnthraBackup,
-  verifyVaultPin
+  restoreAnthraBackup
 } from "./src/db";
 import { normalizeDays } from "./src/constants/schedule";
 import type {
@@ -88,7 +74,6 @@ import type {
   DashboardStats,
   UserProfile,
   UserSettings,
-  VaultEntry,
   WorkoutHistoryEntry,
   WorkoutPlan,
   WorkoutPlanInput,
@@ -101,7 +86,14 @@ import {
   getDayPartsInTimeZone,
   getDeviceTimeZone
 } from "./src/utils/timezone";
-import { generateStrongPassword } from "./src/utils/passwords";
+import {
+  digitsOnly,
+  ensureThreeLeadInputs,
+  formatMetricValue,
+  normalizeReminderLeadMinutes,
+  parsePositiveNumber,
+  parseStrictWholeNumber
+} from "./src/utils/format";
 import {
   getAlarmPermissionStatus,
   openExactAlarmSettings,
@@ -117,12 +109,6 @@ import {
   parsePlanShareUrl
 } from "./src/utils/planSharing";
 import { getPlansForWeekday, getScheduledWorkoutDays } from "./src/utils/workoutSchedule";
-import {
-  getVaultPinAttemptStatus,
-  INITIAL_VAULT_PIN_ATTEMPT_STATE,
-  registerVaultPinFailure,
-  registerVaultPinSuccess
-} from "./src/features/vault/pinAttemptPolicy";
 
 type AppModule = "hub" | "workout" | "reminder" | "password" | "list" | "alarm" | "activity" | "tracker";
 
@@ -134,13 +120,6 @@ type ModuleTheme = {
   onAccent: string;
 };
 
-
-type VaultFormState = {
-  id?: number;
-  appName: string;
-  accountId: string;
-  secret: string;
-};
 
 const INITIAL_STATS: DashboardStats = {
   currentStreak: 0,
@@ -164,22 +143,6 @@ const INITIAL_SETTINGS: UserSettings = {
 };
 
 
-const INITIAL_VAULT_FORM: VaultFormState = {
-  appName: "",
-  accountId: "",
-  secret: ""
-};
-
-function withAlpha(hex: string, alpha: number): string {
-  const sanitized = hex.replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(sanitized)) return hex;
-  const parsed = Number.parseInt(sanitized, 16);
-  const r = (parsed >> 16) & 255;
-  const g = (parsed >> 8) & 255;
-  const b = parsed & 255;
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
-}
-
 function resolveModuleTheme(isDarkMode: boolean): ModuleTheme {
   const colors = isDarkMode ? themes.dark.colors : themes.light.colors;
   return {
@@ -189,49 +152,6 @@ function resolveModuleTheme(isDarkMode: boolean): ModuleTheme {
     icon: colors.brand,
     onAccent: colors.textOnBrandSolid
   };
-}
-
-function parsePositiveNumber(input: string): number | null {
-  const sanitized = input.replace(/[^0-9.]/g, "");
-  if (!sanitized) return null;
-  const value = Number(sanitized);
-  if (!Number.isFinite(value) || value <= 0) return null;
-  return Math.round(value * 10) / 10;
-}
-
-function formatMetricValue(value: number | null): string {
-  if (value == null) return "";
-  return Number.isInteger(value) ? String(value) : String(value);
-}
-
-function digitsOnly(value: string): string {
-  return value.replace(/[^0-9]/g, "");
-}
-
-function parseStrictWholeNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.floor(parsed);
-}
-
-function normalizeReminderLeadMinutes(values: number[]): number[] {
-  const normalized = values
-    .map((value) => Math.max(0, Math.floor(Number(value) || 0)))
-    .filter((value) => Number.isFinite(value));
-  const deduped = Array.from(new Set(normalized));
-  deduped.sort((a, b) => b - a);
-  return deduped.slice(0, 3);
-}
-
-function ensureThreeLeadInputs(values: number[]): string[] {
-  const normalized = normalizeReminderLeadMinutes(values);
-  return [
-    String(normalized[0] ?? 60),
-    String(normalized[1] ?? 30),
-    String(normalized[2] ?? 15)
-  ];
 }
 
 export default function App() {
@@ -286,39 +206,6 @@ export default function App() {
   const [activeModule, setActiveModule] = useState<AppModule>("hub");
   const [enabledReminderCount, setEnabledReminderCount] = useState(0);
   const [reminderInitialTab, setReminderInitialTab] = useState<ReminderTab | undefined>(undefined);
-  const [vaultEntries, setVaultEntries] = useState<VaultEntry[]>([]);
-  const [vaultEditorOpen, setVaultEditorOpen] = useState(false);
-  const [vaultForm, setVaultForm] = useState<VaultFormState>(INITIAL_VAULT_FORM);
-  const [vaultEditorError, setVaultEditorError] = useState("");
-  const [vaultSaving, setVaultSaving] = useState(false);
-  const [vaultHasPin, setVaultHasPin] = useState(false);
-  const [vaultUnlocked, setVaultUnlocked] = useState(false);
-  const [vaultNewPin, setVaultNewPin] = useState("");
-  const [vaultConfirmPin, setVaultConfirmPin] = useState("");
-  const [vaultResetPinOpen, setVaultResetPinOpen] = useState(false);
-  const [vaultCurrentPin, setVaultCurrentPin] = useState("");
-  const [vaultReplacementPin, setVaultReplacementPin] = useState("");
-  const [vaultReplacementPinConfirm, setVaultReplacementPinConfirm] = useState("");
-  const [vaultResetPinSaving, setVaultResetPinSaving] = useState(false);
-  const [vaultResetPinError, setVaultResetPinError] = useState("");
-  const [vaultBiometricsEnabled, setVaultBiometricsEnabled] = useState(false);
-  const [revealedVaultIds, setRevealedVaultIds] = useState<number[]>([]);
-  const [vaultNotice, setVaultNotice] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [pinModalMode, setPinModalMode] = useState<"unlock" | "reveal" | "copy">("unlock");
-  const [pinModalInput, setPinModalInput] = useState("");
-  const [pinModalError, setPinModalError] = useState("");
-  const [pinVerifying, setPinVerifying] = useState(false);
-  const [pinModalTargetEntryId, setPinModalTargetEntryId] = useState<number | null>(null);
-  const vaultPinAttemptRef = useRef(INITIAL_VAULT_PIN_ATTEMPT_STATE);
-  const vaultClipboardValueRef = useRef<string | null>(null);
-  const vaultClipboardClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const revealTimeoutsRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
-  const pinVerificationRequestRef = useRef(0);
-  const vaultBiometricActionInProgressRef = useRef(false);
   const completionLoggedRef = useRef(false);
   const lastBackPressRef = useRef(0);
   const notificationSyncInProgressRef = useRef(false);
@@ -404,27 +291,6 @@ export default function App() {
     activePlan || feedbackOpen || feedbackNoteModalOpen || workoutCompletionTransition
   );
 
-  const clearCopiedVaultPassword = useCallback(async () => {
-    const copiedValue = vaultClipboardValueRef.current;
-    vaultClipboardValueRef.current = null;
-    if (vaultClipboardClearTimeoutRef.current) {
-      clearTimeout(vaultClipboardClearTimeoutRef.current);
-      vaultClipboardClearTimeoutRef.current = null;
-    }
-    if (!copiedValue) return;
-
-    const currentValue = await Clipboard.getStringAsync().catch(() => "");
-    if (currentValue === copiedValue) {
-      await Clipboard.setStringAsync("").catch(() => undefined);
-    }
-  }, []);
-
-  const cancelPinVerification = useCallback(() => {
-    pinVerificationRequestRef.current += 1;
-    setPinVerifying(false);
-    setPinModalOpen(false);
-  }, []);
-
   const refreshDashboard = useCallback(async () => {
     const latestStats = await getDashboardStats();
     setStats(latestStats);
@@ -476,19 +342,6 @@ export default function App() {
     return items;
   }, []);
 
-  const refreshVaultSecurity = useCallback(async () => {
-    const security = await getVaultSecuritySettings();
-    setVaultHasPin(security.hasPin);
-    setVaultBiometricsEnabled(security.biometricsEnabled);
-    return security;
-  }, []);
-
-  const refreshVaultEntries = useCallback(async () => {
-    const items = await getVaultEntries();
-    setVaultEntries(items);
-    return items;
-  }, []);
-
   const syncAllNotifications = useCallback(
     async (
       nextSettings: UserSettings,
@@ -523,12 +376,11 @@ export default function App() {
 
   const bootstrap = useCallback(async () => {
     await initDatabase();
-    const [nextData, , nextSettings, , , recoveredWorkout, storedThemeMode] = await Promise.all([
+    const [nextData, , nextSettings, , recoveredWorkout, storedThemeMode] = await Promise.all([
       refreshData(),
       refreshProfile(),
       refreshSettings(),
       refreshEnabledReminderCount(),
-      refreshVaultSecurity(),
       getActiveWorkoutSnapshot(),
       getAppThemeMode()
     ]);
@@ -538,7 +390,7 @@ export default function App() {
     setTimeout(() => {
       syncAllNotifications(nextSettings, nextData.plans, true).catch(() => undefined);
     }, 250);
-  }, [refreshData, refreshEnabledReminderCount, refreshProfile, refreshSettings, refreshVaultSecurity, syncAllNotifications]);
+  }, [refreshData, refreshEnabledReminderCount, refreshProfile, refreshSettings, syncAllNotifications]);
 
   useEffect(() => {
     let cancelled = false;
@@ -628,19 +480,6 @@ export default function App() {
             }
           })
           .catch(() => undefined);
-      } else {
-        clearCopiedVaultPassword().catch(() => undefined);
-        Object.values(revealTimeoutsRef.current).forEach((timer) => clearTimeout(timer));
-        revealTimeoutsRef.current = {};
-        setVaultUnlocked(false);
-        setVaultEntries([]);
-        setRevealedVaultIds([]);
-        setVaultEditorOpen(false);
-        setVaultForm(INITIAL_VAULT_FORM);
-        setVaultEditorError("");
-        setVaultSaving(false);
-        setVaultResetPinOpen(false);
-        cancelPinVerification();
       }
     });
 
@@ -648,7 +487,7 @@ export default function App() {
       clearInterval(interval);
       appStateSubscription.remove();
     };
-  }, [cancelPinVerification, clearCopiedVaultPassword, promptForWorkoutAlarmPermission, ready, refreshDashboard, refreshData, refreshEnabledReminderCount, refreshHistory, refreshSettings, syncAllNotifications]);
+  }, [promptForWorkoutAlarmPermission, ready, refreshDashboard, refreshData, refreshEnabledReminderCount, refreshHistory, refreshSettings, syncAllNotifications]);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -684,43 +523,10 @@ export default function App() {
   }, [settingsNotice]);
 
   useEffect(() => {
-    if (!vaultNotice) return;
-    const timeout = setTimeout(() => {
-      setVaultNotice(null);
-    }, 3200);
-    return () => clearTimeout(timeout);
-  }, [vaultNotice]);
-
-  useEffect(() => {
-    if (activeModule === "password") return;
-    clearCopiedVaultPassword().catch(() => undefined);
-    Object.values(revealTimeoutsRef.current).forEach((timer) => clearTimeout(timer));
-    revealTimeoutsRef.current = {};
-    setVaultUnlocked(false);
-    setVaultEntries([]);
-    setRevealedVaultIds([]);
-    setVaultEditorOpen(false);
-    setVaultForm(INITIAL_VAULT_FORM);
-    setVaultEditorError("");
-    setVaultSaving(false);
-    cancelPinVerification();
-    setPinModalError("");
-    setPinModalInput("");
-    setPinModalTargetEntryId(null);
-    setVaultResetPinOpen(false);
-    setVaultCurrentPin("");
-    setVaultReplacementPin("");
-    setVaultReplacementPinConfirm("");
-    setVaultResetPinError("");
-  }, [activeModule, cancelPinVerification, clearCopiedVaultPassword]);
-
-  useEffect(() => {
     return () => {
-      clearCopiedVaultPassword().catch(() => undefined);
-      Object.values(revealTimeoutsRef.current).forEach((timer) => clearTimeout(timer));
       if (workoutSnapshotSaveRef.current) clearTimeout(workoutSnapshotSaveRef.current);
     };
-  }, [clearCopiedVaultPassword]);
+  }, []);
 
   const openCreatePlan = () => {
     setEditingPlan(null);
@@ -1387,388 +1193,6 @@ export default function App() {
     }
   };
 
-  const clearRevealTimeout = (entryId: number) => {
-    const existing = revealTimeoutsRef.current[entryId];
-    if (existing) {
-      clearTimeout(existing);
-      delete revealTimeoutsRef.current[entryId];
-    }
-  };
-
-  const scheduleRevealAutoHide = (entryId: number) => {
-    clearRevealTimeout(entryId);
-    revealTimeoutsRef.current[entryId] = setTimeout(() => {
-      setRevealedVaultIds((prev) => prev.filter((id) => id !== entryId));
-      clearRevealTimeout(entryId);
-    }, 10_000);
-  };
-
-  const copyVaultPassword = async (entryId: number) => {
-    const entry = vaultEntries.find((candidate) => candidate.id === entryId);
-    if (!entry) {
-      throw new Error("That password is no longer available.");
-    }
-
-    await clearCopiedVaultPassword();
-    await Clipboard.setStringAsync(entry.secret);
-    vaultClipboardValueRef.current = entry.secret;
-    vaultClipboardClearTimeoutRef.current = setTimeout(() => {
-      clearCopiedVaultPassword().catch(() => undefined);
-    }, 30_000);
-    setVaultNotice({ type: "success", message: "Password copied. Clipboard clears in 30 seconds." });
-  };
-
-  const requestVaultSensitiveAction = async (mode: "reveal" | "copy", entryId: number) => {
-    if (vaultBiometricActionInProgressRef.current) return;
-    if (!vaultBiometricsEnabled) {
-      openPinModal(mode, entryId);
-      return;
-    }
-
-    vaultBiometricActionInProgressRef.current = true;
-    try {
-      const [hasHardware, isEnrolled] = await Promise.all([
-        LocalAuthentication.hasHardwareAsync(),
-        LocalAuthentication.isEnrolledAsync()
-      ]);
-      if (!hasHardware || !isEnrolled) {
-        openPinModal(mode, entryId);
-        return;
-      }
-
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: mode === "reveal" ? "Show password" : "Copy password",
-        cancelLabel: "Use PIN",
-        fallbackLabel: "Use PIN",
-        disableDeviceFallback: true
-      }).catch(() => null);
-
-      if (!result?.success) {
-        openPinModal(mode, entryId);
-        return;
-      }
-
-      vaultPinAttemptRef.current = registerVaultPinSuccess();
-      try {
-        if (mode === "reveal") {
-          setRevealedVaultIds((prev) => (prev.includes(entryId) ? prev : [...prev, entryId]));
-          scheduleRevealAutoHide(entryId);
-        } else {
-          await copyVaultPassword(entryId);
-        }
-      } catch (error) {
-        setVaultNotice({
-          type: "error",
-          message: error instanceof Error ? error.message : "Could not complete that password action."
-        });
-      }
-    } catch {
-      openPinModal(mode, entryId);
-    } finally {
-      vaultBiometricActionInProgressRef.current = false;
-    }
-  };
-
-  const openPinModal = (mode: "unlock" | "reveal" | "copy", entryId: number | null = null) => {
-    pinVerificationRequestRef.current += 1;
-    const attemptStatus = getVaultPinAttemptStatus(vaultPinAttemptRef.current, Date.now());
-    setPinModalMode(mode);
-    setPinModalTargetEntryId(entryId);
-    setPinModalInput("");
-    setPinModalError(
-      attemptStatus.canAttempt
-        ? ""
-        : `Too many incorrect attempts. Try again in ${attemptStatus.remainingWaitSeconds} seconds.`
-    );
-    setPinVerifying(false);
-    setPinModalOpen(true);
-  };
-
-  const closePinModal = () => {
-    cancelPinVerification();
-    setPinModalInput("");
-    setPinModalError("");
-    setPinVerifying(false);
-    setPinModalTargetEntryId(null);
-  };
-
-  const verifyPinModal = async () => {
-    if (pinVerifying) return;
-    const now = Date.now();
-    const attemptStatus = getVaultPinAttemptStatus(vaultPinAttemptRef.current, now);
-    if (!attemptStatus.canAttempt) {
-      setPinModalError(
-        `Too many incorrect attempts. Try again in ${attemptStatus.remainingWaitSeconds} seconds.`
-      );
-      return;
-    }
-
-    const requestId = ++pinVerificationRequestRef.current;
-    const requestedMode = pinModalMode;
-    const requestedEntryId = pinModalTargetEntryId;
-    const requestedPin = pinModalInput;
-    const requestIsCurrent = () => pinVerificationRequestRef.current === requestId;
-
-    setPinVerifying(true);
-    try {
-      const valid = await verifyVaultPin(requestedPin);
-      if (!requestIsCurrent()) return;
-      if (!valid) {
-        const nextAttemptState = registerVaultPinFailure(vaultPinAttemptRef.current, Date.now());
-        vaultPinAttemptRef.current = nextAttemptState;
-        const nextStatus = getVaultPinAttemptStatus(nextAttemptState, Date.now());
-        setPinModalError(
-          nextStatus.canAttempt
-            ? "Incorrect PIN."
-            : `Incorrect PIN. Try again in ${nextStatus.remainingWaitSeconds} seconds.`
-        );
-        return;
-      }
-
-      vaultPinAttemptRef.current = registerVaultPinSuccess();
-
-      if (requestedMode === "unlock") {
-        const entries = await getVaultEntries();
-        if (!requestIsCurrent()) return;
-        setVaultEntries(entries);
-        setVaultUnlocked(true);
-      } else if (requestedMode === "reveal" && requestedEntryId != null) {
-        setRevealedVaultIds((prev) =>
-          prev.includes(requestedEntryId) ? prev : [...prev, requestedEntryId]
-        );
-        scheduleRevealAutoHide(requestedEntryId);
-      } else if (requestedMode === "copy" && requestedEntryId != null) {
-        await copyVaultPassword(requestedEntryId);
-        if (!requestIsCurrent()) {
-          await clearCopiedVaultPassword();
-          setVaultNotice(null);
-          return;
-        }
-      }
-      closePinModal();
-    } catch (error) {
-      if (!requestIsCurrent()) return;
-      const message = error instanceof Error ? error.message : "Could not verify PIN.";
-      setPinModalError(message);
-    } finally {
-      if (requestIsCurrent()) setPinVerifying(false);
-    }
-  };
-
-  const enterPasswordManager = async () => {
-    const security = await refreshVaultSecurity();
-    setActiveModule("password");
-    if (security.hasPin) {
-      if (security.biometricsEnabled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Unlock Password Buddy",
-          cancelLabel: "Use PIN",
-          fallbackLabel: "Use PIN",
-          disableDeviceFallback: true
-        }).catch(() => null);
-        if (result?.success) {
-          vaultPinAttemptRef.current = registerVaultPinSuccess();
-          await refreshVaultEntries();
-          setVaultUnlocked(true);
-          return;
-        }
-      }
-      openPinModal("unlock");
-    } else {
-      setVaultUnlocked(false);
-    }
-  };
-
-  const handleSetupVaultPin = async () => {
-    try {
-      const pin = digitsOnly(vaultNewPin);
-      const confirmPin = digitsOnly(vaultConfirmPin);
-      if (pin.length < 4 || pin.length > 8) {
-        setVaultNotice({ type: "error", message: "PIN must be 4 to 8 digits." });
-        return;
-      }
-      if (pin !== confirmPin) {
-        setVaultNotice({ type: "error", message: "PINs do not match." });
-        return;
-      }
-      await saveVaultPin(pin);
-      vaultPinAttemptRef.current = registerVaultPinSuccess();
-      setVaultNewPin("");
-      setVaultConfirmPin("");
-      await refreshVaultSecurity();
-      setVaultNotice({ type: "success", message: "PIN setup complete." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not save PIN.";
-      setVaultNotice({ type: "error", message });
-    }
-  };
-
-  const handleToggleVaultBiometrics = async () => {
-    try {
-      const enabling = !vaultBiometricsEnabled;
-      if (enabling) {
-        const [hasHardware, isEnrolled] = await Promise.all([
-          LocalAuthentication.hasHardwareAsync(),
-          LocalAuthentication.isEnrolledAsync()
-        ]);
-        if (!hasHardware || !isEnrolled) {
-          setVaultNotice({
-            type: "error",
-            message: "Set up fingerprint or face unlock in your device settings first."
-          });
-          return;
-        }
-
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Enable biometric unlock",
-          cancelLabel: "Cancel",
-          disableDeviceFallback: true
-        });
-        if (!result.success) {
-          setVaultNotice({ type: "error", message: "Biometric unlock was not enabled." });
-          return;
-        }
-      }
-
-      await saveVaultBiometricsEnabled(enabling);
-      await refreshVaultSecurity();
-      setVaultNotice({
-        type: "success",
-        message: enabling ? "Biometric unlock enabled." : "Biometric unlock disabled."
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not update biometric setting.";
-      setVaultNotice({ type: "error", message });
-    }
-  };
-
-  const openVaultResetPin = () => {
-    if (!vaultHasPin || !vaultUnlocked) return;
-    setVaultCurrentPin("");
-    setVaultReplacementPin("");
-    setVaultReplacementPinConfirm("");
-    setVaultResetPinError("");
-    setVaultResetPinOpen(true);
-  };
-
-  const closeVaultResetPin = () => {
-    if (vaultResetPinSaving) return;
-    setVaultResetPinOpen(false);
-    setVaultCurrentPin("");
-    setVaultReplacementPin("");
-    setVaultReplacementPinConfirm("");
-    setVaultResetPinError("");
-  };
-
-  const handleResetVaultPin = async () => {
-    if (vaultResetPinSaving || !vaultHasPin || !vaultUnlocked) return;
-
-    const currentPin = digitsOnly(vaultCurrentPin);
-    const nextPin = digitsOnly(vaultReplacementPin);
-    const confirmPin = digitsOnly(vaultReplacementPinConfirm);
-
-    if (currentPin.length < 4 || currentPin.length > 8) {
-      setVaultResetPinError("Enter your current 4 to 8 digit PIN.");
-      return;
-    }
-    if (nextPin.length < 4 || nextPin.length > 8) {
-      setVaultResetPinError("New PIN must be 4 to 8 digits.");
-      return;
-    }
-    if (nextPin !== confirmPin) {
-      setVaultResetPinError("New PINs do not match.");
-      return;
-    }
-    if (nextPin === currentPin) {
-      setVaultResetPinError("Choose a new PIN that is different from your current PIN.");
-      return;
-    }
-
-    setVaultResetPinSaving(true);
-    setVaultResetPinError("");
-    try {
-      await saveVaultPin(nextPin, currentPin);
-      vaultPinAttemptRef.current = registerVaultPinSuccess();
-      setVaultResetPinOpen(false);
-      setVaultCurrentPin("");
-      setVaultReplacementPin("");
-      setVaultReplacementPinConfirm("");
-      setVaultEntries([]);
-      setRevealedVaultIds([]);
-      setVaultUnlocked(false);
-      setVaultNotice({ type: "success", message: "Vault PIN reset. Unlock again with your new PIN." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not reset vault PIN.";
-      setVaultResetPinError(message);
-    } finally {
-      setVaultResetPinSaving(false);
-    }
-  };
-
-  const openVaultEditor = (entry?: VaultEntry) => {
-    setVaultEditorError("");
-    setVaultSaving(false);
-    if (!entry) {
-      setVaultForm(INITIAL_VAULT_FORM);
-      setVaultEditorOpen(true);
-      return;
-    }
-    setVaultForm({
-      id: entry.id,
-      appName: entry.appName,
-      accountId: entry.accountId,
-      secret: entry.secret
-    });
-    setVaultEditorOpen(true);
-  };
-
-  const handleSaveVault = async () => {
-    if (vaultSaving) return;
-    setVaultSaving(true);
-    setVaultEditorError("");
-    try {
-      await saveVaultEntry(vaultForm);
-      await refreshVaultEntries();
-      setVaultEditorOpen(false);
-      setVaultForm(INITIAL_VAULT_FORM);
-      setVaultNotice({ type: "success", message: "Password saved." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not save password.";
-      setVaultEditorError(message);
-    } finally {
-      setVaultSaving(false);
-    }
-  };
-
-  const handleDeleteVault = (entry: VaultEntry) => {
-    Alert.alert("Delete password", `Delete credentials for ${entry.appName}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            clearRevealTimeout(entry.id);
-            await deleteVaultEntry(entry.id);
-            await refreshVaultEntries();
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "Could not delete password.";
-            setVaultNotice({ type: "error", message });
-          }
-        }
-      }
-    ]);
-  };
-
-  const handleToggleShowPassword = (entryId: number, currentlyVisible: boolean) => {
-    if (currentlyVisible) {
-      clearRevealTimeout(entryId);
-      setRevealedVaultIds((prev) => prev.filter((id) => id !== entryId));
-      return;
-    }
-    requestVaultSensitiveAction("reveal", entryId).catch(() => undefined);
-  };
-
   const closeTimer = async (summary: WorkoutRunSummary) => {
     const finishedSessionId = activeSessionId;
     const finishedPlanName = activePlan?.name ?? "Workout";
@@ -1811,18 +1235,6 @@ export default function App() {
         if (!feedbackSaving) setFeedbackOpen(false);
         return true;
       }
-      if (vaultResetPinOpen) {
-        closeVaultResetPin();
-        return true;
-      }
-      if (vaultEditorOpen) {
-        setVaultEditorOpen(false);
-        return true;
-      }
-      if (pinModalOpen) {
-        if (!pinVerifying) closePinModal();
-        return true;
-      }
       if (editorOpen) {
         setEditorOpen(false);
         setEditingPlan(null);
@@ -1855,12 +1267,7 @@ export default function App() {
     feedbackNoteModalOpen,
     feedbackOpen,
     feedbackSaving,
-    keyboardHeight,
-    pinModalOpen,
-    pinVerifying,
-    vaultEditorOpen,
-    vaultResetPinOpen,
-    vaultResetPinSaving
+    keyboardHeight
   ]);
 
   const currentWeekday = getDayPartsInTimeZone(
@@ -1882,8 +1289,6 @@ export default function App() {
     [semanticTheme.colors]
   );
   const panelBackground = semanticTheme.colors.surface;
-  const cardBackground = semanticTheme.colors.surfaceElevated;
-  const inputBackground = semanticTheme.colors.surfaceSubtle;
   const borderColor = semanticTheme.colors.border;
   const textPrimary = semanticTheme.colors.textPrimary;
   const textMuted = semanticTheme.colors.textSecondary;
@@ -1955,9 +1360,7 @@ export default function App() {
         onOpenTracker={() => setActiveModule("tracker")}
         onOpenLists={() => setActiveModule("list")}
         onOpenAlarms={() => setActiveModule("alarm")}
-        onOpenVault={() => {
-          enterPasswordManager().catch(() => undefined);
-        }}
+        onOpenVault={() => setActiveModule("password")}
         onOpenProfile={() => {
           setActiveModule("workout");
           setActiveTab("profile");
@@ -1999,31 +1402,7 @@ export default function App() {
       />
     );
   } else if (!activePlan && activeModule === "password") {
-    content = (
-      <PasswordManagerScreen
-        keyboardBottomPadding={keyboardSafeBottomPadding}
-        hasPin={vaultHasPin}
-        unlocked={vaultUnlocked}
-        newPin={vaultNewPin}
-        confirmPin={vaultConfirmPin}
-        biometricsEnabled={vaultBiometricsEnabled}
-        entries={vaultEntries}
-        revealedEntryIds={revealedVaultIds}
-        notice={vaultNotice}
-        onBack={() => setActiveModule("hub")}
-        onChangeNewPin={(value) => setVaultNewPin(digitsOnly(value))}
-        onChangeConfirmPin={(value) => setVaultConfirmPin(digitsOnly(value))}
-        onSetupPin={() => handleSetupVaultPin().catch(() => undefined)}
-        onUnlock={() => openPinModal("unlock")}
-        onToggleBiometrics={() => handleToggleVaultBiometrics().catch(() => undefined)}
-        onResetPin={openVaultResetPin}
-        onAddEntry={() => openVaultEditor()}
-        onEditEntry={openVaultEditor}
-        onDeleteEntry={handleDeleteVault}
-        onToggleEntryVisibility={handleToggleShowPassword}
-        onCopyEntryPassword={(entryId) => requestVaultSensitiveAction("copy", entryId).catch(() => undefined)}
-      />
-    );
+    content = <VaultBuddyScreen onBack={() => setActiveModule("hub")} />;
   } else if (!activePlan && activeModule === "list") {
     content = (
       <ListBuddyScreen
@@ -2135,9 +1514,7 @@ export default function App() {
         onOpenTracker={() => setActiveModule("tracker")}
         onOpenLists={() => setActiveModule("list")}
         onOpenAlarms={() => setActiveModule("alarm")}
-        onOpenVault={() => {
-          enterPasswordManager().catch(() => undefined);
-        }}
+        onOpenVault={() => setActiveModule("password")}
         onOpenProfile={() => {
           setActiveModule("workout");
           setActiveTab("profile");
@@ -2157,224 +1534,22 @@ export default function App() {
       <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
         {content}
 
-      <Modal
-        visible={feedbackOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!feedbackSaving) setFeedbackOpen(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1 px-6"
-          style={{ backgroundColor: semanticTheme.colors.scrim }}
-        >
-          <KeyboardAwareScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingVertical: 24 }}
-          >
-          <View
-            accessibilityViewIsModal
-            className="w-full rounded-3xl border p-5"
-            style={{ borderColor, backgroundColor: cardBackground, maxWidth: 520, alignSelf: "center" }}
-          >
-            <Text className="text-xl font-black" style={{ color: textPrimary }}>Rate Session</Text>
-            <Text className="mt-2 text-sm" style={{ color: textMuted }}>
-              {feedbackPlanName} is complete. Add a quick rating and optional note for your history.
-            </Text>
-
-            <View className="mt-4 flex-row justify-between rounded-2xl border px-3 py-3" style={{ borderColor, backgroundColor: inputBackground }}>
-              {[1, 2, 3, 4, 5].map((star) => {
-                const active = feedbackRating >= star;
-                return (
-                  <Pressable
-                    key={`rating-${star}`}
-                    onPress={() => setFeedbackRating(star)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Rate ${star} out of 5`}
-                    accessibilityState={{ selected: feedbackRating === star }}
-                    className="h-11 w-11 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: active ? withAlpha(workoutTheme.accent, 0.25) : panelBackground }}
-                  >
-                    <Star
-                      accessible={false}
-                      size={23}
-                      color={active ? workoutTheme.accent : semanticTheme.colors.textTertiary}
-                      fill={active ? workoutTheme.accent : "transparent"}
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Pressable
-              onPress={() => setFeedbackNoteModalOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Add or edit session note"
-              className="mt-4 min-h-[110px] rounded-2xl border px-4 py-3"
-              style={{ borderColor: semanticTheme.colors.borderStrong, backgroundColor: inputBackground }}
-            >
-              <Text className="text-xs font-semibold uppercase tracking-[1.2px]" style={{ color: textMuted }}>
-                Session Note
-              </Text>
-              <Text
-                className="mt-2 text-sm"
-                style={{ color: feedbackComment.trim() ? textPrimary : semanticTheme.colors.textTertiary }}
-              >
-                {feedbackComment.trim() || "Tap to add how this session felt."}
-              </Text>
-            </Pressable>
-
-            <View className="mt-5 flex-row gap-3">
-              <Button
-                label="Later"
-                onPress={() => setFeedbackOpen(false)}
-                disabled={feedbackSaving}
-                variant="outline"
-                fullWidth
-                style={{ flex: 1 }}
-              />
-              <Button
-                label="Save feedback"
-                onPress={handleSubmitFeedback}
-                loading={feedbackSaving}
-                fullWidth
-                style={{ flex: 1 }}
-              />
-            </View>
-          </View>
-          </KeyboardAwareScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      <Modal
-        visible={feedbackNoteModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFeedbackNoteModalOpen(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1 px-6"
-          style={{ backgroundColor: semanticTheme.colors.scrim }}
-        >
-          <KeyboardAwareScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingVertical: 24 }}
-          >
-          <View
-            accessibilityViewIsModal
-            className="w-full rounded-3xl border p-5"
-            style={{ borderColor, backgroundColor: cardBackground, maxWidth: 520, alignSelf: "center" }}
-          >
-            <Text className="text-xl font-black" style={{ color: textPrimary }}>Session Note</Text>
-            <TextField
-              label="How did it feel?"
-              value={feedbackComment}
-              onChangeText={setFeedbackComment}
-              multiline
-              autoFocus
-              textAlignVertical="top"
-              maxLength={400}
-              placeholder="Energy, effort, pain, or anything worth remembering"
-              helperText={`${feedbackComment.length}/400 characters`}
-              containerStyle={{ marginTop: 16 }}
-            />
-            <View className="mt-5 flex-row gap-3">
-              <Button
-                label="Done"
-                onPress={() => setFeedbackNoteModalOpen(false)}
-                variant="outline"
-                fullWidth
-                style={{ flex: 1 }}
-              />
-              <Button
-                label="Clear note"
-                onPress={() => {
-                  setFeedbackComment("");
-                  setFeedbackNoteModalOpen(false);
-                }}
-                variant="secondary"
-                fullWidth
-                style={{ flex: 1 }}
-              />
-            </View>
-          </View>
-          </KeyboardAwareScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
-        <VaultEntryModal
-          visible={vaultEditorOpen}
-          editing={vaultForm.id != null}
-          appName={vaultForm.appName}
-          accountId={vaultForm.accountId}
-          secret={vaultForm.secret}
-          error={vaultEditorError}
-          saving={vaultSaving}
-          onChangeAppName={(value) => {
-            setVaultForm((prev) => ({ ...prev, appName: value }));
-            if (vaultEditorError) setVaultEditorError("");
+        <WorkoutFeedbackModals
+          feedbackOpen={feedbackOpen}
+          feedbackNoteOpen={feedbackNoteModalOpen}
+          planName={feedbackPlanName}
+          rating={feedbackRating}
+          comment={feedbackComment}
+          saving={feedbackSaving}
+          accentColor={workoutTheme.accent}
+          onRatingChange={setFeedbackRating}
+          onCommentChange={setFeedbackComment}
+          onOpenNote={() => setFeedbackNoteModalOpen(true)}
+          onCloseNote={() => setFeedbackNoteModalOpen(false)}
+          onDismiss={() => setFeedbackOpen(false)}
+          onSubmit={() => {
+            handleSubmitFeedback().catch(() => undefined);
           }}
-          onChangeAccountId={(value) => {
-            setVaultForm((prev) => ({ ...prev, accountId: value }));
-            if (vaultEditorError) setVaultEditorError("");
-          }}
-          onChangeSecret={(value) => {
-            setVaultForm((prev) => ({ ...prev, secret: value }));
-            if (vaultEditorError) setVaultEditorError("");
-          }}
-          onGenerateSecret={async () => {
-            const secret = await generateStrongPassword();
-            setVaultForm((prev) => ({ ...prev, secret }));
-          }}
-          onClose={() => {
-            setVaultEditorOpen(false);
-            setVaultForm(INITIAL_VAULT_FORM);
-            setVaultEditorError("");
-            setVaultSaving(false);
-          }}
-          onSave={() => handleSaveVault().catch(() => undefined)}
-        />
-
-        <VaultResetPinModal
-          visible={vaultResetPinOpen && vaultHasPin && vaultUnlocked}
-          currentPin={vaultCurrentPin}
-          newPin={vaultReplacementPin}
-          confirmPin={vaultReplacementPinConfirm}
-          saving={vaultResetPinSaving}
-          error={vaultResetPinError}
-          onChangeCurrentPin={(value) => {
-            setVaultCurrentPin(digitsOnly(value));
-            if (vaultResetPinError) setVaultResetPinError("");
-          }}
-          onChangeNewPin={(value) => {
-            setVaultReplacementPin(digitsOnly(value));
-            if (vaultResetPinError) setVaultResetPinError("");
-          }}
-          onChangeConfirmPin={(value) => {
-            setVaultReplacementPinConfirm(digitsOnly(value));
-            if (vaultResetPinError) setVaultResetPinError("");
-          }}
-          onClose={closeVaultResetPin}
-          onSubmit={() => handleResetVaultPin().catch(() => undefined)}
-        />
-        <VaultPinModal
-          visible={pinModalOpen}
-          mode={pinModalMode}
-          pin={pinModalInput}
-          error={pinModalError}
-          verifying={pinVerifying}
-          onChangePin={(value) => {
-            setPinModalInput(digitsOnly(value));
-            if (pinModalError) setPinModalError("");
-          }}
-          onClose={closePinModal}
-          onVerify={() => verifyPinModal().catch(() => undefined)}
         />
 
         {showSplashOverlay && (

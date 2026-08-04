@@ -8,6 +8,7 @@ Source of truth for how this app is built. Cursor rules in `.cursor/rules/` are 
 
 | Doc | Covers |
 |-----|--------|
+| [app-shell-extraction.md](./app-shell-extraction.md) | Phased App.tsx extraction tracker (Vault, helpers, …) |
 | [app-providers.md](./app-providers.md) | Root provider tree (`AppProviders`) |
 | [change-checklist.md](./change-checklist.md) | **Mandatory gate** — docs + kit search before every UI/feature change |
 | [principles.md](./principles.md) | Ethics, offline-first, type safety, when docs override the user |

@@ -6,7 +6,7 @@ Entry: Expo → `App.tsx` → `AppProviders` (`src/providers/AppProviders.tsx`: 
 
 Module switch: `activeModule` = `hub | workout | reminder | password | list | alarm | activity | tracker`
 
-Extracted buddy screens (owned outside `App.tsx`): hub, activity, tracker, alarm, reminder (`src/features/reminder/ReminderBuddyScreen.tsx`), workout (`src/features/workout/WorkoutBuddyScreen.tsx`). Vault and list still largely live in `App.tsx` / legacy components. Timer session UI stays in `App.tsx` via `TimerScreen` while a plan is active.
+Extracted buddy screens (owned outside `App.tsx`): hub, activity, tracker, alarm, reminder, workout, vault, list (`src/features/list/ListBuddyScreen.tsx`). Timer session UI stays in `App.tsx` via `TimerScreen` while a plan is active; session feedback is `WorkoutFeedbackModals` at App root. Tracker: [app-shell-extraction.md](./app-shell-extraction.md).
 
 There is no Expo Router / React Navigation stack for module routing. Buddy screens own their own tab bars where needed. See [app-providers.md](./app-providers.md).
 

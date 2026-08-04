@@ -64,17 +64,7 @@ export const INITIAL_REMINDER_FORM: ReminderFormState = {
 
 export const REMINDER_HISTORY_PAST_DAYS = 7;
 
-export function digitsOnly(value: string): string {
-  return value.replace(/[^0-9]/g, "");
-}
-
-export function parseStrictWholeNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.floor(parsed);
-}
+export { digitsOnly, parseStrictWholeNumber, withAlpha } from "../../utils/format";
 
 export function formatTimeLabel(hour: number, minute: number): string {
   const safeHour = Math.min(23, Math.max(0, Math.floor(Number(hour) || 0)));
@@ -295,12 +285,3 @@ export function buildReminderHistoryOccurrences(
   return Array.from(new Set(candidates)).sort((left, right) => left - right);
 }
 
-export function withAlpha(hex: string, alpha: number): string {
-  const sanitized = hex.replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(sanitized)) return hex;
-  const parsed = Number.parseInt(sanitized, 16);
-  const r = (parsed >> 16) & 255;
-  const g = (parsed >> 8) & 255;
-  const b = parsed & 255;
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
-}

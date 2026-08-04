@@ -12,5 +12,6 @@ Before coding, read the relevant files under `doc/`. Start with `doc/README.md`.
 - Core principles: `doc/principles.md`
 - Architecture: `doc/architecture.md`
 - UI kit: `doc/reusable-ui.md`
+- Screen layout: `doc/screen-layout-system.md`
 - Tokens: `doc/design-tokens.md`
 - UI vs data: `doc/ui-data-separation.md`

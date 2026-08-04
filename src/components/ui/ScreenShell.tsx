@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { ScrollView, View, type StyleProp, type ViewStyle } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import type { Edge } from "react-native-safe-area-context";
 import { useAnthraTheme } from "../../design-system";
+import { ScreenLayout, useScreenBackgrounds } from "../layout";
 import { KeyboardAwareScrollView } from "./KeyboardAwareScrollView";
 import { ScreenHeader, type ScreenHeaderProps } from "./ScreenHeader";
 
@@ -12,9 +13,16 @@ export type ScreenShellProps = {
   scroll?: boolean;
   keyboardAware?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
-  edges?: Array<"top" | "right" | "bottom" | "left">;
+  /** Safe-area edges forwarded to ScreenLayout. */
+  edges?: Edge[];
+  /** When false, assumes an outer ScreenLayout already wraps this tree. */
+  wrapLayout?: boolean;
 };
 
+/**
+ * Inner screen composition (header + padded body + footer).
+ * By default wraps with `ScreenLayout` + canvas background.
+ */
 export function ScreenShell({
   header,
   children,
@@ -22,9 +30,11 @@ export function ScreenShell({
   scroll = true,
   keyboardAware = false,
   contentStyle,
-  edges = ["top", "left", "right"]
+  edges = ["top", "left", "right"],
+  wrapLayout = true
 }: ScreenShellProps) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
 
   const padded = (
     <View
@@ -65,12 +75,18 @@ export function ScreenShell({
     );
   }
 
+  const inner = (
+    <View style={{ flex: 1 }}>
+      {body}
+      {footer}
+    </View>
+  );
+
+  if (!wrapLayout) return inner;
+
   return (
-    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: theme.colors.canvas }}>
-      <View style={{ flex: 1 }}>
-        {body}
-        {footer}
-      </View>
-    </SafeAreaView>
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={edges}>
+      {inner}
+    </ScreenLayout>
   );
 }

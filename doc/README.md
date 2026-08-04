@@ -10,6 +10,7 @@ Source of truth for how this app is built. Cursor rules in `.cursor/rules/` are 
 |-----|--------|
 | [principles.md](./principles.md) | Ethics, offline-first, type safety, when docs override the user |
 | [architecture.md](./architecture.md) | Modules, data layer, native bridges, navigation model |
+| [screen-layout-system.md](./screen-layout-system.md) | ScreenLayout, safe areas, edge-to-edge backgrounds |
 | [reusable-ui.md](./reusable-ui.md) | UI kit inventory, when to reuse vs invent, migration plan |
 | [design-tokens.md](./design-tokens.md) | Colors, spacing, radius, typography, layout tokens |
 | [hooks.md](./hooks.md) | Rules of Hooks, where hooks live |

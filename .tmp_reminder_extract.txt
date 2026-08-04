@@ -1,0 +1,703 @@
+<ScreenLayout {...screenBackgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
+        <View
+          className="border-b px-5"
+          onLayout={(event) => setReminderHeaderBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
+          style={{ borderColor }}
+        >
+          <ScreenHeader
+            eyebrow="ORGANIZE"
+            title="Reminders"
+            subtitle={`${enabledReminderCount} active · ${deviceTimeZone}`}
+            onBack={() => setActiveModule("hub")}
+            backLabel="Back to Today"
+            action={<Button label="New" size="small" onPress={() => openReminderEditor()} />}
+            style={{ width: "100%", maxWidth: semanticTheme.layout.contentMaxWidth, alignSelf: "center" }}
+          />
+        </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            width: "100%",
+            maxWidth: semanticTheme.layout.contentMaxWidth,
+            alignSelf: "center",
+            padding: 20,
+            paddingTop: 20,
+            paddingBottom: keyboardSafeBottomPadding
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="rounded-2xl border p-4" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: reminderTheme.accentSoft }}>
+            <Text className="text-base font-semibold" style={{ color: textMuted }}>
+              Build one-time events, repeating reminders, multiple daily times, or interval nudges in your device timezone.
+            </Text>
+          </View>
+
+          <View className="mt-4 rounded-2xl border p-4" style={{ borderColor, backgroundColor: cardBackground }}>
+            <View className="flex-row items-start" style={{ gap: semanticTheme.spacing.md }}>
+              <View className="min-w-0 flex-1">
+                <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: reminderTheme.accent }}>
+                  Notifications
+                </Text>
+                <Text className="mt-1 text-base font-bold" style={{ color: textPrimary }}>
+                  {notificationHealthLoading
+                    ? "Checking device status…"
+                    : notificationHealth?.permission === "granted"
+                      ? `${notificationHealth.reminderCount} scheduled`
+                      : `Permission: ${notificationHealth?.permission ?? "unknown"}`}
+                </Text>
+              </View>
+              {notificationHealthLoading && <ActivityIndicator size="small" color={reminderTheme.accent} />}
+            </View>
+            <Text className="mt-3 text-sm font-semibold" style={{ color: textMuted }}>
+              {notificationHealth?.nextReminderTriggerAt
+                ? `Next: ${formatTimestampInTimeZone(notificationHealth.nextReminderTriggerAt, deviceTimeZone)}`
+                : notificationHealth?.supported === false
+                  ? "Use a development build to test native notifications."
+                  : "No upcoming reminder notification detected."}
+            </Text>
+            <View
+              className="mt-4"
+              style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.sm }}
+            >
+              <Button
+                label="Send test"
+                onPress={() => handleSendTestNotification().catch(() => undefined)}
+                variant="secondary"
+                size="small"
+                style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+              <Button
+                label="System settings"
+                onPress={() => Linking.openSettings().catch(() => undefined)}
+                variant="outline"
+                size="small"
+                style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+              />
+            </View>
+            {notificationTestNotice && (
+              <Text className="mt-3 text-sm font-semibold" style={{ color: reminderTheme.accent }}>
+                {notificationTestNotice}
+              </Text>
+            )}
+          </View>
+          {reminderTrackerView === "reminders" && (
+            <>
+              {reminderItems.length === 0 && (
+                <View className="mt-4 rounded-2xl border border-dashed p-5" style={{ borderColor, backgroundColor: cardBackground }}>
+                  <Text className="text-base" style={{ color: textMuted }}>No reminders yet.</Text>
+                </View>
+              )}
+              {reminderItems.map((item) => (
+                <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor, backgroundColor: cardBackground }}>
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 pr-3">
+                      <Text className="text-xl font-bold" style={{ color: textPrimary }}>{item.title}</Text>
+                      <Text className="mt-1 text-xs font-black uppercase tracking-[1.2px]" style={{ color: reminderTheme.accent }}>
+                        {formatReminderModeLabel(item.mode)}
+                      </Text>
+                      <Text className="mt-1 text-sm font-semibold uppercase tracking-[1.2px]" style={{ color: textMuted }}>
+                        {formatReminderSchedule(item)}
+                      </Text>
+                      {item.note.trim().length > 0 && <Text className="mt-2 text-base" style={{ color: textMuted }}>{item.note}</Text>}
+                    </View>
+                    <View className="items-end" style={{ gap: semanticTheme.spacing.xs }}>
+                      <Pressable
+                        onPress={() => handleToggleReminder(item).catch(() => undefined)}
+                        accessibilityRole="switch"
+                        accessibilityLabel={`${item.title} reminder`}
+                        accessibilityState={{ checked: item.enabled }}
+                        className="min-h-[44px] items-center justify-center rounded-full px-3 py-2"
+                        style={{ backgroundColor: item.enabled ? withAlpha(reminderTheme.accent, 0.22) : withAlpha(textPrimary, 0.1) }}
+                      >
+                        <Text className="text-xs font-black uppercase" style={{ color: item.enabled ? reminderTheme.accent : textMuted }}>
+                          {item.enabled ? "On" : "Off"}
+                        </Text>
+                      </Pressable>
+                      <IconButton
+                        icon={Trash2}
+                        onPress={() => handleDeleteReminder(item)}
+                        accessibilityLabel={`Delete ${item.title}`}
+                        variant="danger"
+                        size="small"
+                      />
+                    </View>
+                  </View>
+                  <Button
+                    label="Edit reminder"
+                    onPress={() => openReminderEditor(item)}
+                    variant="outline"
+                    fullWidth
+                    style={{ marginTop: semanticTheme.spacing.md }}
+                  />
+                </View>
+              ))}
+            </>
+          )}
+
+          {reminderTrackerView === "history" && (
+            <>
+              {pendingReminderHistory.length === 0 &&
+                doneReminderHistory.length === 0 && (
+                  <Card variant="subtle" padding="large" style={{ alignItems: "center", marginTop: semanticTheme.spacing["2xl"] }}>
+                    <View style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.brandSoft }}>
+                      <HistoryIcon accessible={false} color={semanticTheme.colors.brand} size={24} />
+                    </View>
+                    <Text style={[semanticTheme.typography.titleSmall, { color: textPrimary, textAlign: "center", marginTop: semanticTheme.spacing.lg }]}>No reminder activity yet</Text>
+                    <Text style={[semanticTheme.typography.body, { color: textMuted, textAlign: "center", marginTop: semanticTheme.spacing.xs }]}>Completed and pending reminder occurrences will appear here.</Text>
+                  </Card>
+                )}
+
+              {pendingReminderHistory.length > 0 && (
+                <View style={{ marginTop: semanticTheme.spacing["2xl"] }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: semanticTheme.spacing.md }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: semanticTheme.spacing.sm }}>
+                      <View style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.warningSoft }}>
+                        <Clock3 accessible={false} color={semanticTheme.colors.warning} size={18} />
+                      </View>
+                      <Text style={[semanticTheme.typography.titleSmall, { color: textPrimary }]}>Pending</Text>
+                    </View>
+                    <View style={{ minWidth: 28, height: 28, alignItems: "center", justifyContent: "center", paddingHorizontal: semanticTheme.spacing.sm, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.warningSoft }}>
+                      <Text style={[semanticTheme.typography.label, { color: semanticTheme.colors.warning }]}>{pendingReminderHistory.length}</Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: semanticTheme.spacing.md, marginTop: semanticTheme.spacing.md }}>
+                    {pendingReminderHistory.map((item) => (
+                      <Card key={`pending-${item.reminderId}-${item.occurrenceTs}`} padding="large">
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: semanticTheme.spacing.md }}>
+                          <View style={{ width: 40, height: 40, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.warningSoft }}>
+                            <Clock3 accessible={false} color={semanticTheme.colors.warning} size={20} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text numberOfLines={2} style={[semanticTheme.typography.titleSmall, { color: textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.warning, marginTop: semanticTheme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
+                          </View>
+                          <View style={{ paddingHorizontal: semanticTheme.spacing.sm, paddingVertical: semanticTheme.spacing.xs, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.warningSoft }}>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.warning }]}>PENDING</Text>
+                          </View>
+                        </View>
+                        {item.note.trim().length > 0 && (
+                          <View style={{ marginTop: semanticTheme.spacing.md, padding: semanticTheme.spacing.md, borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.surfaceSubtle }}>
+                            <Text style={[semanticTheme.typography.body, { color: textMuted }]}>{item.note}</Text>
+                          </View>
+                        )}
+                        <Button
+                          label="Mark as done"
+                          icon={CheckCircle2}
+                          onPress={() => handleMarkReminderDone(item).catch(() => undefined)}
+                          accessibilityLabel={`Mark ${item.title} done`}
+                          fullWidth
+                          style={{ marginTop: semanticTheme.spacing.lg }}
+                        />
+                      </Card>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {doneReminderHistory.length > 0 && (
+                <View style={{ marginTop: semanticTheme.spacing["2xl"] }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: semanticTheme.spacing.md }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: semanticTheme.spacing.sm }}>
+                      <View style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.successSoft }}>
+                        <CheckCircle2 accessible={false} color={semanticTheme.colors.success} size={18} />
+                      </View>
+                      <Text style={[semanticTheme.typography.titleSmall, { color: textPrimary }]}>Completed</Text>
+                    </View>
+                    <View style={{ minWidth: 28, height: 28, alignItems: "center", justifyContent: "center", paddingHorizontal: semanticTheme.spacing.sm, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.successSoft }}>
+                      <Text style={[semanticTheme.typography.label, { color: semanticTheme.colors.success }]}>{doneReminderHistory.length}</Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: semanticTheme.spacing.md, marginTop: semanticTheme.spacing.md }}>
+                    {doneReminderHistory.map((item) => (
+                      <Card key={`done-${item.reminderId}-${item.occurrenceTs}`} padding="large">
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: semanticTheme.spacing.md }}>
+                          <View style={{ width: 40, height: 40, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.successSoft }}>
+                            <CheckCircle2 accessible={false} color={semanticTheme.colors.success} size={20} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text numberOfLines={2} style={[semanticTheme.typography.titleSmall, { color: textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.success, marginTop: semanticTheme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
+                          </View>
+                          <View style={{ paddingHorizontal: semanticTheme.spacing.sm, paddingVertical: semanticTheme.spacing.xs, borderRadius: semanticTheme.radii.full, backgroundColor: semanticTheme.colors.successSoft }}>
+                            <Text style={[semanticTheme.typography.caption, { color: semanticTheme.colors.success }]}>DONE</Text>
+                          </View>
+                        </View>
+                        {item.note.trim().length > 0 && (
+                          <View style={{ marginTop: semanticTheme.spacing.md, padding: semanticTheme.spacing.md, borderRadius: semanticTheme.radii.md, backgroundColor: semanticTheme.colors.surfaceSubtle }}>
+                            <Text style={[semanticTheme.typography.body, { color: textMuted }]}>{item.note}</Text>
+                          </View>
+                        )}
+                      </Card>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+
+        </ScrollView>
+        <ReminderTabBar activeTab={reminderTrackerView} onChange={setReminderTrackerView} />
+        {reminderNotice && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: semanticTheme.layout.screenPadding,
+              right: semanticTheme.layout.screenPadding,
+              top: reminderHeaderBottom + semanticTheme.spacing.md,
+              zIndex: 20
+            }}
+          >
+            <StatusBanner
+              title={reminderNotice.title ?? (reminderNotice.type === "success" ? "Reminder updated" : "Reminder needs attention")}
+              message={reminderNotice.message}
+              variant={reminderNotice.type === "success" ? "success" : "danger"}
+              style={{
+                width: "100%",
+                maxWidth: 520,
+                alignSelf: "center",
+                shadowColor: semanticTheme.isDark ? "#000000" : reminderNotice.type === "success" ? "#173D2B" : "#5D1B16",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: semanticTheme.isDark ? 0.34 : 0.18,
+                shadowRadius: 18,
+                elevation: 10
+              }}
+            />
+          </View>
+        )}
+      </ScreenLayout>
+
+=====MODAL=====
+
+        <Modal
+          visible={reminderEditorOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setReminderEditorOpen(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1"
+            style={{ backgroundColor: semanticTheme.colors.scrim }}
+          >
+            <SafeAreaView
+              edges={["bottom"]}
+              style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 16 }}
+            >
+            <View
+              accessibilityViewIsModal
+              className="w-full rounded-3xl border p-5"
+              style={{
+                borderColor,
+                backgroundColor: cardBackground,
+                maxWidth: 640,
+                maxHeight: "92%",
+                alignSelf: "center"
+              }}
+            >
+              <Text accessibilityRole="header" className="text-2xl font-black" style={{ color: textPrimary }}>
+                {reminderForm.id ? "Edit Reminder" : "New Reminder"}
+              </Text>
+              {reminderEditorError.length > 0 && (
+                <StatusBanner
+                  className="mt-3"
+                  title="Check this reminder"
+                  message={reminderEditorError}
+                  variant="danger"
+                />
+              )}
+              <KeyboardAwareScrollView
+                className="mt-2"
+                style={{ flexShrink: 1 }}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+                contentContainerStyle={{ paddingBottom: 8 }}
+              >
+                <TextField
+                  label="Title"
+                  value={reminderForm.title}
+                  onChangeText={(value) => setReminderForm((prev) => ({ ...prev, title: value }))}
+                  placeholder="What should Anthra remind you about?"
+                  autoFocus
+                  selectTextOnFocus={Boolean(reminderForm.id)}
+                  returnKeyType="done"
+                  required
+                  containerStyle={{ marginTop: 8 }}
+                />
+                <Text className="mb-2 mt-3 text-sm font-semibold" style={{ color: textMuted }}>Reminder Type</Text>
+                <View className="flex-row flex-wrap" style={{ gap: semanticTheme.spacing.sm }}>
+                  {([
+                    { value: "time", label: "Recurring" },
+                    { value: "multi", label: "Multiple Times" },
+                    { value: "interval", label: "Interval" },
+                    { value: "once", label: "One Time" }
+                  ] as { value: ReminderMode; label: string }[]).map((option) => {
+                    const selected = reminderForm.mode === option.value;
+                    return (
+                      <Pressable
+                        key={`reminder-mode-${option.value}`}
+                        onPress={() => {
+                          const nextDateLabel = reminderForm.dateLabel || getDeviceTodayLabel();
+                          setReminderForm((prev) => ({
+                            ...prev,
+                            mode: option.value,
+                            dateLabel: prev.dateLabel || nextDateLabel
+                          }));
+                          if (option.value === "once") {
+                            setReminderCalendarMonth(getReminderCalendarMonthFromDateLabel(nextDateLabel));
+                          }
+                        }}
+                        accessibilityRole="radio"
+                        accessibilityLabel={option.label}
+                        accessibilityState={{ checked: selected, selected }}
+                        className="min-h-[48px] items-center justify-center rounded-xl border px-3 py-2"
+                        style={{
+                          flexBasis: "47%",
+                          flexGrow: 1,
+                          borderColor: selected ? reminderTheme.accent : reminderTheme.accentBorder,
+                          backgroundColor: selected ? withAlpha(reminderTheme.accent, 0.18) : inputBackground
+                        }}
+                      >
+                        <Text className="text-center text-xs font-black uppercase" style={{ color: selected ? reminderTheme.accent : textMuted }}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                  {reminderForm.mode === "interval"
+                    ? "Best for things like drink water every hour."
+                    : reminderForm.mode === "multi"
+                      ? "Best for medicine or tasks that happen at several fixed times."
+                      : reminderForm.mode === "once"
+                        ? "Best for one-off events like a match or appointment."
+                        : "Best for a repeating reminder at one fixed time."}
+                </Text>
+
+                {(reminderForm.mode === "time" || reminderForm.mode === "once") && (
+                  <>
+                    <View className="mt-3">
+                      <TimePickerField
+                        label="Reminder time"
+                        hour={parseStrictWholeNumber(reminderForm.hour) ?? 9}
+                        minute={parseStrictWholeNumber(reminderForm.minute) ?? 0}
+                        onChange={(hour, minute) =>
+                          setReminderForm((current) => ({
+                            ...current,
+                            hour: String(hour),
+                            minute: String(minute)
+                          }))
+                        }
+                        accentColor={reminderTheme.accent}
+                        borderColor={reminderTheme.accentBorder}
+                        backgroundColor={inputBackground}
+                        textColor={textPrimary}
+                        mutedColor={textMuted}
+                        presets={[
+                          { label: "Morning", hour: 8, minute: 0 },
+                          { label: "Afternoon", hour: 13, minute: 0 },
+                          { label: "Evening", hour: 18, minute: 0 }
+                        ]}
+                      />
+                    </View>
+                    {reminderForm.mode === "once" && (
+                      <View className="mt-3">
+                        <Text className="mb-2 text-sm font-semibold" style={{ color: textMuted }}>Date</Text>
+                        <View
+                          className="rounded-2xl border p-3"
+                          style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}
+                        >
+                          <View className="flex-row items-center justify-between">
+                            <Pressable
+                              onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))}
+                              accessibilityRole="button"
+                              accessibilityLabel="Previous month"
+                              className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
+                              style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}
+                            >
+                              <Text className="text-xs font-black uppercase" style={{ color: textMuted }}>Prev</Text>
+                            </Pressable>
+                            <Text className="text-base font-black" style={{ color: textPrimary }}>
+                              {formatReminderCalendarMonth(reminderCalendarMonth)}
+                            </Text>
+                            <Pressable
+                              onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))}
+                              accessibilityRole="button"
+                              accessibilityLabel="Next month"
+                              className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
+                              style={{ borderColor: reminderTheme.accentBorder, backgroundColor: panelBackground }}
+                            >
+                              <Text className="text-xs font-black uppercase" style={{ color: textMuted }}>Next</Text>
+                            </Pressable>
+                          </View>
+                          <View className="mt-3 flex-row">
+                            {WEEKDAY_OPTIONS.map((day) => (
+                              <View key={`calendar-head-${day.value}`} className="flex-1 items-center">
+                                <Text className="text-xs font-black uppercase" style={{ color: textMuted }}>
+                                  {day.short}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                          <View className="mt-2 flex-row flex-wrap">
+                            {reminderCalendarDays.map((day) => {
+                              const selected = reminderForm.dateLabel === day.dateLabel;
+                              const disabled = day.isPast;
+                              return (
+                                <Pressable
+                                  key={`calendar-day-${day.dateLabel}`}
+                                  onPress={() => {
+                                    if (disabled) return;
+                                    setReminderForm((prev) => ({ ...prev, dateLabel: day.dateLabel }));
+                                  }}
+                                  className="mb-2 w-[14.2857%] items-center"
+                                  disabled={disabled}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={day.dateLabel}
+                                  accessibilityState={{ disabled, selected }}
+                                >
+                                  <View
+                                    className="items-center justify-center rounded-full border"
+                                    style={{
+                                      width: reminderCalendarDaySize,
+                                      height: reminderCalendarDaySize,
+                                      borderColor: selected
+                                        ? reminderTheme.accent
+                                        : day.isToday
+                                          ? withAlpha(reminderTheme.accent, 0.65)
+                                          : "transparent",
+                                      backgroundColor: selected
+                                        ? reminderTheme.accent
+                                        : day.inMonth
+                                          ? panelBackground
+                                          : "transparent",
+                                      opacity: disabled ? 0.35 : day.inMonth ? 1 : 0.6
+                                    }}
+                                  >
+                                    <Text
+                                      className="text-sm font-semibold"
+                                      style={{
+                                        color: selected
+                                          ? reminderTheme.onAccent
+                                          : day.inMonth
+                                            ? textPrimary
+                                            : textMuted
+                                      }}
+                                    >
+                                      {day.day}
+                                    </Text>
+                                  </View>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        </View>
+                        <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                          Selected: {reminderForm.dateLabel || getDeviceTodayLabel()} in {getDeviceTimeZone()}.
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {reminderForm.mode === "multi" && (
+                  <View className="mt-3">
+                    <Text className="mb-2 text-sm font-semibold" style={{ color: textMuted }}>Times</Text>
+                    <View className="gap-3">
+                      {reminderForm.timeSlots.map((slot, index) => {
+                        if (!slot.trim()) return null;
+                        const parsed = parseReminderTimeSlotInput(slot) ?? { hour: 8, minute: 0 };
+                        return (
+                          <View key={`slot-${index}`} className="rounded-2xl border p-3" style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}>
+                            <TimePickerField
+                              label={`Time ${index + 1}`}
+                              hour={parsed.hour}
+                              minute={parsed.minute}
+                              onChange={(hour, minute) =>
+                                setReminderForm((prev) => {
+                                  const nextSlots = [...prev.timeSlots];
+                                  nextSlots[index] = formatTimeLabel(hour, minute);
+                                  return { ...prev, timeSlots: ensureReminderTimeInputs(nextSlots) };
+                                })
+                              }
+                              accentColor={reminderTheme.accent}
+                              borderColor={reminderTheme.accentBorder}
+                              backgroundColor={panelBackground}
+                              textColor={textPrimary}
+                              mutedColor={textMuted}
+                            />
+                            {reminderForm.timeSlots.filter((value) => value.trim()).length > 1 && (
+                              <Pressable
+                                onPress={() =>
+                                  setReminderForm((prev) => {
+                                    const compacted = prev.timeSlots.filter((_, slotIndex) => slotIndex !== index && prev.timeSlots[slotIndex].trim());
+                                    return { ...prev, timeSlots: ensureReminderTimeInputs(compacted) };
+                                  })
+                                }
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove time ${index + 1}`}
+                                className="mt-2 min-h-[44px] items-center justify-center rounded-xl border"
+                                style={{ borderColor: semanticTheme.colors.danger, backgroundColor: semanticTheme.colors.dangerSoft }}
+                              >
+                                <Text className="text-sm font-black uppercase" style={{ color: semanticTheme.colors.danger }}>Remove</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                    {reminderForm.timeSlots.filter((value) => value.trim()).length < 4 && (
+                      <Pressable
+                        onPress={() =>
+                          setReminderForm((prev) => {
+                            const compacted = prev.timeSlots.filter((value) => value.trim());
+                            const last = parseReminderTimeSlotInput(compacted[compacted.length - 1] ?? "08:00") ?? { hour: 8, minute: 0 };
+                            const nextHour = (last.hour + 4) % 24;
+                            return { ...prev, timeSlots: ensureReminderTimeInputs([...compacted, formatTimeLabel(nextHour, last.minute)]) };
+                          })
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel="Add another reminder time"
+                        className="mt-3 min-h-[48px] items-center justify-center rounded-xl border"
+                        style={{ borderColor: reminderTheme.accentBorder, backgroundColor: inputBackground }}
+                      >
+                        <Text className="text-sm font-black uppercase" style={{ color: reminderTheme.accent }}>Add another time</Text>
+                      </Pressable>
+                    )}
+                    <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                      Add up to 4 daily times. Anthra handles the time format for you.
+                    </Text>
+                  </View>
+                )}
+
+                {reminderForm.mode === "interval" && (
+                  <>
+                    <View className="mt-3">
+                      <TextField
+                        label="Repeat every"
+                        value={reminderForm.intervalMinutes}
+                        onChangeText={(value) => setReminderForm((prev) => ({ ...prev, intervalMinutes: digitsOnly(value) }))}
+                        keyboardType="number-pad"
+                        placeholder="60 minutes"
+                        helperText="Choose an interval from 1 to 720 minutes."
+                        maxLength={3}
+                      />
+                    </View>
+                    <View className="mt-3">
+                      <TimePickerField
+                        label="Start time"
+                        hour={parseStrictWholeNumber(reminderForm.intervalStartHour) ?? 8}
+                        minute={parseStrictWholeNumber(reminderForm.intervalStartMinute) ?? 0}
+                        onChange={(hour, minute) =>
+                          setReminderForm((current) => ({
+                            ...current,
+                            intervalStartHour: String(hour),
+                            intervalStartMinute: String(minute)
+                          }))
+                        }
+                        accentColor={reminderTheme.accent}
+                        borderColor={reminderTheme.accentBorder}
+                        backgroundColor={inputBackground}
+                        textColor={textPrimary}
+                        mutedColor={textMuted}
+                      />
+                    </View>
+                    <View className="mt-3">
+                      <TimePickerField
+                        label="End time"
+                        hour={parseStrictWholeNumber(reminderForm.intervalEndHour) ?? 22}
+                        minute={parseStrictWholeNumber(reminderForm.intervalEndMinute) ?? 0}
+                        onChange={(hour, minute) =>
+                          setReminderForm((current) => ({
+                            ...current,
+                            intervalEndHour: String(hour),
+                            intervalEndMinute: String(minute)
+                          }))
+                        }
+                        accentColor={reminderTheme.accent}
+                        borderColor={reminderTheme.accentBorder}
+                        backgroundColor={inputBackground}
+                        textColor={textPrimary}
+                        mutedColor={textMuted}
+                      />
+                    </View>
+                  </>
+                )}
+                <TextField
+                  label="Note"
+                  value={reminderForm.note}
+                  onChangeText={(value) => setReminderForm((prev) => ({ ...prev, note: value }))}
+                  multiline
+                  placeholder="Add helpful context (optional)"
+                  containerStyle={{ marginTop: 12 }}
+                />
+                {reminderForm.mode !== "once" && (
+                  <>
+                    <Text className="mb-2 mt-3 text-sm font-semibold" style={{ color: textMuted }}>Days</Text>
+                    <View className="flex-row flex-wrap" style={{ gap: semanticTheme.spacing.sm }}>
+                      {WEEKDAY_OPTIONS.map((day) => {
+                        const selected = reminderForm.days.includes(day.value);
+                        return (
+                          <Pressable
+                            key={`rday-${day.value}`}
+                            onPress={() => toggleReminderDay(day.value)}
+                            accessibilityRole="checkbox"
+                            accessibilityLabel={day.label}
+                            accessibilityState={{ checked: selected }}
+                            className="min-h-[48px] items-center justify-center rounded-xl border px-2 py-2"
+                            style={{
+                              width: windowWidth < 520 || fontScale >= 1.2 ? "22%" : "12%",
+                              borderColor: selected ? reminderTheme.accent : reminderTheme.accentBorder,
+                              backgroundColor: selected ? withAlpha(reminderTheme.accent, 0.2) : inputBackground
+                            }}
+                          >
+                            <Text className="text-xs font-bold uppercase" style={{ color: selected ? reminderTheme.accent : textMuted }}>
+                              {day.short}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <Text className="mt-2 text-xs" style={{ color: textMuted }}>
+                      Leave all days off to repeat every day.
+                    </Text>
+                  </>
+                )}
+                <SwitchRow
+                  label="Reminder enabled"
+                  description={reminderForm.enabled
+                    ? "This reminder will be scheduled after you save."
+                    : "Save it without scheduling notifications yet."}
+                  value={reminderForm.enabled}
+                  onValueChange={(enabled) => setReminderForm((prev) => ({ ...prev, enabled }))}
+                  style={{ marginTop: semanticTheme.spacing.lg }}
+                />
+              </KeyboardAwareScrollView>
+              <View
+                className="mt-5"
+                style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: semanticTheme.spacing.md }}
+              >
+                <Button
+                  label="Cancel"
+                  onPress={() => {
+                    setReminderEditorOpen(false);
+                    setReminderEditorError("");
+                  }}
+                  variant="outline"
+                  fullWidth
+                  style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                />
+                <Button
+                  label="Save reminder"
+                  onPress={() => handleSaveReminder().catch(() => undefined)}
+                  loading={reminderSaving}
+                  fullWidth
+                  style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
+                />
+              </View>
+            </View>
+            </SafeAreaView>
+          </KeyboardAvoidingView>
+        </Modal>

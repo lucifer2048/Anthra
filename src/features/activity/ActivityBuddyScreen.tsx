@@ -10,7 +10,6 @@ import {
   useWindowDimensions,
   View
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,9 +29,11 @@ import {
 } from "lucide-react-native";
 
 import { ProgressBar } from "../../components/ProgressBar";
+import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import {
   Button,
   Card,
+  ChoiceRow,
   IconButton,
   ScreenHeader,
   StatusBanner,
@@ -267,6 +268,7 @@ function SourceCard({
 
 export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { width: viewportWidth } = useWindowDimensions();
   const previewAvailableWidth = Math.max(0, viewportWidth - theme.spacing["2xl"]);
   const previewScale = Math.min(
@@ -695,11 +697,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: theme.colors.canvas }}
-        edges={["top", "bottom"]}
-      >
-        <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider }}>
           <View
             style={{
@@ -792,7 +790,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             </View>
           )}
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
@@ -804,12 +802,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const syncMessage = `Last successful refresh: ${formatSyncTime(syncState.lastSuccessAt)}.`;
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: theme.colors.canvas }}
-      edges={["top", "bottom"]}
-    >
-      <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
-
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
       <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider }}>
         <View
           style={{
@@ -1181,59 +1174,19 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             </View>
           </View>
 
-          <Text
-            style={[
-              theme.typography.label,
-              { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }
+          <ChoiceRow
+            label="INCLUDED ACTIVITY"
+            options={[
+              { label: "Steps + health", value: "activity" },
+              { label: "All activity", value: "all" }
             ]}
-          >
-            INCLUDED ACTIVITY
-          </Text>
-          <View className="mt-2 flex-row" style={{ gap: theme.spacing.sm }}>
-            {(["activity", "all"] as ActivityShareScope[]).map((scope) => {
-              const selected = settings.shareScope === scope;
-              const label = scope === "all" ? "All activity" : "Steps + health";
-              return (
-                <Pressable
-                  key={scope}
-                  onPress={() => changeShareScope(scope)}
-                  disabled={scopeSaving}
-                  accessibilityRole="radio"
-                  accessibilityLabel={label}
-                  accessibilityHint={
-                    scope === "all"
-                      ? "Includes Anthra workout days"
-                      : "Includes phone and Health Connect activity only"
-                  }
-                  accessibilityState={{ selected, disabled: scopeSaving }}
-                  className="flex-1 items-center justify-center"
-                  style={({ pressed }) => ({
-                    minHeight: theme.layout.minTouchTarget,
-                    paddingHorizontal: theme.spacing.sm,
-                    borderRadius: theme.radii.md,
-                    borderWidth: 1,
-                    borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
-                    backgroundColor: selected
-                      ? theme.colors.brandSoft
-                      : pressed
-                        ? theme.colors.surfacePressed
-                        : theme.colors.surface,
-                    opacity: scopeSaving ? theme.motion.disabledOpacity : 1,
-                    transform: [{ scale: pressed && !scopeSaving ? theme.motion.pressedScale : 1 }]
-                  })}
-                >
-                  <Text
-                    style={[
-                      theme.typography.label,
-                      { color: selected ? theme.colors.brand : theme.colors.textPrimary }
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+            value={settings.shareScope}
+            onChange={(scope) => {
+              changeShareScope(scope).catch(() => undefined);
+            }}
+            layout="equal"
+            style={{ marginTop: theme.spacing.lg }}
+          />
 
           <Button
             label="Preview Share Card"
@@ -1360,6 +1313,6 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

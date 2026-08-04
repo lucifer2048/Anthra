@@ -1,0 +1,25 @@
+---
+description: Every screen uses ScreenLayout for edge-to-edge backgrounds + safe content
+globs: App.tsx,src/components/**/*.tsx,src/features/**/*.tsx
+alwaysApply: false
+---
+
+# Screen layout
+
+Follow `doc/screen-layout-system.md`.
+
+## Must
+
+- Wrap every **screen** (module root) in `ScreenLayout` from `src/components/layout`.
+- Spread backgrounds from `useScreenBackgrounds()` (`canvas`, `surface`, `brandWash`).
+- Put backgrounds on `BackgroundLayer` via `ScreenLayout` props — not on `SafeAreaView`.
+
+## Must not
+
+- Invent a new `SafeAreaView` + `StatusBar` + `backgroundColor: canvas` cluster on a screen.
+- Nest a second full-screen `SafeAreaView` with its own canvas fill inside `ScreenLayout` (tab bars may pad bottom only).
+
+## Exceptions
+
+- Modals / dialogs → `FormDialog` / `SheetDialog`
+- Share-card capture views, launch overlay, native alarm challenge UI

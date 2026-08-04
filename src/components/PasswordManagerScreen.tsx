@@ -1,8 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import * as Clipboard from "expo-clipboard";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Copy,
   Eye,
@@ -20,6 +18,7 @@ import {
 
 import { useAnthraTheme } from "../design-system";
 import type { VaultEntry } from "../types";
+import { ScreenLayout, useScreenBackgrounds } from "./layout";
 import { Button, Card, ScreenHeader, StatusBanner, Surface, SwitchRow, TextField } from "./ui";
 
 type PasswordManagerScreenProps = {
@@ -70,6 +69,7 @@ export function PasswordManagerScreen({
   onCopyEntryPassword
 }: PasswordManagerScreenProps) {
   const anthraTheme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { fontScale, width } = useWindowDimensions();
   const shouldStackCardActions = width < 420 || fontScale >= 1.2;
   const [searchText, setSearchText] = useState("");
@@ -95,11 +95,7 @@ export function PasswordManagerScreen({
   };
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      style={{ flex: 1, backgroundColor: anthraTheme.colors.canvas }}
-    >
-      <StatusBar style={anthraTheme.statusBarStyle} backgroundColor={anthraTheme.colors.canvas} translucent={false} />
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
       <View
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         style={{
@@ -542,6 +538,6 @@ export function PasswordManagerScreen({
           />
         </View>
       )}
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

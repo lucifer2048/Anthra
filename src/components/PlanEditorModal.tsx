@@ -24,9 +24,8 @@ import {
   Trash2,
   X
 } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-import { WEEKDAY_OPTIONS, formatDays, normalizeDays } from "../constants/schedule";
+import { formatDays, normalizeDays } from "../constants/schedule";
 import { clearPlanEditorDraft, getPlanEditorDraft, savePlanEditorDraft } from "../db";
 import { useAnthraTheme } from "../design-system";
 import {
@@ -34,7 +33,8 @@ import {
   formatWorkoutDuration
 } from "../features/workout/workoutTimeline";
 import type { Exercise, WorkoutPlan, WorkoutPlanInput, WorkoutSection } from "../types";
-import { Button, IconButton, KeyboardAwareScrollView, Surface, TextField } from "./ui";
+import { ScreenLayout, useScreenBackgrounds } from "./layout";
+import { Button, ChoiceRow, IconButton, KeyboardAwareScrollView, Surface, TextField, WeekdayPicker } from "./ui";
 
 type EditableExercise = {
   id?: number;
@@ -175,50 +175,6 @@ const PLAN_TEMPLATES: PlanTemplate[] = [
   }
 ];
 
-type WorkoutChoiceRowProps = {
-  label: string;
-  choices: Array<{ label: string; value: string }>;
-  selectedValue?: string;
-  onSelect: (value: string) => void;
-};
-
-function WorkoutChoiceRow({ label, choices, selectedValue, onSelect }: WorkoutChoiceRowProps) {
-  const theme = useAnthraTheme();
-
-  return (
-    <View style={{ marginTop: theme.spacing.lg }}>
-      <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>
-        {label}
-      </Text>
-      <View className="flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
-        {choices.map((choice) => {
-          const selected = choice.value === selectedValue;
-          return (
-            <Pressable
-              key={choice.value}
-              onPress={() => onSelect(choice.value)}
-              accessibilityRole="button"
-              accessibilityLabel={choice.label}
-              accessibilityState={{ selected }}
-              className="min-h-[44px] min-w-[58px] items-center justify-center border px-3"
-              style={({ pressed }) => ({
-                borderRadius: theme.radii.md,
-                borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
-                backgroundColor: selected ? theme.colors.brandSoft : theme.colors.surface,
-                opacity: pressed ? 0.78 : 1
-              })}
-            >
-              <Text style={[theme.typography.label, { color: selected ? theme.colors.brand : theme.colors.textPrimary }]}>
-                {choice.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 function coerceDraftExercise(candidate: unknown): EditableExercise {
   const source = candidate as Partial<EditableExercise> | null;
   return {
@@ -283,6 +239,7 @@ export function PlanEditorModal({
   onSave
 }: PlanEditorModalProps) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const { fontScale, width } = useWindowDimensions();
   const shouldStackControls = width < 420 || fontScale >= 1.2;
   const isEditing = useMemo(() => Boolean(initialPlan), [initialPlan]);
@@ -974,7 +931,7 @@ export function PlanEditorModal({
 
   return (
     <Modal animationType="slide" visible={visible} onRequestClose={handleClose}>
-      <SafeAreaView className="flex-1" style={{ backgroundColor: theme.colors.canvas }} edges={["top", "bottom"]}>
+      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="flex-1"
@@ -1131,30 +1088,11 @@ export function PlanEditorModal({
               <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.sm }]}>
                 {formatDays(workoutDays)}. Leave every day off to keep this plan available any day.
               </Text>
-              <View className="mt-3 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
-                {WEEKDAY_OPTIONS.map((day) => {
-                  const active = workoutDays.includes(day.value);
-                  return (
-                    <Pressable
-                      key={day.value}
-                      onPress={() => toggleWorkoutDay(day.value)}
-                      accessibilityRole="checkbox"
-                      accessibilityLabel={day.label}
-                      accessibilityState={{ checked: active }}
-                      className="min-h-[48px] items-center justify-center border px-2"
-                      style={({ pressed }) => ({
-                        width: width < 520 || fontScale >= 1.2 ? "22%" : "12%",
-                        borderRadius: theme.radii.md,
-                        borderColor: active ? theme.colors.brand : theme.colors.borderStrong,
-                        backgroundColor: active ? theme.colors.brandSoft : theme.colors.surface,
-                        opacity: pressed ? 0.78 : 1
-                      })}
-                    >
-                      <Text style={[theme.typography.label, { color: active ? theme.colors.brand : theme.colors.textSecondary }]}>{day.short}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <WeekdayPicker
+                value={workoutDays}
+                onChange={setWorkoutDays}
+                style={{ marginTop: theme.spacing.md }}
+              />
             </Surface>
 
             <View className="mt-6 flex-row items-end" style={{ gap: theme.spacing.md }}>
@@ -1317,16 +1255,17 @@ export function PlanEditorModal({
                 <TextField ref={setRestInputRef} label="Rest (0–600s)" value={newSetRestSecondsText} onChangeText={(value) => setNewSetRestSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="done" onSubmitEditing={saveSetFromModal} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
               </View>
 
-              <WorkoutChoiceRow
+              <ChoiceRow
                 label="Quick set rest"
-                choices={[
+                options={[
                   { label: "None", value: "0" },
                   { label: "15s", value: "15" },
                   { label: "30s", value: "30" },
                   { label: "60s", value: "60" }
                 ]}
-                selectedValue={newSetRestSecondsText}
-                onSelect={setNewSetRestSecondsText}
+                value={newSetRestSecondsText}
+                onChange={setNewSetRestSecondsText}
+                style={{ marginTop: theme.spacing.lg }}
               />
 
                 <View className="mt-5" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
@@ -1390,20 +1329,21 @@ export function PlanEditorModal({
                 <TextField ref={exerciseRestInputRef} label="Rest (0–600s)" value={newExerciseRestSecondsText} onChangeText={(value) => setNewExerciseRestSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="done" onSubmitEditing={saveExerciseFromModal} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
               </View>
 
-              <WorkoutChoiceRow
+              <ChoiceRow
                 label="Quick work / rest"
-                choices={[
+                options={[
                   { label: "30 / 15", value: "30:15" },
                   { label: "40 / 20", value: "40:20" },
                   { label: "45 / 15", value: "45:15" },
                   { label: "60 / 30", value: "60:30" }
                 ]}
-                selectedValue={`${newExerciseWorkSecondsText}:${newExerciseRestSecondsText}`}
-                onSelect={(value) => {
+                value={`${newExerciseWorkSecondsText}:${newExerciseRestSecondsText}`}
+                onChange={(value) => {
                   const [work, rest] = value.split(":");
                   setNewExerciseWorkSecondsText(work);
                   setNewExerciseRestSecondsText(rest);
                 }}
+                style={{ marginTop: theme.spacing.lg }}
               />
 
                 <View className="mt-5" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
@@ -1414,7 +1354,7 @@ export function PlanEditorModal({
             </KeyboardAwareScrollView>
           </KeyboardAvoidingView>
         </Modal>
-      </SafeAreaView>
+      </ScreenLayout>
     </Modal>
   );
 }

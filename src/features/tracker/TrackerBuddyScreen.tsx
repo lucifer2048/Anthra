@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AppState,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,8 +10,7 @@ import {
   View
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 import Animated, {
   FadeInDown,
@@ -43,7 +41,8 @@ import {
 } from "lucide-react-native";
 
 import { formatDays } from "../../constants/schedule";
-import { Button, Card, IconButton, ScreenHeader, StatusBanner, TextField } from "../../components/ui";
+import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
+import { Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, StatusBanner, TextField } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { getDeviceTimeZone } from "../../utils/timezone";
 import {
@@ -415,6 +414,7 @@ function TaskActivityCard({
 
 export function TrackerBuddyScreen({ onBack }: Props) {
   const theme = useAnthraTheme();
+  const backgrounds = useScreenBackgrounds();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const timezone = useMemo(() => getDeviceTimeZone(), []);
@@ -709,8 +709,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: theme.colors.canvas }}>
-      <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
+    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "left", "right"]}>
       <View
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingHorizontal: theme.layout.screenPadding }}
@@ -741,14 +740,14 @@ export function TrackerBuddyScreen({ onBack }: Props) {
         {!ready ? (
           <Card variant="subtle" padding="large"><Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>Preparing your trackers…</Text></Card>
         ) : trackers.length === 0 ? (
-          <Card variant="brand" padding="large" style={{ alignItems: "center", marginTop: theme.spacing.xl }}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}>
-              <Gamepad2 color={theme.colors.brand} size={30} />
-            </View>
-            <Text style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, textAlign: "center", marginTop: theme.spacing.lg }]}>Build your first tracker</Text>
-            <Text style={[theme.typography.body, { color: theme.colors.textSecondary, textAlign: "center", marginTop: theme.spacing.sm }]}>Morning routine, hydration, study goals, or anything else—each tracker can follow its own rhythm.</Text>
-            <Button label="Create tracker" icon={Plus} onPress={openNewTracker} size="large" style={{ marginTop: theme.spacing.xl }} />
-          </Card>
+          <EmptyState
+            icon={Gamepad2}
+            title="Build your first tracker"
+            description="Morning routine, hydration, study goals, or anything else—each tracker can follow its own rhythm."
+            action={{ label: "Create tracker", icon: Plus, onPress: openNewTracker }}
+            variant="brand"
+            style={{ marginTop: theme.spacing.xl }}
+          />
         ) : (
           <>
             <View>
@@ -1165,19 +1164,32 @@ export function TrackerBuddyScreen({ onBack }: Props) {
         </View>
       )}
 
-      <Modal visible={trackerModalOpen} transparent animationType="fade" onRequestClose={() => setTrackerModalOpen(false)}>
-        <View style={{ flex: 1, justifyContent: "center", padding: theme.layout.screenPadding, backgroundColor: theme.colors.scrim }}>
-          <Card variant="elevated" padding="large" style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}>
-            <Text style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>{editingTracker ? "Rename tracker" : "New tracker"}</Text>
-            <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs, marginBottom: theme.spacing.lg }]}>Keep it short and easy to recognize.</Text>
-            <TextField label="Tracker name" required value={trackerName} onChangeText={setTrackerName} maxLength={60} error={trackerError || undefined} placeholder="Morning routine" autoFocus />
-            <View style={{ flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.xl }}>
-              <Button label="Cancel" variant="outline" onPress={() => setTrackerModalOpen(false)} fullWidth style={{ flex: 1 }} />
-              <Button label={editingTracker ? "Save" : "Create"} onPress={submitTracker} loading={saving} fullWidth style={{ flex: 1 }} />
-            </View>
-          </Card>
-        </View>
-      </Modal>
+      <FormDialog
+        visible={trackerModalOpen}
+        title={editingTracker ? "Rename tracker" : "New tracker"}
+        subtitle="Keep it short and easy to recognize."
+        onClose={() => setTrackerModalOpen(false)}
+        primaryAction={{
+          label: editingTracker ? "Save" : "Create",
+          onPress: submitTracker,
+          loading: saving
+        }}
+        secondaryAction={{
+          label: "Cancel",
+          onPress: () => setTrackerModalOpen(false)
+        }}
+      >
+        <TextField
+          label="Tracker name"
+          required
+          value={trackerName}
+          onChangeText={setTrackerName}
+          maxLength={60}
+          error={trackerError || undefined}
+          placeholder="Morning routine"
+          autoFocus
+        />
+      </FormDialog>
 
       {selectedId != null && (
         <TrackerTaskEditorModal
@@ -1193,6 +1205,6 @@ export function TrackerBuddyScreen({ onBack }: Props) {
           onSave={submitTask}
         />
       )}
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

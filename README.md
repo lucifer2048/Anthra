@@ -29,6 +29,10 @@ Offline personal-planning app with:
 - expo-local-authentication + expo-secure-store
 - react-native-view-shot + expo-sharing
 
+## Project docs & Cursor rules
+
+Engineering standards live under [`doc/`](./doc/README.md) (source of truth). Short binding Cursor rules in [`.cursor/rules/`](./.cursor/rules/) point at those docs — especially reusable UI in [`doc/reusable-ui.md`](./doc/reusable-ui.md) and the kit in `src/components/ui/`.
+
 ## Run
 
 Use Node 20 LTS or Node 22. The project intentionally rejects Node 23+.

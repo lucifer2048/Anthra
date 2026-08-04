@@ -3,9 +3,8 @@ import { Modal, Platform, Pressable, ScrollView, Text, View } from "react-native
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Calendar1, CalendarDays, CalendarRange, Check, Repeat2, type LucideIcon } from "lucide-react-native";
 
-import { WEEKDAY_OPTIONS, normalizeDays } from "../../constants/schedule";
-import { Button, ScreenHeader, StatusBanner, SwitchRow, TextField } from "../../components/ui";
-import { TimePickerField } from "../../components/TimePickerField";
+import { normalizeDays } from "../../constants/schedule";
+import { Button, ScreenHeader, StatusBanner, SwitchRow, TextField, TimePickerField, WeekdayPicker } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { dateKeyInTimeZone } from "../activity/activityStats";
 import { shiftTrackerDate } from "./trackerStats";
@@ -189,36 +188,12 @@ export function TrackerTaskEditorModal({
           </View>
 
           {recurrence === "weekdays" && (
-            <View style={{ marginTop: theme.spacing.lg }}>
-              <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>CHOOSE DAYS</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm }}>
-                {WEEKDAY_OPTIONS.map((day) => {
-                  const selected = days.includes(day.value);
-                  return (
-                    <Pressable
-                      key={day.value}
-                      onPress={() => setDays((current) => selected ? current.filter((value) => value !== day.value) : [...current, day.value])}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: selected }}
-                      style={({ pressed }) => ({
-                        width: "22%",
-                        flexGrow: 1,
-                        minHeight: 58,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: theme.radii.md,
-                        borderWidth: 2,
-                        borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
-                        backgroundColor: selected ? theme.colors.brandSoft : pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated
-                      })}
-                    >
-                      {selected && <Check accessible={false} color={theme.colors.brand} size={15} style={{ marginBottom: 2 }} />}
-                      <Text style={[theme.typography.label, { color: selected ? theme.colors.brand : theme.colors.textPrimary }]}>{day.short}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            <WeekdayPicker
+              label="CHOOSE DAYS"
+              value={days}
+              onChange={setDays}
+              style={{ marginTop: theme.spacing.lg }}
+            />
           )}
 
           {recurrence === "once" && (

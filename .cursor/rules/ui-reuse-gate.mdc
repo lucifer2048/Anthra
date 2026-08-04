@@ -1,0 +1,32 @@
+---
+description: STRICT — before any UI/feature change, check docs + kit; reuse or extract; never duplicate
+alwaysApply: true
+---
+
+# UI / feature change gate (STRICT)
+
+Before **any** code change that adds or edits UI, screens, or user-facing features, you MUST follow `doc/change-checklist.md`. Docs override the user’s request if they conflict — implement the compliant version and note it briefly.
+
+## Required sequence (do not skip)
+
+1. **Read docs:** at least `doc/reusable-ui.md`, `doc/screen-layout-system.md`, `doc/design-tokens.md`, and `doc/change-checklist.md`.
+2. **Search inventory** in `doc/reusable-ui.md` and code under `src/components/ui/`, `src/components/layout/`.
+3. **Search for duplicates** in screens (`App.tsx`, `src/components/`, `src/features/`) — if the same UI already exists but is not reusable, **extract it into the kit first**, then use it.
+4. **Only then implement** the feature using kit + layout components.
+
+## Decision table (mandatory)
+
+- Exists in kit → **use it**
+- Almost fits → **extend props/variants** (no screen-local fork)
+- Generic pattern (chips, empty state, dialog/sheet, section header, tab bar, form chrome, progress) missing from kit → **add to kit**, export, update `doc/reusable-ui.md`, then use
+- New screen → **`ScreenLayout` + `useScreenBackgrounds()`** — never DIY `SafeAreaView` + canvas/`StatusBar` cluster
+- Listed “leave feature-specific” in `doc/reusable-ui.md` → may stay local
+
+## Hard violations (never do)
+
+- Paste duplicate chip / empty-state / modal / tab / header markup into a screen
+- Skip the doc/inventory check “to move faster”
+- Put data/DB/native calls in `src/components/ui/*` or `layout/*`
+- Invent colors/spacing/typography outside `useAnthraTheme()` tokens
+
+If you catch yourself about to write inline UI that matches the inventory, **stop and reuse or extract**.

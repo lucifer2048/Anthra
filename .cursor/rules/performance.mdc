@@ -1,0 +1,13 @@
+---
+description: Virtualize long lists; keep JS thread responsive
+globs: App.tsx,src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Performance
+
+Follow `doc/performance.md`.
+
+- Prefer virtualized lists for long histories.
+- Defer non-critical work after interactions; respect reduced motion for decorative animation.
+- Keep heavy pose / camera work in native modules.

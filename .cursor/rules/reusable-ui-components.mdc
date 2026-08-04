@@ -1,0 +1,24 @@
+---
+description: Prefer src/components/ui kit; extend kit instead of duplicating markup
+globs: App.tsx,src/components/**/*.tsx,src/features/**/*.tsx
+alwaysApply: false
+---
+
+# Reusable UI components
+
+Follow `doc/reusable-ui.md`.
+
+## Must
+
+- Import shared UI from `src/components/ui` (Button, ChoiceRow, WeekdayPicker, EmptyState, FormDialog, SheetDialog, ScreenShell, BottomTabBar, …).
+- If a pattern repeats or matches the inventory, **reuse or extend the kit** — do not paste a new chip row, empty state, modal shell, or tab bar.
+- After adding a shared component, export it from `src/components/ui/index.ts` and update `doc/reusable-ui.md`.
+
+## Must not
+
+- Reimplement choice chips, weekday toggles, empty states, bottom tab bars, or centered/sheet dialog chrome inline.
+- Put DB / repository / native-bridge calls inside `src/components/ui/*`.
+
+## Exceptions
+
+Feature-specific layouts listed under “Leave feature-specific” in `doc/reusable-ui.md` (streak share cards, timer hero, charts, vault PIN copy, etc.).

@@ -1,0 +1,16 @@
+---
+description: Master rule — read doc/ first; principles override conflicting requests
+alwaysApply: true
+---
+
+# Project docs and principles
+
+Before coding, read the relevant files under `doc/`. Start with `doc/README.md`.
+
+- **Docs are source of truth.** Rules here point at docs; follow the doc.
+- If a user request conflicts with `doc/` (especially reusable UI, tokens, offline-first), implement the **compliant** version and briefly explain.
+- Core principles: `doc/principles.md`
+- Architecture: `doc/architecture.md`
+- UI kit: `doc/reusable-ui.md`
+- Tokens: `doc/design-tokens.md`
+- UI vs data: `doc/ui-data-separation.md`

@@ -1,0 +1,13 @@
+---
+description: Rules of Hooks; shared hooks live under src/hooks/
+globs: App.tsx,src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# React hooks
+
+Follow `doc/hooks.md`.
+
+- Obey Rules of Hooks.
+- Shared hooks → `src/hooks/`; feature-only hooks → `src/features/<domain>/hooks/` when reused.
+- Do not scatter new `AppState` listeners; share one lifecycle hook if needed.

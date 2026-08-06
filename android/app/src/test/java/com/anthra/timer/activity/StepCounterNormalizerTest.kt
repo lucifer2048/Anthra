@@ -162,7 +162,7 @@ class StepCounterNormalizerTest {
   }
 
   @Test
-  fun midnightAfterRebootUsesSafeNewBaseline() {
+  fun midnightAfterRebootRetainsPostBootSteps() {
     val previous = state(dayKey = "2026-07-25", lastRaw = 7_000, steps = 4_000, bootCount = 10)
     val update = StepCounterNormalizer.update(
       previous,
@@ -174,12 +174,12 @@ class StepCounterNormalizerTest {
     )!!
 
     assertTrue(update.rebootDetected)
-    assertEquals(0, update.state.steps)
-    assertEquals(85, update.state.baselineRaw)
+    assertEquals(85, update.state.steps)
+    assertEquals(0, update.state.baselineRaw)
   }
 
   @Test
-  fun timezoneChangeCreatesAnUnambiguousNewCheckpoint() {
+  fun timezoneChangeDoesNotDropTheLatestDelta() {
     val previous = state(timezone = "Asia/Kolkata", lastRaw = 7_000, steps = 4_000)
     val update = StepCounterNormalizer.update(
       previous,
@@ -191,8 +191,43 @@ class StepCounterNormalizerTest {
     )!!
 
     assertTrue(update.timezoneChanged)
-    assertEquals(4_000, update.state.steps)
+    assertEquals(4_010, update.state.steps)
     assertNull(update.rolledOverSteps)
+  }
+
+  @Test
+  fun stalePriorDayCallbackCannotRollTheCurrentDayBackwards() {
+    val previous = state(dayKey = "2026-07-26", lastRaw = 7_020, steps = 20)
+    val update = StepCounterNormalizer.update(
+      previous,
+      7_000,
+      "2026-07-25",
+      previous.timezone,
+      previous.bootCount,
+      true
+    )!!
+
+    assertTrue(update.counterReset)
+    assertEquals("2026-07-26", update.state.dayKey)
+    assertEquals(20, update.state.steps)
+    assertNull(update.rolledOverSteps)
+  }
+
+  @Test
+  fun duplicatePriorDayCallbackCannotRollTheCurrentDayBackwards() {
+    val previous = state(dayKey = "2026-07-26", lastRaw = 7_020, steps = 20)
+    val update = StepCounterNormalizer.update(
+      previous,
+      7_020,
+      "2026-07-25",
+      previous.timezone,
+      previous.bootCount,
+      true
+    )!!
+
+    assertTrue(update.counterReset)
+    assertEquals("2026-07-26", update.state.dayKey)
+    assertEquals(20, update.state.steps)
   }
 
   @Test

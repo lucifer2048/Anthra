@@ -155,7 +155,7 @@ export async function savePhoneStepReading(reading: PhoneStepReading): Promise<v
     await writeDailyRow(
       reading.dateKey,
       reading.timezone,
-      Math.max(0, Math.floor(reading.steps)),
+      Math.max(current?.phoneSteps ?? 0, Math.max(0, Math.floor(reading.steps))),
       current?.healthConnectSteps ?? null,
       current?.sourcePackages ?? [PHONE_SOURCE_PACKAGE],
       now
@@ -218,7 +218,7 @@ export async function savePhoneStepDaySnapshots(
       await writeDailyRow(
         snapshot.dateKey,
         snapshot.timezone,
-        Math.max(0, Math.floor(snapshot.steps)),
+        Math.max(current?.phoneSteps ?? 0, Math.max(0, Math.floor(snapshot.steps))),
         current?.healthConnectSteps ?? null,
         current?.sourcePackages ?? [PHONE_SOURCE_PACKAGE],
         now
@@ -236,8 +236,10 @@ export async function saveHealthDailyTotals(totals: HealthDailyTotal[]): Promise
         total.dateKey,
         total.timezone,
         current?.phoneSteps ?? null,
-        Math.max(0, Math.floor(total.steps)),
-        total.originPackages,
+        total.steps == null ? null : Math.max(0, Math.floor(total.steps)),
+        total.steps == null && current?.phoneSteps != null
+          ? [PHONE_SOURCE_PACKAGE]
+          : total.originPackages,
         now
       );
       for (const packageName of total.originPackages) {
@@ -245,6 +247,34 @@ export async function saveHealthDailyTotals(totals: HealthDailyTotal[]): Promise
       }
     }
   });
+}
+
+export async function clearHealthConnectDailyTotals(dateKey?: string): Promise<void> {
+  const whereClause = dateKey ? "WHERE dateKey = ?" : "WHERE healthConnectSteps IS NOT NULL";
+  await run(
+    `UPDATE activity_daily_summary
+     SET healthConnectSteps = NULL,
+         authoritativeSteps = COALESCE(phoneSteps, 0),
+         authoritativeSource = CASE
+           WHEN phoneSteps IS NOT NULL THEN 'phone_sensor'
+           ELSE 'none'
+         END,
+         sourcePackagesCsv = CASE
+           WHEN phoneSteps IS NOT NULL THEN ?
+           ELSE ''
+         END,
+         updatedAt = ?
+     ${whereClause};`,
+    dateKey
+      ? [PHONE_SOURCE_PACKAGE, Date.now(), dateKey]
+      : [PHONE_SOURCE_PACKAGE, Date.now()]
+  );
+}
+
+export async function getActivityDailySummary(
+  dateKey: string
+): Promise<ActivityDailySummary | null> {
+  return readDailyRow(dateKey);
 }
 
 async function upsertHealthSource(packageName: string, lastSeenAt: number): Promise<void> {

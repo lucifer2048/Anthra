@@ -58,11 +58,13 @@ type AnthraHomeScreenProps = {
   onEndWorkout: () => void;
 };
 
-function ActionCard({ action, width, index }: { action: HomeAction; width: number | "100%"; index: number }) {
+function ActionCard({ action, index }: { action: HomeAction; index: number }) {
   const theme = useAnthraTheme();
   const reduceMotion = useReducedMotion();
+  const { width: screenWidth } = useWindowDimensions();
   const scale = useSharedValue(1);
   const Icon = action.icon;
+  const compact = screenWidth < 360;
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const setPressed = (pressed: boolean) => {
@@ -73,9 +75,9 @@ function ActionCard({ action, width, index }: { action: HomeAction; width: numbe
   return (
     <Animated.View
       entering={reduceMotion ? undefined : FadeInDown.delay(90 + index * 55).springify().damping(18).stiffness(210)}
-      style={{ width }}
+      style={{ flex: 1, minWidth: 0 }}
     >
-      <Animated.View style={[{ width: "100%" }, animatedStyle]}>
+      <Animated.View style={[{ flex: 1, width: "100%" }, animatedStyle]}>
         <Pressable
           onPress={() => {
             Haptics.selectionAsync().catch(() => undefined);
@@ -87,8 +89,9 @@ function ActionCard({ action, width, index }: { action: HomeAction; width: numbe
           accessibilityLabel={action.label}
           accessibilityHint={action.accessibilityHint ?? action.description}
           style={{
+            flex: 1,
             minHeight: 132,
-            padding: theme.spacing.lg,
+            padding: compact ? theme.spacing.md : theme.spacing.lg,
             borderRadius: theme.radii.xl,
             borderWidth: 1,
             borderColor: theme.colors.borderStrong,
@@ -116,8 +119,23 @@ function ActionCard({ action, width, index }: { action: HomeAction; width: numbe
             </View>
             <ArrowUpRight accessible={false} color={theme.colors.textTertiary} size={18} />
           </View>
-          <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}>{action.label}</Text>
-          <Text numberOfLines={2} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 3 }]}>{action.description}</Text>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            maxFontSizeMultiplier={1.15}
+            style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}
+          >
+            {action.label}
+          </Text>
+          <Text
+            numberOfLines={3}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={1.15}
+            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 3 }]}
+          >
+            {action.description}
+          </Text>
         </Pressable>
       </Animated.View>
     </Animated.View>
@@ -126,19 +144,29 @@ function ActionCard({ action, width, index }: { action: HomeAction; width: numbe
 
 function Section({ title, actions, startIndex }: { title: string; actions: HomeAction[]; startIndex: number }) {
   const theme = useAnthraTheme();
-  const { fontScale, width } = useWindowDimensions();
-  const availableWidth = Math.max(0, Math.min(width, theme.layout.contentMaxWidth) - theme.layout.screenPadding * 2);
   const gap = theme.spacing.md;
-  const stackCards = availableWidth < 320 || fontScale >= 1.35;
-  const cardWidth: number | "100%" = stackCards ? "100%" : (availableWidth - gap) / 2;
+  const rowCount = Math.ceil(actions.length / 2);
 
   return (
     <View style={{ marginTop: theme.spacing["2xl"] }}>
       <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>{title.toUpperCase()}</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap }}>
-        {actions.map((action, index) => (
-          <ActionCard key={action.label} action={action} width={cardWidth} index={startIndex + index} />
-        ))}
+      <View style={{ gap }}>
+        {Array.from({ length: rowCount }, (_, rowIndex) => {
+          const rowActions = actions.slice(rowIndex * 2, rowIndex * 2 + 2);
+
+          return (
+            <View key={rowActions[0].label} style={{ flexDirection: "row", alignItems: "stretch", gap }}>
+              {rowActions.map((action, columnIndex) => (
+                <ActionCard
+                  key={action.label}
+                  action={action}
+                  index={startIndex + rowIndex * 2 + columnIndex}
+                />
+              ))}
+              {rowActions.length === 1 && <View style={{ flex: 1 }} />}
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -300,20 +328,33 @@ export function AnthraHomeScreen({
                 flex: shouldStackCompactRows ? undefined : 1,
                 minHeight: 86,
                 padding: theme.spacing.md,
+                overflow: "hidden",
                 borderRadius: theme.radii.lg,
                 borderWidth: 1,
                 borderColor: theme.colors.brandBorder,
                 backgroundColor: theme.colors.surface
               }}
             >
-              <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
-                <Flame accessible={false} color={theme.colors.brand} size={17} />
-                <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>CURRENT STREAK</Text>
+              <View style={{ minWidth: 0, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs }}>
+                <Flame accessible={false} color={theme.colors.brand} size={16} />
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={1}
+                  style={[
+                    theme.typography.caption,
+                    { minWidth: 0, flexShrink: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15 }
+                  ]}
+                >
+                  CURRENT STREAK
+                </Text>
               </View>
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.78}
+                maxFontSizeMultiplier={1.15}
                 style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}
               >
                 {stats.currentStreak} {stats.currentStreak === 1 ? "day" : "days"}
@@ -325,17 +366,37 @@ export function AnthraHomeScreen({
                 flex: shouldStackCompactRows ? undefined : 1,
                 minHeight: 86,
                 padding: theme.spacing.md,
+                overflow: "hidden",
                 borderRadius: theme.radii.lg,
                 borderWidth: 1,
                 borderColor: theme.colors.brandBorder,
                 backgroundColor: theme.colors.surface
               }}
             >
-              <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
-                <CalendarCheck2 accessible={false} color={theme.colors.brand} size={17} />
-                <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>THIS WEEK</Text>
+              <View style={{ minWidth: 0, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs }}>
+                <CalendarCheck2 accessible={false} color={theme.colors.brand} size={16} />
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={1}
+                  style={[
+                    theme.typography.caption,
+                    { minWidth: 0, flexShrink: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15 }
+                  ]}
+                >
+                  THIS WEEK
+                </Text>
               </View>
-              <Text style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}>{stats.weekCompleted}/{stats.weekGoal}</Text>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.78}
+                maxFontSizeMultiplier={1.15}
+                style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}
+              >
+                {stats.weekCompleted}/{stats.weekGoal}
+              </Text>
             </View>
           </View>
           <ProgressBar
@@ -409,7 +470,7 @@ export function AnthraHomeScreen({
               }
             ]}
           >
-            Make tomorrow’s you proud of what you do today.
+            Let every action today honor the person you're becoming.
           </Text>
         </View>
 

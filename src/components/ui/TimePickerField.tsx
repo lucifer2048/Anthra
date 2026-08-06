@@ -85,10 +85,16 @@ export function TimePickerField({
         >
           <Clock3 accessible={false} color={theme.colors.brand} size={19} />
         </View>
-        <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, flex: 1 }]}>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          maxFontSizeMultiplier={1.3}
+          style={[theme.typography.titleMedium, { minWidth: 0, color: theme.colors.textPrimary, flex: 1 }]}
+        >
           {formatTime(hour, minute)}
         </Text>
-        <Text style={[theme.typography.label, { color: theme.colors.brand }]}>Change</Text>
+        <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[theme.typography.label, { color: theme.colors.brand }]}>Change</Text>
       </Pressable>
 
       {presets.length > 0 && (

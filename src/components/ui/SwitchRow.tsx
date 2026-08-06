@@ -37,6 +37,7 @@ export function SwitchRow({
           minHeight: 72,
           flexDirection: "row",
           alignItems: "center",
+          gap: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
           paddingVertical: theme.spacing.md,
           borderRadius: theme.radii.lg,
@@ -54,11 +55,8 @@ export function SwitchRow({
     >
       <View
         style={{
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: 0,
-          minWidth: 0,
-          paddingRight: theme.spacing.lg
+          flex: 1,
+          minWidth: 0
         }}
       >
         <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>{label}</Text>

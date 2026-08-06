@@ -133,6 +133,10 @@ export function Button({
         Icon && iconPosition === "start" && <Icon accessible={false} color={contentColor} size={metrics.iconSize} />
       )}
       <Text
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.4}
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
         style={[
           theme.typography.labelLarge,
           {

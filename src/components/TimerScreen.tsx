@@ -100,6 +100,19 @@ export function TimerScreen({
   }, [height, isCompactHeight, timerValue.length, width]);
   const isRestPhase = phase === "rest";
   const isActiveInterval = phase === "work" || phase === "rest";
+  const phaseAccent = isRestPhase ? theme.colors.info : activeAccent;
+  const phaseAccentSurface = isRestPhase ? theme.colors.infoSoft : activeAccentSurface;
+  const phaseBackground = isActiveInterval
+    ? {
+        color: theme.colors.canvas,
+        gradient: {
+          colors: [phaseAccentSurface, theme.colors.canvas, theme.colors.canvas],
+          start: { x: 0.5, y: 0 },
+          end: { x: 0.5, y: 0.72 },
+          locations: [0, 0.5, 1]
+        }
+      }
+    : backgrounds.canvas;
 
   const triggerCountdownCue = useCallback(() => {
     if (soundEnabled) playShort();
@@ -339,7 +352,7 @@ export function TimerScreen({
   }, [requestExit]);
 
   return (
-    <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
+    <ScreenLayout {...phaseBackground} safeAreaEdges={["top", "bottom"]}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -356,7 +369,7 @@ export function TimerScreen({
       >
         <View className="flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
           <View className="min-w-0 flex-1">
-            <Text style={[theme.typography.label, { color: activeAccent }]}>WORKOUT</Text>
+            <Text style={[theme.typography.label, { color: phaseAccent }]}>WORKOUT</Text>
             <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: textPrimaryColor, marginTop: 2 }]}>
               {plan.name}
             </Text>
@@ -391,7 +404,7 @@ export function TimerScreen({
             >
               <View
                 className="rounded-full"
-                style={{ width: `${progressPercent}%`, height: 4, backgroundColor: activeAccent }}
+                style={{ width: `${progressPercent}%`, height: 4, backgroundColor: phaseAccent }}
               />
             </View>
             <Text style={[theme.typography.caption, { color: textMutedColor }]}>{Math.round(progressPercent)}%</Text>
@@ -409,22 +422,25 @@ export function TimerScreen({
         >
           <View
             style={{
-              minWidth: isActiveInterval ? Math.min(124, width - 64) : undefined,
-              paddingHorizontal: theme.spacing.lg,
-              paddingVertical: 6,
+              minWidth: isActiveInterval ? Math.min(184, width - 64) : undefined,
+              paddingHorizontal: isActiveInterval ? theme.spacing["2xl"] : theme.spacing.lg,
+              paddingVertical: isActiveInterval ? theme.spacing.sm : 6,
               borderRadius: theme.radii.full,
-              backgroundColor: activeAccentSurface
+              borderWidth: isActiveInterval ? 2 : 0,
+              borderColor: phaseAccent,
+              backgroundColor: phaseAccentSurface
             }}
           >
             <Text
               style={[
                 theme.typography.labelLarge,
                 {
-                  color: activeAccent,
+                  color: phaseAccent,
                   textAlign: "center",
-                  fontSize: 13,
-                  lineHeight: 18,
-                  letterSpacing: 0.9
+                  fontSize: isActiveInterval ? (isCompactHeight ? 25 : 30) : 13,
+                  lineHeight: isActiveInterval ? (isCompactHeight ? 31 : 36) : 18,
+                  fontWeight: isActiveInterval ? "800" : "600",
+                  letterSpacing: isActiveInterval ? 2.2 : 0.9
                 }
               ]}
             >
@@ -448,7 +464,7 @@ export function TimerScreen({
               minimumFontScale={0.62}
               numberOfLines={1}
               style={{
-                color: activeAccent,
+                color: phaseAccent,
                 fontSize: timerFontSize,
                 lineHeight: timerFontSize * 1.02,
                 fontFamily: theme.typography.display.fontFamily,
@@ -471,7 +487,7 @@ export function TimerScreen({
             <Text
               style={[
                 theme.typography.caption,
-                { color: phase === "complete" ? textMutedColor : activeAccent, letterSpacing: 1 }
+                { color: phase === "complete" ? textMutedColor : phaseAccent, letterSpacing: 1 }
               ]}
             >
               {featuredExerciseLabel}
@@ -558,11 +574,11 @@ export function TimerScreen({
                     width: 28,
                     height: 28,
                     borderRadius: theme.radii.full,
-                    backgroundColor: soundEnabled ? activeAccentSurface : theme.colors.surfaceSubtle
+                    backgroundColor: soundEnabled ? phaseAccentSurface : theme.colors.surfaceSubtle
                   }}
                 >
                   {soundEnabled
-                    ? <Volume2 accessible={false} color={activeAccent} size={17} />
+                    ? <Volume2 accessible={false} color={phaseAccent} size={17} />
                     : <VolumeX accessible={false} color={textMutedColor} size={17} />}
                 </View>
                 <View className="min-w-0 flex-1">
@@ -605,11 +621,11 @@ export function TimerScreen({
                     width: 28,
                     height: 28,
                     borderRadius: theme.radii.full,
-                    backgroundColor: hapticsEnabled ? activeAccentSurface : theme.colors.surfaceSubtle
+                    backgroundColor: hapticsEnabled ? phaseAccentSurface : theme.colors.surfaceSubtle
                   }}
                 >
                   {hapticsEnabled
-                    ? <Vibrate accessible={false} color={activeAccent} size={17} />
+                    ? <Vibrate accessible={false} color={phaseAccent} size={17} />
                     : <VibrateOff accessible={false} color={textMutedColor} size={17} />}
                 </View>
                 <View className="min-w-0 flex-1">
@@ -632,11 +648,11 @@ export function TimerScreen({
             <View className="items-center" style={{ marginBottom: theme.spacing.md }}>
               <View
                 className="items-center justify-center rounded-full"
-                style={{ width: 48, height: 48, backgroundColor: activeAccentSurface }}
+                style={{ width: 48, height: 48, backgroundColor: phaseAccentSurface }}
               >
-                <Check accessible={false} color={activeAccent} size={26} strokeWidth={2.5} />
+                <Check accessible={false} color={phaseAccent} size={26} strokeWidth={2.5} />
               </View>
-              <Text style={[theme.typography.bodyStrong, { color: activeAccent, marginTop: theme.spacing.sm }]}>
+              <Text style={[theme.typography.bodyStrong, { color: phaseAccent, marginTop: theme.spacing.sm }]}>
                 You showed up. That counts.
               </Text>
             </View>
@@ -678,8 +694,8 @@ export function TimerScreen({
             paddingTop: theme.spacing.md,
             paddingBottom: isCompactHeight ? theme.spacing.md : theme.spacing.lg,
             borderTopWidth: 1,
-            borderTopColor: theme.colors.divider,
-            backgroundColor: theme.colors.canvas,
+            borderTopColor: isActiveInterval ? phaseAccent : theme.colors.divider,
+            backgroundColor: isActiveInterval ? phaseAccentSurface : theme.colors.canvas,
             shadowColor: "#000000",
             shadowOffset: { width: 0, height: -4 },
             shadowOpacity: theme.isDark ? 0.22 : 0.05,

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { KeyRound, RotateCcwKey, ShieldCheck } from "lucide-react-native";
 
 import { useAnthraTheme } from "../design-system";
@@ -33,6 +33,8 @@ export function VaultResetPinModal({
   onSubmit
 }: VaultResetPinModalProps) {
   const anthraTheme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const stackActions = width < 420 || fontScale >= 1.2;
   const newPinInputRef = useRef<TextInput>(null);
   const confirmPinInputRef = useRef<TextInput>(null);
   const securePinFieldProps = {
@@ -158,8 +160,8 @@ export function VaultResetPinModal({
             />
 
             <View
-              className="flex-row"
               style={{
+                flexDirection: stackActions ? "column" : "row",
                 gap: anthraTheme.spacing.md,
                 paddingTop: anthraTheme.spacing.xl,
                 marginTop: anthraTheme.spacing.xl,
@@ -173,7 +175,7 @@ export function VaultResetPinModal({
                 onPress={onClose}
                 disabled={saving}
                 accessibilityLabel="Cancel vault PIN reset"
-                style={{ flex: 1 }}
+                style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
               />
               <Button
                 label="Reset PIN"
@@ -182,7 +184,7 @@ export function VaultResetPinModal({
                 loading={saving}
                 disabled={saving}
                 accessibilityLabel="Reset vault PIN"
-                style={{ flex: 1 }}
+                style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
               />
             </View>
           </Card>

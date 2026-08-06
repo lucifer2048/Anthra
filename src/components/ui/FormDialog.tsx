@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   Text,
+  useWindowDimensions,
   View,
   type StyleProp,
   type ViewStyle
@@ -105,7 +106,8 @@ export function FormDialog({
   contentStyle
 }: FormDialogProps) {
   const theme = useAnthraTheme();
-  const stack = false;
+  const { fontScale, width } = useWindowDimensions();
+  const stack = width < 420 || fontScale >= 1.2;
 
   const body = (
     <Card

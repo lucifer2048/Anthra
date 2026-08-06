@@ -667,7 +667,7 @@ export function WorkoutBuddyScreen({
                 {history.map((entry) => (
                   <View key={entry.id} className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
                     <View className="flex-row items-start justify-between">
-                      <View className="flex-1 pr-4">
+                      <View className="min-w-0 flex-1 pr-4">
                         <Text className="text-base font-bold" style={{ color: textPrimary }}>{entry.planName}</Text>
                         <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
                           {formatHistoryDate(entry.startedAt)}
@@ -688,6 +688,8 @@ export function WorkoutBuddyScreen({
                           style={{ backgroundColor: entry.completed ? theme.colors.successSoft : theme.colors.warningSoft }}
                         >
                           <Text
+                            numberOfLines={1}
+                            maxFontSizeMultiplier={1.2}
                             className="text-xs font-black uppercase"
                             style={{ color: entry.completed ? theme.colors.success : theme.colors.warning }}
                           >
@@ -968,7 +970,14 @@ export function WorkoutBuddyScreen({
                               opacity: platformUnsupported ? 0.35 : settings.notificationsEnabled ? 1 : 0.55
                             }}
                           >
-                            <Text className="text-center text-xs font-black" style={{ color: active ? workoutTheme.accent : textMuted }}>
+                            <Text
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.68}
+                              maxFontSizeMultiplier={1.2}
+                              className="text-center text-xs font-black"
+                              style={{ minWidth: 0, color: active ? workoutTheme.accent : textMuted }}
+                            >
                               {option.label}
                             </Text>
                           </Pressable>

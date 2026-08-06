@@ -604,7 +604,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
               {reminderItems.map((item) => (
                 <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
                   <View className="flex-row items-start justify-between">
-                    <View className="flex-1 pr-3">
+                    <View className="min-w-0 flex-1 pr-3">
                       <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{item.title}</Text>
                       <Text className="mt-1 text-xs font-black uppercase tracking-[1.2px]" style={{ color: colors.brand }}>
                         {formatReminderModeLabel(item.mode)}
@@ -927,9 +927,16 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
                             style={{ borderColor: colors.brandBorder, backgroundColor: colors.surface }}
                           >
-                            <Text className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>Prev</Text>
+                            <Text numberOfLines={1} maxFontSizeMultiplier={1.2} className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>Prev</Text>
                           </Pressable>
-                          <Text className="text-base font-black" style={{ color: colors.textPrimary }}>
+                          <Text
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.72}
+                            maxFontSizeMultiplier={1.2}
+                            className="text-base font-black"
+                            style={{ minWidth: 0, flex: 1, color: colors.textPrimary, textAlign: "center" }}
+                          >
                             {formatReminderCalendarMonth(reminderCalendarMonth)}
                           </Text>
                           <Pressable
@@ -939,7 +946,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
                             style={{ borderColor: colors.brandBorder, backgroundColor: colors.surface }}
                           >
-                            <Text className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>Next</Text>
+                            <Text numberOfLines={1} maxFontSizeMultiplier={1.2} className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>Next</Text>
                           </Pressable>
                         </View>
                         <View className="mt-3 flex-row">

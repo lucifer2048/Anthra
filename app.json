@@ -3,7 +3,7 @@
     "name": "Anthra",
     "slug": "anthra",
     "scheme": "anthra",
-    "version": "1.0.14",
+    "version": "1.0.16",
     "icon": "./assets/icons/icon-red.png",
     "notification": {
       "icon": "./assets/icons/notification-icon-white.png",
@@ -39,7 +39,7 @@
     ],
     "android": {
       "package": "com.anthra.timer",
-      "versionCode": 14,
+      "versionCode": 16,
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false,
       "blockedPermissions": [

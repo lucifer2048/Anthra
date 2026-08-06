@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, Modal, Platform, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Text, useWindowDimensions, View } from "react-native";
 import { ClipboardCopy, Eye, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react-native";
 
 import { useAnthraTheme } from "../design-system";
@@ -17,6 +17,8 @@ type VaultPinModalProps = {
 
 export function VaultPinModal(props: VaultPinModalProps) {
   const anthraTheme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const stackActions = width < 420 || fontScale >= 1.2;
   const unlocking = props.mode === "unlock";
   const copying = props.mode === "copy";
   const title = unlocking ? "Unlock vault" : copying ? "Copy password" : "Reveal password";
@@ -126,8 +128,8 @@ export function VaultPinModal(props: VaultPinModalProps) {
           />
 
           <View
-            className="flex-row"
             style={{
+              flexDirection: stackActions ? "column" : "row",
               gap: anthraTheme.spacing.md,
               paddingTop: anthraTheme.spacing.xl,
               marginTop: anthraTheme.spacing.xl,
@@ -143,7 +145,7 @@ export function VaultPinModal(props: VaultPinModalProps) {
               accessibilityLabel="Cancel PIN verification"
               accessibilityHint={props.verifying ? "PIN verification is in progress" : undefined}
               accessibilityState={{ disabled: props.verifying }}
-              style={{ flex: 1 }}
+              style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
             />
             <Button
               label={actionLabel}
@@ -152,7 +154,7 @@ export function VaultPinModal(props: VaultPinModalProps) {
               loading={props.verifying}
               disabled={props.verifying}
               accessibilityLabel={`${actionLabel} after verifying PIN`}
-              style={{ flex: 1 }}
+              style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
             />
           </View>
         </Card>

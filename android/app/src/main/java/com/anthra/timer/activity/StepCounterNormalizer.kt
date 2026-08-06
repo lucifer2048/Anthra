@@ -40,31 +40,48 @@ object StepCounterNormalizer {
 
     val timezoneChanged = previous.timezone != timezone
     val dateChanged = previous.dayKey != dayKey
-    if (timezoneChanged && !dateChanged) {
+
+    if (
+      previous.bootCount == bootCount &&
+      (
+        rawReading < previous.lastRaw ||
+          (!timezoneChanged && dayKey < previous.dayKey)
+      )
+    ) {
+      // Reject stale batched callbacks before evaluating their date. Otherwise
+      // a late event from yesterday can roll the state backwards into yesterday.
       return StepCounterUpdate(
-        state = StepCounterState(
-          dayKey,
-          timezone,
-          bootCount,
-          rawReading,
-          rawReading,
-          max(0L, previous.steps)
+        state = previous,
+        counterReset = true
+      )
+    }
+
+    if (timezoneChanged && !dateChanged) {
+      val delta = if (previous.bootCount == bootCount) {
+        rawReading - previous.lastRaw
+      } else {
+        rawReading
+      }
+      return StepCounterUpdate(
+        state = previous.copy(
+          timezone = timezone,
+          bootCount = bootCount,
+          lastRaw = rawReading,
+          steps = max(0L, previous.steps) + max(0L, delta)
         ),
         rebootDetected = previous.bootCount != bootCount,
         timezoneChanged = true
       )
     }
     if (dateChanged) {
-      // With the background service subscribed, a same-boot delta observed on
-      // the new date belongs to that new date. Keeping it avoids dropping the
-      // first walk after midnight. A rebooted counter is deliberately
-      // re-baselined because its pre-midnight portion cannot be separated.
-      val firstNewDaySteps = if (
-        previous.bootCount == bootCount && rawReading >= previous.lastRaw
-      ) {
+      // Events are dated using SensorEvent.timestamp by the manager. With the
+      // service continuously subscribed, the first delta observed on a new
+      // date belongs to the new date. After a reboot, retaining the new boot's
+      // raw count is preferable to silently discarding every post-boot step.
+      val firstNewDaySteps = if (previous.bootCount == bootCount) {
         rawReading - previous.lastRaw
       } else {
-        0L
+        rawReading
       }
       return StepCounterUpdate(
         state = StepCounterState(
@@ -90,17 +107,6 @@ object StepCounterNormalizer {
       return StepCounterUpdate(
         state = StepCounterState(dayKey, timezone, bootCount, rawReading, rawReading, nextSteps),
         rebootDetected = true
-      )
-    }
-
-    if (rawReading < previous.lastRaw) {
-      // TYPE_STEP_COUNTER is cumulative for the current boot. A smaller value
-      // is therefore a stale, out-of-order callback (for example, an older
-      // batched background event arriving after a foreground refresh). Moving
-      // lastRaw backwards would count the same steps again on the next event.
-      return StepCounterUpdate(
-        state = previous,
-        counterReset = true
       )
     }
 

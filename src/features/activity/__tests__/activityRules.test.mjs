@@ -58,6 +58,10 @@ test("Health Connect totals take priority without adding phone steps", () => {
     steps: 3_000,
     source: "phone_sensor"
   });
+  assert.deepEqual(selectAuthoritativeSteps(null, null), {
+    steps: 0,
+    source: "none"
+  });
 });
 
 test("activity dates are deduplicated across steps and workouts", () => {

@@ -60,7 +60,7 @@ export type HealthConnectStatus = {
 export type HealthDailyTotal = {
   dateKey: string;
   timezone: string;
-  steps: number;
+  steps: number | null;
   originPackages: string[];
 };
 

@@ -135,8 +135,8 @@ function ProgressRing({ percentage, done, due, size = 152 }: { percentage: numbe
           fill="none"
         />
       </Svg>
-      <Text style={[size <= 120 ? theme.typography.titleLarge : theme.typography.display, { color: percentage === 100 && due > 0 ? theme.colors.brand : theme.colors.textPrimary }]}>{percentage}%</Text>
-      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 1 }]}>{done}/{due}</Text>
+      <Text maxFontSizeMultiplier={1.2} style={[size <= 120 ? theme.typography.titleLarge : theme.typography.display, { color: percentage === 100 && due > 0 ? theme.colors.brand : theme.colors.textPrimary }]}>{percentage}%</Text>
+      <Text maxFontSizeMultiplier={1.2} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 1 }]}>{done}/{due}</Text>
     </View>
   );
 }
@@ -204,13 +204,13 @@ function TaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: () => voi
         <View style={{ flex: 1, minWidth: 0, alignSelf: "stretch", justifyContent: "center" }}>
           <Text numberOfLines={2} style={[theme.typography.titleSmall, { width: "100%", color: theme.colors.textPrimary, textAlign: "left", textDecorationLine: task.done ? "line-through" : "none" }]}>{task.title}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: theme.spacing.sm, marginTop: theme.spacing.sm }}>
-            <View style={{ paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radii.full, backgroundColor: theme.colors.surfaceSubtle }}>
-              <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>{taskScheduleLabel(task)}</Text>
+            <View style={{ maxWidth: "100%", paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radii.full, backgroundColor: theme.colors.surfaceSubtle }}>
+              <Text numberOfLines={2} style={[theme.typography.caption, { flexShrink: 1, color: theme.colors.textSecondary }]}>{taskScheduleLabel(task)}</Text>
             </View>
             {task.notificationEnabled && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}>
                 <Bell accessible={false} color={theme.colors.brand} size={13} />
-                <Text style={[theme.typography.caption, { color: theme.colors.brand }]}>{formatTime(task.notificationHour, task.notificationMinute)}</Text>
+                <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.brand }]}>{formatTime(task.notificationHour, task.notificationMinute)}</Text>
               </View>
             )}
           </View>
@@ -228,10 +228,10 @@ function SummaryCard({ label, summary, icon: Icon }: { label: string; summary: T
         <Icon accessible={false} color={theme.colors.brand} size={19} />
       </View>
       <View style={{ marginTop: theme.spacing.lg }}>
-        <Text style={[theme.typography.label, { color: theme.colors.textSecondary }]}>{label.toUpperCase()}</Text>
+        <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[theme.typography.label, { color: theme.colors.textSecondary }]}>{label.toUpperCase()}</Text>
       </View>
-      <Text style={[theme.typography.display, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{summary.percentage}%</Text>
-      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{summary.done}/{summary.due} tasks · {summary.perfectDays} perfect {summary.perfectDays === 1 ? "day" : "days"}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.25} style={[theme.typography.display, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{summary.percentage}%</Text>
+      <Text maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{summary.done}/{summary.due} tasks · {summary.perfectDays} perfect {summary.perfectDays === 1 ? "day" : "days"}</Text>
     </Card>
   );
 }
@@ -327,8 +327,8 @@ function TaskActivityCard({
                   paddingRight: theme.spacing.xs
                 }}
               >
-                <Text numberOfLines={2} style={[theme.typography.label, { color: theme.colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
-                <Text style={[theme.typography.caption, { color: theme.colors.brand, marginTop: 2 }]}>{item.percentage}% · {item.done}/{item.due}</Text>
+                <Text numberOfLines={2} maxFontSizeMultiplier={1.2} style={[theme.typography.label, { color: theme.colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[theme.typography.caption, { color: theme.colors.brand, marginTop: 2 }]}>{item.percentage}% · {item.done}/{item.due}</Text>
               </View>
             ))}
           </View>
@@ -416,7 +416,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
   const theme = useAnthraTheme();
   const backgrounds = useScreenBackgrounds();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { fontScale, width: windowWidth } = useWindowDimensions();
   const timezone = useMemo(() => getDeviceTimeZone(), []);
   const today = trackerTodayKey(timezone);
   const historyCutoff = trackerHistoryCutoff(today);
@@ -459,6 +459,11 @@ export function TrackerBuddyScreen({ onBack }: Props) {
     Math.min(windowWidth, theme.layout.contentMaxWidth) - theme.layout.screenPadding * 2
   );
   const trackerNameMaxWidth = Math.max(80, Math.min(240, screenContentWidth - 76));
+  const shouldStackTodaySummary = windowWidth < 360 || fontScale >= 1.3;
+  const reportDayCellSize = Math.max(
+    24,
+    Math.min(32, (screenContentWidth - theme.spacing["2xl"] * 2 - theme.spacing.sm * 6) / 7)
+  );
 
   const refresh = useCallback(async (preferredId?: number | null) => {
     const nextTrackers = await getTrackers();
@@ -802,7 +807,14 @@ export function TrackerBuddyScreen({ onBack }: Props) {
               <>
                 <Animated.View entering={reduceMotion ? undefined : FadeInDown.springify().damping(19)} style={{ marginTop: theme.spacing.lg }}>
                   <Card variant="brand" padding="large" style={{ shadowColor: theme.isDark ? "#000000" : "#6E1020", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 }}>
-                    <View style={{ width: "100%", flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+                    <View
+                      style={{
+                        width: "100%",
+                        flexDirection: shouldStackTodaySummary ? "column" : "row",
+                        alignItems: shouldStackTodaySummary ? "stretch" : "center",
+                        gap: theme.spacing.md
+                      }}
+                    >
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={[theme.typography.label, { color: theme.colors.brand }]}>TODAY · {formatShortDate(today).toUpperCase()}</Text>
                         <Text style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}>{doneCount} of {dayTasks.length}</Text>
@@ -812,7 +824,9 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                           <Text style={[theme.typography.label, { color: theme.colors.textPrimary }]}>{streak} day streak</Text>
                         </View>
                       </View>
-                      <ProgressRing percentage={percentage} done={doneCount} due={dayTasks.length} size={112} />
+                      <View style={{ alignSelf: shouldStackTodaySummary ? "center" : "auto" }}>
+                        <ProgressRing percentage={percentage} done={doneCount} due={dayTasks.length} size={112} />
+                      </View>
                     </View>
                   </Card>
                 </Animated.View>
@@ -955,9 +969,9 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                             accessibilityLabel={`View ${formatShortDate(dateKey)} details`}
                             accessibilityState={{ selected: selectedReportDay === dateKey, disabled: future }}
                             style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 16,
+                              width: reportDayCellSize,
+                              height: reportDayCellSize,
+                              borderRadius: reportDayCellSize / 2,
                               borderWidth: selectedReportDay === dateKey ? 2 : 0,
                               borderColor: theme.colors.brand,
                               alignItems: "center",

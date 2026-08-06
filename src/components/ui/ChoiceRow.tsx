@@ -51,7 +51,10 @@ export function ChoiceChip<T extends string = string>({
       className={`items-center justify-center ${equal ? "flex-1" : ""}`}
       style={({ pressed }) => ({
         minHeight,
-        minWidth: equal ? undefined : 58,
+        minWidth: equal ? 0 : 58,
+        flexGrow: equal ? 1 : 0,
+        flexShrink: equal ? 1 : 0,
+        flexBasis: equal ? 0 : "auto",
         paddingHorizontal: theme.spacing.md,
         paddingVertical: theme.spacing.sm,
         gap: theme.spacing.xs,
@@ -69,9 +72,16 @@ export function ChoiceChip<T extends string = string>({
     >
       {Icon ? <Icon accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={16} /> : null}
       <Text
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.4}
         style={[
           size === "compact" ? theme.typography.label : theme.typography.labelLarge,
-          { color: selected ? theme.colors.brand : theme.colors.textPrimary }
+          {
+            minWidth: 0,
+            flexShrink: 1,
+            color: selected ? theme.colors.brand : theme.colors.textPrimary,
+            textAlign: "center"
+          }
         ]}
       >
         {option.label}

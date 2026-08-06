@@ -27,7 +27,7 @@ data class HealthConnectStatus(
 data class HealthDailyTotal(
   val dateKey: String,
   val timezone: String,
-  val steps: Long,
+  val steps: Long?,
   val originPackages: List<String>
 )
 
@@ -122,7 +122,9 @@ class HealthConnectManager(private val context: Context) {
       result += HealthDailyTotal(
         dateKey = DateTimeFormatter.ISO_LOCAL_DATE.format(date),
         timezone = zone.id,
-        steps = aggregate[StepsRecord.COUNT_TOTAL] ?: 0L,
+        // Null means Health Connect has no data for this day. It must remain
+        // distinct from a real zero so the phone sensor can be used as fallback.
+        steps = aggregate[StepsRecord.COUNT_TOTAL],
         originPackages = aggregate.dataOrigins.map { it.packageName }.distinct().sorted()
       )
       date = date.plusDays(1)

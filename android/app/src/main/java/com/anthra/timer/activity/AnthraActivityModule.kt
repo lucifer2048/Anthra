@@ -230,7 +230,7 @@ class AnthraActivityModule(
           result.pushMap(Arguments.createMap().apply {
             putString("dateKey", total.dateKey)
             putString("timezone", total.timezone)
-            putDouble("steps", total.steps.toDouble())
+            total.steps?.let { putDouble("steps", it.toDouble()) } ?: putNull("steps")
             putArray("originPackages", Arguments.fromList(total.originPackages))
           })
         }

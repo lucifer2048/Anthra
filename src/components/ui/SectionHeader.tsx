@@ -26,7 +26,13 @@ export function SectionHeader({ title, meta, icon: Icon, action, style }: Sectio
         </Text>
       </View>
       {meta ? (
-        <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>{meta}</Text>
+        <Text
+          numberOfLines={2}
+          maxFontSizeMultiplier={1.3}
+          style={[theme.typography.caption, { maxWidth: "45%", flexShrink: 1, color: theme.colors.textSecondary, textAlign: "right" }]}
+        >
+          {meta}
+        </Text>
       ) : null}
       {action}
     </View>

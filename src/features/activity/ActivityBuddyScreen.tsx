@@ -58,6 +58,8 @@ import {
 } from "./activityNative";
 import {
   currentActivityTimezone,
+  clearHealthConnectDailyTotals,
+  getActivityDailySummary,
   getActivityDailySummaries,
   getActivitySettings,
   getActivitySyncState,
@@ -132,6 +134,7 @@ const EMPTY_SYNC: ActivitySyncState = {
 };
 
 const INITIAL_LOAD_TIMEOUT_MS = 12_000;
+const LIVE_STEP_REFRESH_MS = 10_000;
 
 function localMidnight(timezone: string, dayOffset: number): number {
   const parts = getDayPartsInTimeZone(Date.now(), dayOffset, timezone);
@@ -218,6 +221,7 @@ function SourceCard({
             accessibilityLabel={`${title} status: ${status}`}
             className="mt-2 flex-row items-center self-start"
             style={{
+              maxWidth: "100%",
               gap: theme.spacing.xs,
               paddingHorizontal: theme.spacing.sm,
               paddingVertical: theme.spacing.xs,
@@ -226,7 +230,11 @@ function SourceCard({
             }}
           >
             <StatusIcon accessible={false} color={tone.foreground} size={14} />
-            <Text style={[theme.typography.caption, { color: tone.foreground, fontWeight: "600" }]}>
+            <Text
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.3}
+              style={[theme.typography.caption, { minWidth: 0, flexShrink: 1, color: tone.foreground, fontWeight: "600" }]}
+            >
               {status}
             </Text>
           </View>
@@ -269,7 +277,9 @@ function SourceCard({
 export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const theme = useAnthraTheme();
   const backgrounds = useScreenBackgrounds();
-  const { width: viewportWidth } = useWindowDimensions();
+  const { fontScale, width: viewportWidth } = useWindowDimensions();
+  const shouldStackSummary = viewportWidth < 360 || fontScale >= 1.3;
+  const shouldStackModalActions = viewportWidth < 380 || fontScale >= 1.2;
   const previewAvailableWidth = Math.max(0, viewportWidth - theme.spacing["2xl"]);
   const previewScale = Math.min(
     1,
@@ -297,6 +307,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const [sharing, setSharing] = useState(false);
   const shareCardRef = useRef<View>(null);
   const refreshInFlight = useRef(false);
+  const phoneRefreshInFlight = useRef(false);
   const refreshAttemptRef = useRef(0);
   const settingsRef = useRef<ActivitySettings>(INITIAL_SETTINGS);
   const settingsRevisionRef = useRef(0);
@@ -372,10 +383,17 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
           );
           await saveHealthDailyTotals(totals);
         } catch (error) {
+          // A failed current-day Health read must not leave an older partial
+          // value overriding a newer phone-sensor total.
+          await clearHealthConnectDailyTotals(todayKey);
           sourceErrors.push(
             error instanceof Error ? error.message : "Health Connect steps failed."
           );
         }
+      } else {
+        // Permission revocation removes Health Connect as an authoritative
+        // source immediately, allowing locally tracked phone steps to surface.
+        await clearHealthConnectDailyTotals();
       }
       if (nextHealthStatus.exercisePermission) {
         try {
@@ -433,6 +451,54 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         setRefreshing(false);
       }
     }
+  }, [timezone, todayKey]);
+
+  const refreshLivePhoneSteps = useCallback(async () => {
+    if (
+      refreshInFlight.current ||
+      phoneRefreshInFlight.current ||
+      !settingsRef.current.phoneTrackingEnabled ||
+      AppState.currentState !== "active"
+    ) return;
+
+    phoneRefreshInFlight.current = true;
+    try {
+      const reading = await getCurrentPhoneStepReading(timezone);
+      await savePhoneStepReading(reading);
+      const pendingDays = await getPendingPhoneStepDays();
+      if (pendingDays.length > 0) {
+        await savePhoneStepDaySnapshots(pendingDays);
+        await acknowledgePendingPhoneStepDays(pendingDays.map((day) => day.dateKey));
+      }
+
+      const changedDateKeys = new Set([
+        reading.dateKey,
+        ...pendingDays.map((day) => day.dateKey)
+      ]);
+      const changedSummaries = (
+        await Promise.all([...changedDateKeys].map(getActivityDailySummary))
+      ).filter((summary): summary is ActivityDailySummary => summary != null);
+      if (changedSummaries.length > 0) {
+        setSummaries((current) => {
+          const merged = new Map(current.map((summary) => [summary.dateKey, summary]));
+          changedSummaries.forEach((summary) => merged.set(summary.dateKey, summary));
+          return [...merged.values()].sort((left, right) =>
+            left.dateKey.localeCompare(right.dateKey)
+          );
+        });
+      }
+      setPhoneStatus((current) => current ? {
+        ...current,
+        dateKey: reading.dateKey,
+        timezone: reading.timezone,
+        lastRaw: reading.raw,
+        steps: reading.steps
+      } : current);
+    } catch {
+      // The full foreground refresh owns user-facing source error reporting.
+    } finally {
+      phoneRefreshInFlight.current = false;
+    }
   }, [timezone]);
 
   useEffect(() => {
@@ -472,6 +538,14 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
     }, 60_000);
     return () => clearInterval(timer);
   }, [refresh, timezone, todayKey]);
+
+  useEffect(() => {
+    if (!settings.phoneTrackingEnabled) return;
+    const timer = setInterval(() => {
+      refreshLivePhoneSteps().catch(() => undefined);
+    }, LIVE_STEP_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [refreshLivePhoneSteps, settings.phoneTrackingEnabled]);
 
   const todaySummary = useMemo(
     () => summaries.find((summary) => summary.dateKey === todayKey),
@@ -862,7 +936,13 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         ) : null}
 
         <Card variant="elevated" padding="large">
-          <View className="flex-row items-start" style={{ gap: theme.spacing.lg }}>
+          <View
+            style={{
+              flexDirection: shouldStackSummary ? "column" : "row",
+              alignItems: shouldStackSummary ? "stretch" : "flex-start",
+              gap: theme.spacing.lg
+            }}
+          >
             <View
               accessible
               accessibilityLabel={`${compactSteps(todaySteps)} steps today. ${sourceLabel}.`}
@@ -903,7 +983,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               radius="large"
               bordered
               className="items-end"
-              style={{ minWidth: 92 }}
+              style={{ minWidth: 92, alignSelf: shouldStackSummary ? "stretch" : "auto" }}
             >
               <Text style={[theme.typography.headline, { color: theme.colors.brand }]}>
                 {activityStreak}
@@ -957,7 +1037,14 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         </Card>
 
         <View style={{ marginTop: theme.spacing["2xl"] }}>
-          <View className="flex-row items-end justify-between" style={{ gap: theme.spacing.lg }}>
+          <View
+            style={{
+              flexDirection: shouldStackSummary ? "column" : "row",
+              alignItems: shouldStackSummary ? "stretch" : "flex-end",
+              justifyContent: "space-between",
+              gap: theme.spacing.lg
+            }}
+          >
             <View className="min-w-0 flex-1">
               <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
                 Seven-day rhythm
@@ -974,7 +1061,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             <View
               accessible
               accessibilityLabel={`${activityWeekDays} active days in the last seven days`}
-              className="items-end"
+              style={{ alignItems: shouldStackSummary ? "flex-start" : "flex-end" }}
             >
               <Text style={[theme.typography.titleSmall, { color: theme.colors.brand }]}>
                 {activityWeekDays}/7
@@ -1236,10 +1323,10 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                 >
                   Share preview
                 </Text>
-                <View className="mt-1 flex-row items-center" style={{ gap: theme.spacing.xs }}>
+                <View className="mt-1 flex-row items-center" style={{ minWidth: 0, gap: theme.spacing.xs }}>
                   <ShieldCheck accessible={false} color={theme.colors.brand} size={15} />
                   <Text
-                    style={[theme.typography.caption, { color: theme.colors.textSecondary }]}
+                    style={[theme.typography.caption, { minWidth: 0, flexShrink: 1, color: theme.colors.textSecondary }]}
                   >
                     Nothing is shared until you confirm
                   </Text>
@@ -1291,22 +1378,22 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               </View>
 
               <View
-                className="mt-4 w-full max-w-[320px] flex-row"
-                style={{ gap: theme.spacing.sm }}
+                className="mt-4 w-full max-w-[320px]"
+                style={{ flexDirection: shouldStackModalActions ? "column" : "row", gap: theme.spacing.sm }}
               >
                 <Button
                   label="Cancel"
                   variant="outline"
                   disabled={sharing}
                   onPress={closeSharePreview}
-                  style={{ flex: 1 }}
+                  style={{ flex: shouldStackModalActions ? undefined : 1, alignSelf: "stretch" }}
                 />
                 <Button
                   label="Share Now"
                   icon={Share2}
                   loading={sharing}
                   onPress={shareConfirmed}
-                  style={{ flex: 1 }}
+                  style={{ flex: shouldStackModalActions ? undefined : 1, alignSelf: "stretch" }}
                 />
               </View>
             </View>

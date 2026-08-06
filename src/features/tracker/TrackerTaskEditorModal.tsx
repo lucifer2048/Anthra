@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Calendar1, CalendarDays, CalendarRange, Check, Repeat2, type LucideIcon } from "lucide-react-native";
 
@@ -48,6 +48,8 @@ export function TrackerTaskEditorModal({
   onSave
 }: Props) {
   const theme = useAnthraTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stackRecurrenceOptions = width < 520 || fontScale >= 1.15;
   const today = dateKeyInTimeZone(Date.now(), timezone);
   const [title, setTitle] = useState("");
   const [recurrence, setRecurrence] = useState<TrackerRecurrence>("daily");
@@ -148,7 +150,12 @@ export function TrackerTaskEditorModal({
           />
 
           <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm }]}>REPEATS</Text>
-          <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
+          <View
+            style={{
+              flexDirection: stackRecurrenceOptions ? "column" : "row",
+              gap: theme.spacing.sm
+            }}
+          >
             {RECURRENCE.map((option) => {
               const selected = recurrence === option.value;
               const OptionIcon = option.icon;
@@ -159,11 +166,14 @@ export function TrackerTaskEditorModal({
                   accessibilityRole="radio"
                   accessibilityState={{ selected, checked: selected }}
                   style={({ pressed }) => ({
-                    flex: 1,
-                    minHeight: 112,
+                    flex: stackRecurrenceOptions ? undefined : 1,
+                    minWidth: 0,
+                    minHeight: stackRecurrenceOptions ? 76 : 112,
+                    flexDirection: stackRecurrenceOptions ? "row" : "column",
                     alignItems: "center",
                     justifyContent: "center",
                     padding: theme.spacing.md,
+                    gap: stackRecurrenceOptions ? theme.spacing.md : 0,
                     borderRadius: theme.radii.lg,
                     borderWidth: 2,
                     borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
@@ -180,8 +190,41 @@ export function TrackerTaskEditorModal({
                   }}>
                     <OptionIcon accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={18} />
                   </View>
-                  <Text style={[theme.typography.bodyStrong, { color: selected ? theme.colors.brand : theme.colors.textPrimary, marginTop: theme.spacing.sm, textAlign: "center" }]}>{option.label}</Text>
-                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2, textAlign: "center" }]}>{option.description}</Text>
+                  <View
+                    style={{
+                      width: stackRecurrenceOptions ? undefined : "100%",
+                      flex: stackRecurrenceOptions ? 1 : undefined,
+                      minWidth: 0,
+                      alignItems: stackRecurrenceOptions ? "flex-start" : "center"
+                    }}
+                  >
+                    <Text
+                      style={[
+                        theme.typography.bodyStrong,
+                        {
+                          width: "100%",
+                          color: selected ? theme.colors.brand : theme.colors.textPrimary,
+                          marginTop: stackRecurrenceOptions ? 0 : theme.spacing.sm,
+                          textAlign: stackRecurrenceOptions ? "left" : "center"
+                        }
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text
+                      style={[
+                        theme.typography.caption,
+                        {
+                          width: "100%",
+                          color: theme.colors.textSecondary,
+                          marginTop: 2,
+                          textAlign: stackRecurrenceOptions ? "left" : "center"
+                        }
+                      ]}
+                    >
+                      {option.description}
+                    </Text>
+                  </View>
                 </Pressable>
               );
             })}

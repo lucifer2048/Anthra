@@ -77,6 +77,9 @@ export function BottomTabBar<T extends string = string>({
               {!compact && (
                 <Text
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.78}
+                  maxFontSizeMultiplier={1.2}
                   style={[
                     theme.typography.caption,
                     { color, fontWeight: active ? "600" : "400", marginTop: 3 }

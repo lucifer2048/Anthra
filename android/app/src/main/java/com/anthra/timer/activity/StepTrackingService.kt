@@ -14,6 +14,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.anthra.timer.MainActivity
@@ -53,7 +54,9 @@ class StepTrackingService : Service(), SensorEventListener {
 
   override fun onSensorChanged(event: SensorEvent) {
     val raw = event.values.firstOrNull()?.toLong() ?: return
-    stepCounter.recordReading(raw, TimeZone.getDefault().id)
+    val ageNanos = (SystemClock.elapsedRealtimeNanos() - event.timestamp).coerceAtLeast(0L)
+    val observedAtMs = System.currentTimeMillis() - ageNanos / 1_000_000L
+    stepCounter.recordReading(raw, TimeZone.getDefault().id, observedAtMs)
   }
 
   override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit

@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { Star } from "lucide-react-native";
 
 import { Button, KeyboardAwareScrollView, TextField } from "../../components/ui";
@@ -41,6 +41,8 @@ export function WorkoutFeedbackModals({
   onSubmit
 }: WorkoutFeedbackModalsProps) {
   const theme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const stackActions = width < 380 || fontScale >= 1.2;
   const borderColor = theme.colors.border;
   const cardBackground = theme.colors.surfaceElevated;
   const inputBackground = theme.colors.surfaceSubtle;
@@ -94,8 +96,8 @@ export function WorkoutFeedbackModals({
                       accessibilityRole="button"
                       accessibilityLabel={`Rate ${star} out of 5`}
                       accessibilityState={{ selected: rating === star }}
-                      className="h-11 w-11 items-center justify-center rounded-xl"
-                      style={{ backgroundColor: active ? withAlpha(accentColor, 0.25) : panelBackground }}
+                      className="h-11 items-center justify-center rounded-xl"
+                      style={{ flex: 1, minWidth: 0, backgroundColor: active ? withAlpha(accentColor, 0.25) : panelBackground }}
                     >
                       <Star
                         accessible={false}
@@ -126,21 +128,21 @@ export function WorkoutFeedbackModals({
                 </Text>
               </Pressable>
 
-              <View className="mt-5 flex-row gap-3">
+              <View className="mt-5" style={{ flexDirection: stackActions ? "column" : "row", gap: theme.spacing.md }}>
                 <Button
                   label="Later"
                   onPress={onDismiss}
                   disabled={saving}
                   variant="outline"
                   fullWidth
-                  style={{ flex: 1 }}
+                  style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
                 />
                 <Button
                   label="Save feedback"
                   onPress={onSubmit}
                   loading={saving}
                   fullWidth
-                  style={{ flex: 1 }}
+                  style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
                 />
               </View>
             </View>
@@ -185,13 +187,13 @@ export function WorkoutFeedbackModals({
                 helperText={`${comment.length}/400 characters`}
                 containerStyle={{ marginTop: 16 }}
               />
-              <View className="mt-5 flex-row gap-3">
+              <View className="mt-5" style={{ flexDirection: stackActions ? "column" : "row", gap: theme.spacing.md }}>
                 <Button
                   label="Done"
                   onPress={onCloseNote}
                   variant="outline"
                   fullWidth
-                  style={{ flex: 1 }}
+                  style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
                 />
                 <Button
                   label="Clear note"
@@ -201,7 +203,7 @@ export function WorkoutFeedbackModals({
                   }}
                   variant="secondary"
                   fullWidth
-                  style={{ flex: 1 }}
+                  style={{ flex: stackActions ? undefined : 1, alignSelf: "stretch" }}
                 />
               </View>
             </View>

@@ -10,6 +10,7 @@ export type SurfaceProps = ViewProps & {
   padding?: SurfacePadding;
   radius?: SurfaceRadius;
   bordered?: boolean;
+  elevation?: "none" | "low" | "medium" | "overlay";
 };
 
 export function Surface({
@@ -17,6 +18,7 @@ export function Surface({
   padding = "none",
   radius = "none",
   bordered = false,
+  elevation,
   className,
   style,
   ...props
@@ -51,7 +53,7 @@ export function Surface({
         {
           padding: paddings[padding],
           borderRadius: radiuses[radius],
-          borderWidth: bordered ? 1 : 0,
+          borderWidth: bordered ? theme.borderWidths.standard : 0,
           borderColor: variant === "brand"
             ? theme.colors.brandBorder
             : variant === "danger"
@@ -59,15 +61,7 @@ export function Surface({
               : theme.colors.border,
           backgroundColor: backgrounds[variant]
         },
-        variant === "elevated"
-          ? {
-              shadowColor: theme.isDark ? "#000000" : "#4B2028",
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: theme.isDark ? 0.32 : 0.09,
-              shadowRadius: 14,
-              elevation: 4
-            }
-          : undefined,
+        theme.shadows[elevation ?? (variant === "elevated" ? "medium" : "none")],
         style
       ]}
     />

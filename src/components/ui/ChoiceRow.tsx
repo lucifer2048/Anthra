@@ -1,11 +1,13 @@
-import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Text, View, type StyleProp, type ViewStyle } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
+import { AnimatedPressable } from "./AnimatedPressable";
 
 export type ChoiceOption<T extends string = string> = {
   label: string;
   value: T;
   icon?: LucideIcon;
+  disabled?: boolean;
 };
 
 export type ChoiceRowProps<T extends string = string> = {
@@ -15,6 +17,9 @@ export type ChoiceRowProps<T extends string = string> = {
   onChange: (value: T) => void;
   layout?: "wrap" | "equal";
   size?: "compact" | "comfortable";
+  variant?: "chip" | "card";
+  disabled?: boolean;
+  error?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -23,31 +28,39 @@ export function ChoiceChip<T extends string = string>({
   selected,
   onPress,
   size = "comfortable",
+  variant = "chip",
   equal = false,
   accessibilityLabelPrefix,
-  accessibilityRole = "radio"
+  accessibilityRole = "radio",
+  disabled = false
 }: {
   option: ChoiceOption<T>;
   selected: boolean;
   onPress: () => void;
   size?: "compact" | "comfortable";
+  variant?: "chip" | "card";
   equal?: boolean;
   accessibilityLabelPrefix?: string;
   accessibilityRole?: "radio" | "checkbox" | "button";
+  disabled?: boolean;
 }) {
   const theme = useAnthraTheme();
   const Icon = option.icon;
-  const minHeight =
-    size === "compact" ? theme.layout.compactTouchTarget : theme.layout.minTouchTarget;
+  const card = variant === "card";
+  const minHeight = size === "compact"
+    ? theme.layout.compactTouchTarget
+    : theme.layout.minTouchTarget;
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
+      disabled={disabled || option.disabled}
+      haptic="selection"
       accessibilityRole={accessibilityRole}
       accessibilityLabel={
         accessibilityLabelPrefix ? `${accessibilityLabelPrefix}, ${option.label}` : option.label
       }
-      accessibilityState={{ checked: selected, selected }}
+      accessibilityState={{ checked: selected, selected, disabled: disabled || option.disabled }}
       className={`items-center justify-center ${equal ? "flex-1" : ""}`}
       style={({ pressed }) => ({
         minHeight,
@@ -60,33 +73,48 @@ export function ChoiceChip<T extends string = string>({
         gap: theme.spacing.xs,
         flexDirection: Icon ? "row" : "column",
         borderRadius: theme.radii.md,
-        borderWidth: selected ? 2 : 1,
-        borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
+        borderWidth: 1,
+        borderColor: selected
+          ? theme.colors.brand
+          : theme.colors.borderStrong,
         backgroundColor: selected
           ? theme.colors.brandSoft
           : pressed
             ? theme.colors.surfacePressed
-            : theme.colors.surface,
-        transform: [{ scale: pressed ? theme.motion.pressedScale : 1 }]
+            : card
+              ? theme.colors.surfaceSubtle
+              : theme.colors.surface,
+        opacity: disabled || option.disabled ? theme.motion.disabledOpacity : 1
       })}
     >
-      {Icon ? <Icon accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={16} /> : null}
+      {Icon ? (
+        <Icon accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={16} />
+      ) : null}
       <Text
-        numberOfLines={1}
+        numberOfLines={card ? 2 : 1}
         maxFontSizeMultiplier={1.4}
         style={[
-          size === "compact" ? theme.typography.label : theme.typography.labelLarge,
+          card
+            ? theme.typography.label
+            : size === "compact"
+              ? theme.typography.label
+              : theme.typography.labelLarge,
           {
             minWidth: 0,
             flexShrink: 1,
-            color: selected ? theme.colors.brand : theme.colors.textPrimary,
-            textAlign: "center"
+            color: selected
+              ? theme.colors.brand
+              : card
+                ? theme.colors.textSecondary
+                : theme.colors.textPrimary,
+            textAlign: "center",
+            textTransform: "none"
           }
         ]}
       >
         {option.label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -97,6 +125,9 @@ export function ChoiceRow<T extends string = string>({
   onChange,
   layout = "wrap",
   size = "comfortable",
+  variant = "chip",
+  disabled = false,
+  error,
   style
 }: ChoiceRowProps<T>) {
   const theme = useAnthraTheme();
@@ -124,11 +155,14 @@ export function ChoiceRow<T extends string = string>({
             selected={option.value === value}
             onPress={() => onChange(option.value)}
             size={size}
+            variant={variant}
             equal={layout === "equal"}
             accessibilityLabelPrefix={label}
+            disabled={disabled}
           />
         ))}
       </View>
+      {error ? <Text accessibilityRole="alert" style={[theme.typography.caption, { color: theme.colors.danger, marginTop: theme.spacing.xs }]}>{error}</Text> : null}
     </View>
   );
 }

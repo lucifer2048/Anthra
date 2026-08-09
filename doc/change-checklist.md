@@ -49,6 +49,9 @@ Search the repo for an existing solution:
 - [ ] Screen uses `ScreenLayout` (not a hand-rolled safe-area shell)
 - [ ] No DB / repository / native bridge calls inside `src/components/ui/*` or `layout/*`
 - [ ] Feature limits/defaults in `src/constants/<domain>.ts` when applicable
+- [ ] Focus, loading, error, and disabled states do not change control geometry
+- [ ] Long labels reflow or stack at large text sizes instead of silently shrinking
+- [ ] Haptics are semantic and are not fired twice by a shared control and its caller
 
 ## Forbidden
 
@@ -57,3 +60,10 @@ Search the repo for an existing solution:
 - Putting background/safe-area/StatusBar setup on the screen instead of `ScreenLayout`
 - Hardcoding palette hex / ad-hoc typography instead of design tokens
 - Treating “ship fast” as a reason to skip this gate — docs override that impulse
+
+## Audited specialized exceptions
+
+- Raw `Pressable` remains inside `AnimatedPressable` and `FormDialog` only, where it implements the shared primitive and modal backdrop/event boundary.
+- The workout timer, compact chart axes/heatmaps, hub wordmark, and fixed-size share/export cards may use purpose-built type sizing or fitting; their geometry is intrinsic to the visualization/artwork.
+- Reminder and tracker month grids remain feature-specific data visualizations while their surrounding actions, fields, sheets, and selection controls use the kit.
+- Native Android notification payload colors remain fixed platform configuration values; application UI colors continue to come from the theme.

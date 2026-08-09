@@ -1,7 +1,7 @@
-import { ClipboardList, History, Home, Settings, UserRound } from "lucide-react-native";
+import { ClipboardList, History, Home } from "lucide-react-native";
 import { BottomTabBar } from "./ui/BottomTabBar";
 
-export type WorkoutTab = "home" | "plans" | "history" | "profile" | "settings";
+export type WorkoutTab = "home" | "plans" | "history";
 
 type WorkoutTabBarProps = {
   activeTab: WorkoutTab;
@@ -11,9 +11,7 @@ type WorkoutTabBarProps = {
 const TABS = [
   { id: "home" as const, label: "Today", icon: Home },
   { id: "plans" as const, label: "Plans", icon: ClipboardList },
-  { id: "history" as const, label: "History", icon: History },
-  { id: "profile" as const, label: "Profile", icon: UserRound },
-  { id: "settings" as const, label: "Settings", icon: Settings }
+  { id: "history" as const, label: "History", icon: History }
 ];
 
 export function WorkoutTabBar({ activeTab, onChange }: WorkoutTabBarProps) {
@@ -22,6 +20,7 @@ export function WorkoutTabBar({ activeTab, onChange }: WorkoutTabBarProps) {
       tabs={TABS}
       activeTab={activeTab}
       onChange={onChange}
+      safeArea
       accessibilityHintPrefix="Opens workout"
     />
   );

@@ -1,7 +1,8 @@
 import type { LucideIcon } from "lucide-react-native";
-import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAnthraTheme } from "../../design-system";
+import { AnimatedPressable } from "./AnimatedPressable";
 
 export type BottomTabItem<T extends string = string> = {
   id: T;
@@ -53,9 +54,11 @@ export function BottomTabBar<T extends string = string>({
           const active = activeTab === id;
           const color = active ? theme.colors.brand : theme.colors.textSecondary;
           return (
-            <Pressable
+            <AnimatedPressable
               key={id}
               onPress={() => onChange(id)}
+              haptic={active ? "none" : "selection"}
+              pressScale="subtle"
               accessibilityRole="tab"
               accessibilityLabel={`${label} tab`}
               accessibilityState={{ selected: active }}
@@ -74,21 +77,18 @@ export function BottomTabBar<T extends string = string>({
               })}
             >
               <Icon accessible={false} size={20} color={color} strokeWidth={active ? 2.5 : 2} />
-              {!compact && (
+              {!compact ? (
                 <Text
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={0.78}
                   maxFontSizeMultiplier={1.2}
-                  style={[
-                    theme.typography.caption,
-                    { color, fontWeight: active ? "600" : "400", marginTop: 3 }
-                  ]}
+                  style={[theme.typography.caption, { color, fontWeight: active ? "600" : "400", marginTop: 3 }]}
                 >
                   {label}
                 </Text>
-              )}
-            </Pressable>
+              ) : null}
+            </AnimatedPressable>
           );
         })}
       </View>

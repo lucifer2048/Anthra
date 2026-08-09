@@ -1,9 +1,9 @@
-export type SupportedAnthraBackupVersion = 1 | 2 | 3 | 4;
+export type SupportedAnthraBackupVersion = 1 | 2 | 3 | 4 | 5 | 6;
 
 export function isSupportedAnthraBackupVersion(
   value: unknown
 ): value is SupportedAnthraBackupVersion {
-  return value === 1 || value === 2 || value === 3 || value === 4;
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
 }
 
 export function normalizeLegacyBackupTables(
@@ -32,6 +32,25 @@ export function normalizeLegacyBackupTables(
           tracker_buddy_tasks: [],
           tracker_buddy_task_versions: [],
           tracker_buddy_completions: []
+        }
+      : {}),
+    ...(version < 5
+      ? {
+          activity_settings: [],
+          activity_daily_summary: [],
+          activity_workouts: [],
+          activity_sources: [],
+          activity_sync_state: [],
+          step_sensor_checkpoints: []
+        }
+      : {})
+    ,...(version < 6
+      ? {
+          nutrition_goals: [],
+          nutrition_entries: [],
+          nutrition_entry_items: [],
+          nutrition_custom_foods: [],
+          nutrition_sync_queue: []
         }
       : {})
   };

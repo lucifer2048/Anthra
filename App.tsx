@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   AppState,
   Animated,
   Alert,
@@ -9,7 +8,6 @@ import {
   Linking,
   PermissionsAndroid,
   Platform,
-  Pressable,
   Share,
   Text,
   ToastAndroid,
@@ -20,6 +18,7 @@ import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Clipboard from "expo-clipboard";
+import Reanimated, { FadeIn, useReducedMotion } from "react-native-reanimated";
 
 import "./global.css";
 import "./src/utils/reminderNotificationTask";
@@ -29,14 +28,20 @@ import { LaunchOverlay } from "./src/components/LaunchOverlay";
 import { type WorkoutTab } from "./src/components/WorkoutTabBar";
 import type { ReminderTab } from "./src/components/ReminderTabBar";
 import { ScreenLayout } from "./src/components/layout";
+import { BlockingLoadingState, Button, Card } from "./src/components/ui";
 import { ActivityBuddyScreen } from "./src/features/activity/ActivityBuddyScreen";
 import { AnthraHomeScreen } from "./src/features/hub/AnthraHomeScreen";
 import { ListBuddyScreen } from "./src/features/list/ListBuddyScreen";
 import { TrackerBuddyScreen } from "./src/features/tracker/TrackerBuddyScreen";
+import { AccountOnboardingGate, AccountScreen, initAccountDatabase } from "./src/features/account";
+import { FriendsScreen } from "./src/features/social";
+import { publishFriendActivityEvent } from "./src/features/social";
+import { supabase } from "./src/services/supabaseClient";
 import { ReminderBuddyScreen } from "./src/features/reminder/ReminderBuddyScreen";
 import { VaultBuddyScreen } from "./src/features/vault/VaultBuddyScreen";
 import { WorkoutBuddyScreen } from "./src/features/workout/WorkoutBuddyScreen";
 import { WorkoutFeedbackModals } from "./src/features/workout/WorkoutFeedbackModals";
+import { NutritionBuddyScreen } from "./src/features/nutrition/NutritionBuddyScreen";
 import { syncTrackerNotifications } from "./src/features/tracker/trackerNotifications";
 import { AppProviders } from "./src/providers";
 import { createScreenBackgrounds, resolveTheme, themes, type ThemeMode } from "./src/design-system";
@@ -110,7 +115,7 @@ import {
 } from "./src/utils/planSharing";
 import { getPlansForWeekday, getScheduledWorkoutDays } from "./src/utils/workoutSchedule";
 
-type AppModule = "hub" | "workout" | "reminder" | "password" | "list" | "alarm" | "activity" | "tracker";
+type AppModule = "hub" | "workout" | "profile" | "settings" | "reminder" | "password" | "list" | "alarm" | "activity" | "nutrition" | "tracker" | "account" | "friends";
 
 type ModuleTheme = {
   accent: string;
@@ -142,6 +147,8 @@ const INITIAL_SETTINGS: UserSettings = {
   timezone: getDeviceTimeZone()
 };
 
+const SCREEN_ENTERING = FadeIn.duration(160);
+
 
 function resolveModuleTheme(isDarkMode: boolean): ModuleTheme {
   const colors = isDarkMode ? themes.dark.colors : themes.light.colors;
@@ -156,6 +163,7 @@ function resolveModuleTheme(isDarkMode: boolean): ModuleTheme {
 
 export default function App() {
   const systemColorScheme = useSystemColorScheme();
+  const reduceMotion = useReducedMotion();
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), []);
   const [ready, setReady] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
@@ -165,6 +173,7 @@ export default function App() {
   const [stats, setStats] = useState<DashboardStats>(INITIAL_STATS);
   const [history, setHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<WorkoutTab>("home");
+  const [friendsInitialTab, setFriendsInitialTab] = useState<"friends" | "leaderboard">("friends");
   const [planListMode, setPlanListMode] = useState<"all" | "today">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null);
@@ -216,8 +225,14 @@ export default function App() {
   const workoutFlowBusyRef = useRef(false);
   const workoutSnapshotSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handledPlanShareUrlsRef = useRef(new Set<string>());
+  const hubScrollOffsetRef = useRef(0);
+  const hasAnimatedHubCardsRef = useRef(false);
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const handleHubCardsAnimated = useCallback(() => {
+    hasAnimatedHubCardsRef.current = true;
+  }, []);
 
   const handleThemeModeChange = useCallback((nextMode: ThemeMode) => {
     setThemeMode(nextMode);
@@ -376,6 +391,7 @@ export default function App() {
 
   const bootstrap = useCallback(async () => {
     await initDatabase();
+    await initAccountDatabase();
     const [nextData, , nextSettings, , recoveredWorkout, storedThemeMode] = await Promise.all([
       refreshData(),
       refreshProfile(),
@@ -449,6 +465,12 @@ export default function App() {
       setShowSplashOverlay(false);
     });
   }, [ready, showSplashOverlay, splashOpacity]);
+
+  useEffect(() => {
+    if (!bootstrapError || !showSplashOverlay) return;
+    splashOpacity.setValue(0);
+    setShowSplashOverlay(false);
+  }, [bootstrapError, showSplashOverlay, splashOpacity]);
 
   useEffect(() => {
     if (!ready) return;
@@ -852,6 +874,9 @@ export default function App() {
       setActiveTimerInitialState(null);
       setActiveSessionId(sessionId);
       setActivePlan(plan);
+      if (supabase) {
+        publishFriendActivityEvent(supabase, "workout_started").catch(() => undefined);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not start workout.";
       Alert.alert("Session error", message);
@@ -955,10 +980,10 @@ export default function App() {
       await refreshProfile();
       setProfileNotice({
         type: "success",
-        message: "Profile updated."
+        message: "Body details updated."
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not save profile.";
+      const message = error instanceof Error ? error.message : "Could not save body details.";
       setProfileNotice({
         type: "error",
         message
@@ -1152,7 +1177,7 @@ export default function App() {
 
       Alert.alert(
         "Restore this backup?",
-        "Workouts, alarms, reminders, lists, profile, and settings on this device will be replaced. Password Buddy stays unchanged.",
+        "Workouts, alarms, reminders, lists, nutrition history, body details, and settings on this device will be replaced. Password Buddy stays unchanged.",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -1288,8 +1313,6 @@ export default function App() {
     () => createScreenBackgrounds(semanticTheme.colors),
     [semanticTheme.colors]
   );
-  const panelBackground = semanticTheme.colors.surface;
-  const borderColor = semanticTheme.colors.border;
   const textPrimary = semanticTheme.colors.textPrimary;
   const textMuted = semanticTheme.colors.textSecondary;
   const moduleTheme = useMemo(() => resolveModuleTheme(isDarkMode), [isDarkMode]);
@@ -1306,35 +1329,34 @@ export default function App() {
         contentStyle={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}
       >
         {bootstrapError ? (
-          <View
+          <Card
             accessibilityRole="alert"
-            className="w-full max-w-[440px] rounded-3xl border p-6"
-            style={{ borderColor, backgroundColor: panelBackground }}
+            variant="elevated"
+            padding="large"
+            style={{ width: "100%", maxWidth: 440 }}
           >
-            <Text className="text-sm font-black uppercase tracking-[2px]" style={{ color: workoutTheme.accent }}>
+            <Text style={[semanticTheme.typography.eyebrow, { color: workoutTheme.accent }]}>
               Anthra
             </Text>
-            <Text className="mt-3 text-2xl font-black" style={{ color: textPrimary }}>
+            <Text accessibilityRole="header" style={[semanticTheme.typography.titleLarge, { color: textPrimary, marginTop: semanticTheme.spacing.md }]}>
               We couldn’t finish starting the app
             </Text>
-            <Text className="mt-2 text-base leading-6" style={{ color: textMuted }}>
+            <Text style={[semanticTheme.typography.bodyLarge, { color: textMuted, marginTop: semanticTheme.spacing.sm }]}>
               Your data has not been changed. Retry the startup checks, or restart the app if the problem continues.
             </Text>
-            <Text selectable className="mt-3 text-sm" style={{ color: textMuted }}>
+            <Text selectable style={[semanticTheme.typography.caption, { color: textMuted, marginTop: semanticTheme.spacing.md }]}>
               {bootstrapError}
             </Text>
-            <Pressable
+            <Button
+              label="Retry"
               onPress={() => setBootstrapAttempt((attempt) => attempt + 1)}
-              accessibilityRole="button"
               accessibilityLabel="Retry starting Anthra"
-              className="mt-5 min-h-[50px] items-center justify-center rounded-xl px-5"
-              style={{ backgroundColor: semanticTheme.colors.brandSolid }}
-            >
-              <Text className="text-base font-black" style={{ color: semanticTheme.colors.textOnBrandSolid }}>Retry</Text>
-            </Pressable>
-          </View>
+              fullWidth
+              style={{ marginTop: semanticTheme.spacing.xl }}
+            />
+          </Card>
         ) : (
-          <ActivityIndicator size="large" color={workoutTheme.accent} accessibilityLabel="Starting Anthra" />
+          <BlockingLoadingState title="Starting Anthra" message="Preparing your private workspace…" />
         )}
       </ScreenLayout>
     );
@@ -1356,27 +1378,53 @@ export default function App() {
           setActiveTab("plans");
         }}
         onOpenActivity={() => setActiveModule("activity")}
+        onOpenNutrition={() => setActiveModule("nutrition")}
         onOpenReminders={() => setActiveModule("reminder")}
         onOpenTracker={() => setActiveModule("tracker")}
         onOpenLists={() => setActiveModule("list")}
         onOpenAlarms={() => setActiveModule("alarm")}
         onOpenVault={() => setActiveModule("password")}
         onOpenProfile={() => {
-          setActiveModule("workout");
-          setActiveTab("profile");
+          setActiveModule("profile");
         }}
         onOpenSettings={() => {
-          setActiveModule("workout");
-          setActiveTab("settings");
+          setActiveModule("settings");
+        }}
+        onOpenAccount={() => setActiveModule("account")}
+        onOpenFriends={() => {
+          setFriendsInitialTab("friends");
+          setActiveModule("friends");
+        }}
+        onOpenFriendsLeaderboard={() => {
+          setFriendsInitialTab("leaderboard");
+          setActiveModule("friends");
         }}
         onResumeWorkout={resumeInterruptedWorkout}
         onEndWorkout={endInterruptedWorkout}
+        initialScrollOffset={hubScrollOffsetRef.current}
+        onScrollOffsetChange={(offset) => {
+          hubScrollOffsetRef.current = Math.max(0, offset);
+        }}
+        animateCards={!hasAnimatedHubCardsRef.current}
+        onCardsAnimated={handleHubCardsAnimated}
       />
     );
   } else if (!activePlan && activeModule === "activity") {
     content = (
       <ActivityBuddyScreen
         onBack={() => setActiveModule("hub")}
+      />
+    );
+  } else if (!activePlan && activeModule === "nutrition") {
+    content = <NutritionBuddyScreen onBack={() => setActiveModule("hub")} />;
+  } else if (!activePlan && activeModule === "account") {
+    content = <AccountScreen onBack={() => setActiveModule("hub")} />;
+  } else if (!activePlan && activeModule === "friends") {
+    content = (
+      <FriendsScreen
+        onBack={() => setActiveModule("hub")}
+        onOpenAccount={() => setActiveModule("account")}
+        initialTab={friendsInitialTab}
       />
     );
   } else if (!activePlan && activeModule === "tracker") {
@@ -1423,10 +1471,11 @@ export default function App() {
         accentSoftColor={workoutTheme.accentSoft}
       />
     );
-  } else if (!activePlan && activeModule === "workout") {
+  } else if (!activePlan && (activeModule === "workout" || activeModule === "profile" || activeModule === "settings")) {
     content = (
       <WorkoutBuddyScreen
         onBack={() => setActiveModule("hub")}
+        section={activeModule}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         planListMode={planListMode}
@@ -1510,31 +1559,56 @@ export default function App() {
           setActiveTab("plans");
         }}
         onOpenActivity={() => setActiveModule("activity")}
+        onOpenNutrition={() => setActiveModule("nutrition")}
         onOpenReminders={() => setActiveModule("reminder")}
         onOpenTracker={() => setActiveModule("tracker")}
         onOpenLists={() => setActiveModule("list")}
         onOpenAlarms={() => setActiveModule("alarm")}
         onOpenVault={() => setActiveModule("password")}
         onOpenProfile={() => {
-          setActiveModule("workout");
-          setActiveTab("profile");
+          setActiveModule("profile");
         }}
         onOpenSettings={() => {
-          setActiveModule("workout");
-          setActiveTab("settings");
+          setActiveModule("settings");
+        }}
+        onOpenAccount={() => setActiveModule("account")}
+        onOpenFriends={() => {
+          setFriendsInitialTab("friends");
+          setActiveModule("friends");
+        }}
+        onOpenFriendsLeaderboard={() => {
+          setFriendsInitialTab("leaderboard");
+          setActiveModule("friends");
         }}
         onResumeWorkout={resumeInterruptedWorkout}
         onEndWorkout={endInterruptedWorkout}
+        initialScrollOffset={hubScrollOffsetRef.current}
+        onScrollOffsetChange={(offset) => {
+          hubScrollOffsetRef.current = Math.max(0, offset);
+        }}
+        animateCards={!hasAnimatedHubCardsRef.current}
+        onCardsAnimated={handleHubCardsAnimated}
       />
     );
   }
 
   return (
-    <AppProviders themeMode={themeMode} onThemeModeChange={handleThemeModeChange}>
-      <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
-        {content}
+    <AppProviders
+      themeMode={themeMode}
+      onThemeModeChange={handleThemeModeChange}
+      localDataReady={ready}
+    >
+      <AccountOnboardingGate>
+        <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
+          <Reanimated.View
+            key={!ready ? "startup" : activePlan ? `timer-${activeSessionId ?? activePlan.id}` : activeModule}
+            entering={reduceMotion ? undefined : SCREEN_ENTERING}
+            style={{ flex: 1, backgroundColor: appBackground }}
+          >
+            {content}
+          </Reanimated.View>
 
-        <WorkoutFeedbackModals
+          <WorkoutFeedbackModals
           feedbackOpen={feedbackOpen}
           feedbackNoteOpen={feedbackNoteModalOpen}
           planName={feedbackPlanName}
@@ -1550,14 +1624,15 @@ export default function App() {
           onSubmit={() => {
             handleSubmitFeedback().catch(() => undefined);
           }}
-        />
-
-        {showSplashOverlay && (
-          <LaunchOverlay
-            opacity={splashOpacity}
           />
-        )}
+
+          {showSplashOverlay && (
+            <LaunchOverlay
+              opacity={splashOpacity}
+            />
+          )}
         </View>
+      </AccountOnboardingGate>
     </AppProviders>
   );
 }

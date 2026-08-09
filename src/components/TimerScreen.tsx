@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, BackHandler, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import {
+  AccessibilityInfo,
+  Alert,
+  Animated,
+  BackHandler,
+  Platform,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions
+} from "react-native";
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
+import Svg, { Rect } from "react-native-svg";
 import {
   Check,
   Eye,
@@ -31,7 +42,8 @@ import {
   getWorkoutTimelineProgress
 } from "../features/workout/workoutTimeline";
 import { useAudioCues } from "../hooks/useAudioCues";
-import { Button, IconButton, Surface } from "./ui";
+import { Button, IconButton, ProgressBar, Surface } from "./ui";
+import { TimerPreferenceToggle } from "./TimerPreferenceToggle";
 
 type TimerScreenProps = {
   plan: WorkoutPlan;
@@ -42,6 +54,144 @@ type TimerScreenProps = {
   accentColor?: string;
   accentSoftColor?: string;
 };
+
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
+type PhaseTimerTagProps = {
+  accentColor: string;
+  animationKey: string;
+  backgroundColor: string;
+  durationSeconds: number;
+  isCompact: boolean;
+  isRunning: boolean;
+  label: string;
+  remainingSeconds: number;
+  width: number;
+};
+
+function PhaseTimerTag({
+  accentColor,
+  animationKey,
+  backgroundColor,
+  durationSeconds,
+  isCompact,
+  isRunning,
+  label,
+  remainingSeconds,
+  width
+}: PhaseTimerTagProps) {
+  const theme = useAnthraTheme();
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const height = isCompact ? 51 : 56;
+  const strokeWidth = 2.5;
+  const inset = strokeWidth / 2;
+  const radius = (height - strokeWidth) / 2;
+  const perimeter = 2 * (width - strokeWidth - 2 * radius)
+    + 2 * (height - strokeWidth - 2 * radius)
+    + 2 * Math.PI * radius;
+  const progress = useRef(new Animated.Value(1)).current;
+  const safeDuration = Math.max(1, durationSeconds);
+  const remainingRatio = Math.max(0, Math.min(1, remainingSeconds / safeDuration));
+
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotion(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    progress.stopAnimation();
+    progress.setValue(remainingRatio);
+
+    if (isRunning && !reduceMotion && remainingSeconds > 0) {
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: remainingSeconds * 1000,
+        useNativeDriver: false
+      }).start();
+    }
+
+    return () => progress.stopAnimation();
+    // The animation runs continuously between timer or phase state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animationKey, durationSeconds, isRunning, reduceMotion]);
+
+  useEffect(() => {
+    if (reduceMotion) progress.setValue(remainingRatio);
+  }, [progress, reduceMotion, remainingRatio]);
+
+  const dashOffset = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [perimeter, 0]
+  });
+
+  return (
+    <View
+      style={{
+        width,
+        height,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: theme.radii.full,
+        backgroundColor
+      }}
+    >
+      <Svg
+        accessible={false}
+        pointerEvents="none"
+        width={width}
+        height={height}
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <Rect
+          x={inset}
+          y={inset}
+          width={width - strokeWidth}
+          height={height - strokeWidth}
+          rx={radius}
+          fill="none"
+          stroke={accentColor}
+          strokeOpacity={0.22}
+          strokeWidth={strokeWidth}
+        />
+        <AnimatedRect
+          x={inset}
+          y={inset}
+          width={width - strokeWidth}
+          height={height - strokeWidth}
+          rx={radius}
+          fill="none"
+          stroke={accentColor}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${perimeter} ${perimeter}`}
+          strokeDashoffset={dashOffset}
+        />
+      </Svg>
+      <Text
+        style={[
+          theme.typography.labelLarge,
+          {
+            color: accentColor,
+            textAlign: "center",
+            fontSize: isCompact ? 25 : 30,
+            lineHeight: isCompact ? 31 : 36,
+            fontWeight: "800",
+            letterSpacing: 2.2
+          }
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export function TimerScreen({
   plan,
@@ -370,7 +520,7 @@ export function TimerScreen({
         <View className="flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
           <View className="min-w-0 flex-1">
             <Text style={[theme.typography.label, { color: phaseAccent }]}>WORKOUT</Text>
-            <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: textPrimaryColor, marginTop: 2 }]}>
+            <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: textPrimaryColor, marginTop: theme.spacing.xs }]}>
               {plan.name}
             </Text>
           </View>
@@ -394,19 +544,7 @@ export function TimerScreen({
 
         {!focusMode && (
           <View className="flex-row items-center" style={{ gap: theme.spacing.md, marginTop: theme.spacing.md }}>
-            <View
-              accessible
-              accessibilityRole="progressbar"
-              accessibilityLabel="Workout progress"
-              accessibilityValue={{ min: 0, max: 100, now: Math.round(progressPercent) }}
-              className="flex-1 overflow-hidden rounded-full"
-              style={{ height: 4, backgroundColor: theme.colors.progressTrack }}
-            >
-              <View
-                className="rounded-full"
-                style={{ width: `${progressPercent}%`, height: 4, backgroundColor: phaseAccent }}
-              />
-            </View>
+            <ProgressBar value={progressPercent} max={100} fillColor={phaseAccent} height={theme.spacing.xs} style={{ flex: 1 }} accessibilityLabel="Workout progress" />
             <Text style={[theme.typography.caption, { color: textMutedColor }]}>{Math.round(progressPercent)}%</Text>
           </View>
         )}
@@ -420,33 +558,44 @@ export function TimerScreen({
             paddingBottom: isCompactHeight ? theme.spacing.md : theme.spacing.xl
           }}
         >
-          <View
-            style={{
-              minWidth: isActiveInterval ? Math.min(184, width - 64) : undefined,
-              paddingHorizontal: isActiveInterval ? theme.spacing["2xl"] : theme.spacing.lg,
-              paddingVertical: isActiveInterval ? theme.spacing.sm : 6,
-              borderRadius: theme.radii.full,
-              borderWidth: isActiveInterval ? 2 : 0,
-              borderColor: phaseAccent,
-              backgroundColor: phaseAccentSurface
-            }}
-          >
-            <Text
-              style={[
-                theme.typography.labelLarge,
-                {
-                  color: phaseAccent,
-                  textAlign: "center",
-                  fontSize: isActiveInterval ? (isCompactHeight ? 25 : 30) : 13,
-                  lineHeight: isActiveInterval ? (isCompactHeight ? 31 : 36) : 18,
-                  fontWeight: isActiveInterval ? "800" : "600",
-                  letterSpacing: isActiveInterval ? 2.2 : 0.9
-                }
-              ]}
+          {isActiveInterval ? (
+            <PhaseTimerTag
+              accentColor={phaseAccent}
+              animationKey={`${phase}:${segmentIndex}`}
+              backgroundColor={phaseAccentSurface}
+              durationSeconds={currentSegment?.seconds ?? remaining}
+              isCompact={isCompactHeight}
+              isRunning={isRunning}
+              label={phaseLabel}
+              remainingSeconds={remaining}
+              width={Math.min(184, width - 64)}
+            />
+          ) : (
+            <View
+              style={{
+                paddingHorizontal: theme.spacing.lg,
+                paddingVertical: theme.spacing.sm,
+                borderRadius: theme.radii.full,
+                backgroundColor: phaseAccentSurface
+              }}
             >
-              {phaseLabel}
-            </Text>
-          </View>
+              <Text
+                style={[
+                  theme.typography.labelLarge,
+                  {
+                    color: phaseAccent,
+                    textAlign: "center",
+                    fontSize: 13,
+                    lineHeight: 18,
+                    fontWeight: "600",
+                    letterSpacing: 0.9
+                  }
+                ]}
+              >
+                {phaseLabel}
+              </Text>
+            </View>
+          )}
 
           <View
             className="w-full items-center justify-center"
@@ -546,99 +695,8 @@ export function TimerScreen({
                 gap: theme.spacing.md
               }}
             >
-              <Pressable
-                onPress={() => setSoundEnabled((enabled) => !enabled)}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: soundEnabled }}
-                accessibilityLabel="Workout sounds"
-                style={({ pressed }) => ({
-                  width: Math.min(
-                    128,
-                    (width - theme.layout.screenPadding * 2 - theme.spacing.md) / 2
-                  ),
-                  minHeight: 48,
-                  gap: theme.spacing.sm,
-                  paddingHorizontal: theme.spacing.md,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: theme.radii.full,
-                  borderWidth: 1,
-                  borderColor: soundEnabled ? theme.colors.brandBorder : theme.colors.border,
-                  backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated,
-                  transform: [{ scale: pressed ? theme.motion.pressedScale : 1 }]
-                })}
-              >
-                <View
-                  className="items-center justify-center"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: theme.radii.full,
-                    backgroundColor: soundEnabled ? phaseAccentSurface : theme.colors.surfaceSubtle
-                  }}
-                >
-                  {soundEnabled
-                    ? <Volume2 accessible={false} color={phaseAccent} size={17} />
-                    : <VolumeX accessible={false} color={textMutedColor} size={17} />}
-                </View>
-                <View className="min-w-0 flex-1">
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.78}
-                    style={[theme.typography.label, { color: textPrimaryColor }]}
-                  >
-                    Sound
-                  </Text>
-                </View>
-              </Pressable>
-
-              <Pressable
-                onPress={() => setHapticsEnabled((enabled) => !enabled)}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: hapticsEnabled }}
-                accessibilityLabel="Workout vibration"
-                style={({ pressed }) => ({
-                  width: Math.min(
-                    128,
-                    (width - theme.layout.screenPadding * 2 - theme.spacing.md) / 2
-                  ),
-                  minHeight: 48,
-                  gap: theme.spacing.sm,
-                  paddingHorizontal: theme.spacing.md,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: theme.radii.full,
-                  borderWidth: 1,
-                  borderColor: hapticsEnabled ? theme.colors.brandBorder : theme.colors.border,
-                  backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated,
-                  transform: [{ scale: pressed ? theme.motion.pressedScale : 1 }]
-                })}
-              >
-                <View
-                  className="items-center justify-center"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: theme.radii.full,
-                    backgroundColor: hapticsEnabled ? phaseAccentSurface : theme.colors.surfaceSubtle
-                  }}
-                >
-                  {hapticsEnabled
-                    ? <Vibrate accessible={false} color={phaseAccent} size={17} />
-                    : <VibrateOff accessible={false} color={textMutedColor} size={17} />}
-                </View>
-                <View className="min-w-0 flex-1">
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.68}
-                    style={[theme.typography.label, { color: textPrimaryColor }]}
-                  >
-                    Vibration
-                  </Text>
-                </View>
-              </Pressable>
+              <TimerPreferenceToggle label="Sound" enabled={soundEnabled} onChange={setSoundEnabled} enabledIcon={Volume2} disabledIcon={VolumeX} accent={phaseAccent} accentSurface={phaseAccentSurface} width={Math.min(128, (width - theme.layout.screenPadding * 2 - theme.spacing.md) / 2)} />
+              <TimerPreferenceToggle label="Vibration" enabled={hapticsEnabled} onChange={setHapticsEnabled} enabledIcon={Vibrate} disabledIcon={VibrateOff} accent={phaseAccent} accentSurface={phaseAccentSurface} width={Math.min(128, (width - theme.layout.screenPadding * 2 - theme.spacing.md) / 2)} />
             </View>
           </View>
         )}
@@ -667,12 +725,12 @@ export function TimerScreen({
                 <Text style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>
                   {formatWorkoutDuration(getRunSummary(true).elapsedSeconds)}
                 </Text>
-                <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: 2 }]}>Time invested</Text>
+                <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Time invested</Text>
               </View>
               <View className="w-px" style={{ backgroundColor: theme.colors.divider }} />
               <View className="flex-1 items-center">
                 <Text style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>{timeline.workSegmentCount}</Text>
-                <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: 2 }]}>Work rounds</Text>
+                <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Work rounds</Text>
               </View>
             </Surface>
             <Button
@@ -696,11 +754,7 @@ export function TimerScreen({
             borderTopWidth: 1,
             borderTopColor: isActiveInterval ? phaseAccent : theme.colors.divider,
             backgroundColor: isActiveInterval ? phaseAccentSurface : theme.colors.canvas,
-            shadowColor: "#000000",
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: theme.isDark ? 0.22 : 0.05,
-            shadowRadius: 12,
-            elevation: 8
+            ...theme.shadows.overlay
           }}
         >
           <View

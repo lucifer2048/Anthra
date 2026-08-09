@@ -1,6 +1,7 @@
-import { ActivityIndicator, Animated, Image, Text, View } from "react-native";
+import { Animated, Image, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useAnthraTheme } from "../design-system";
+import { SkeletonBlock } from "./ui";
 
 type LaunchOverlayProps = {
   opacity: Animated.Value;
@@ -17,18 +18,17 @@ export function LaunchOverlay({ opacity }: LaunchOverlayProps) {
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: theme.colors.canvas }}>
         <StatusBar style={theme.statusBarStyle} backgroundColor={theme.colors.canvas} translucent={false} />
         <View
-          className="w-full max-w-[360px] rounded-3xl border px-8 py-10"
-          style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceElevated }}
+          style={[theme.shadows.medium, { width: "100%", maxWidth: 360, borderRadius: theme.radii["2xl"], borderWidth: theme.borderWidths.standard, borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceElevated, paddingHorizontal: theme.spacing["3xl"], paddingVertical: theme.spacing["4xl"] }]}
         >
           <View className="items-center">
-            <Image source={require("../../assets/icons/icon-red.png")} className="h-24 w-24 rounded-3xl" resizeMode="cover" />
-            <Text className="mt-5 text-4xl font-black tracking-[4px]" style={{ color: theme.colors.brand, textAlign: "center" }}>ANTHRA</Text>
-            <Text className="mt-2 text-sm font-semibold uppercase tracking-[2px]" style={{ color: theme.colors.textSecondary, textAlign: "center" }}>
+            <Image source={require("../../assets/icons/icon-red.png")} style={{ width: 96, height: 96, borderRadius: theme.radii["2xl"] }} resizeMode="cover" />
+            <Text style={[theme.typography.display, { color: theme.colors.brand, textAlign: "center", marginTop: theme.spacing.xl }]}>ANTHRA</Text>
+            <Text style={[theme.typography.eyebrow, { color: theme.colors.textSecondary, textAlign: "center", marginTop: theme.spacing.sm }]}>
               Your day, thoughtfully organized
             </Text>
-            <View className="mt-8 items-center">
-              <ActivityIndicator size="large" color={theme.colors.brand} />
-              <Text className="mt-4 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: theme.colors.textTertiary }}>
+            <View style={{ width: "100%", alignItems: "center", marginTop: theme.spacing["3xl"] }}>
+              <SkeletonBlock width="72%" height={theme.spacing.sm} radius={theme.radii.full} />
+              <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.lg }]}>
                 Loading your space…
               </Text>
             </View>

@@ -81,6 +81,17 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def anthraReleaseStoreFile = findProperty('ANTHRA_RELEASE_STORE_FILE') ?: System.getenv('ANTHRA_RELEASE_STORE_FILE')
+def anthraReleaseStorePassword = findProperty('ANTHRA_RELEASE_STORE_PASSWORD') ?: System.getenv('ANTHRA_RELEASE_STORE_PASSWORD')
+def anthraReleaseKeyAlias = findProperty('ANTHRA_RELEASE_KEY_ALIAS') ?: System.getenv('ANTHRA_RELEASE_KEY_ALIAS')
+def anthraReleaseKeyPassword = findProperty('ANTHRA_RELEASE_KEY_PASSWORD') ?: System.getenv('ANTHRA_RELEASE_KEY_PASSWORD')
+def hasAnthraReleaseSigning = [
+    anthraReleaseStoreFile,
+    anthraReleaseStorePassword,
+    anthraReleaseKeyAlias,
+    anthraReleaseKeyPassword
+].every { it != null && it.toString().trim() }
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -92,8 +103,8 @@ android {
         applicationId 'com.anthra.timer'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
-        versionName "1.0.16"
+        versionCode 29
+        versionName "1.0.29"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -104,21 +115,33 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasAnthraReleaseSigning) {
+            release {
+                storeFile rootProject.file(anthraReleaseStoreFile)
+                storePassword anthraReleaseStorePassword
+                keyAlias anthraReleaseKeyAlias
+                keyPassword anthraReleaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (hasAnthraReleaseSigning) signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
+        }
+        internal {
+            initWith release
+            signingConfig signingConfigs.debug
+            versionNameSuffix "-internal"
+            matchingFallbacks = ['release']
         }
     }
     packagingOptions {
@@ -129,6 +152,26 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def productionSigningTasks = [
+        'assembleRelease',
+        'bundleRelease',
+        'installRelease',
+        'packageRelease',
+        'publishReleaseBundle'
+    ]
+    def productionTaskRequested = graph.allTasks.any { task ->
+        task.project == project && task.name in productionSigningTasks
+    }
+    if (productionTaskRequested && !hasAnthraReleaseSigning) {
+        throw new GradleException(
+            'Production signing is not configured. Set ANTHRA_RELEASE_STORE_FILE, ' +
+            'ANTHRA_RELEASE_STORE_PASSWORD, ANTHRA_RELEASE_KEY_ALIAS, and ' +
+            'ANTHRA_RELEASE_KEY_PASSWORD. Use :app:assembleInternal for a debug-signed test APK.'
+        )
     }
 }
 
@@ -193,3 +236,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

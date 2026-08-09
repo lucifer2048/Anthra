@@ -1,35 +1,40 @@
-import type { ComponentType } from "react";
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import * as Haptics from "expo-haptics";
+import { useEffect, type ComponentType } from "react";
+import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   FadeInDown,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSpring
+  useReducedMotion
 } from "react-native-reanimated";
 import {
   AlarmClock,
   ArrowRight,
   ArrowUpRight,
   BellRing,
-  CalendarCheck2,
   ChartNoAxesCombined,
   Dumbbell,
   Flame,
   Footprints,
   KeyRound,
   ListTodo,
+  PersonStanding,
   Settings2,
-  UserRound,
+  Salad,
+  Trophy,
+  UsersRound,
   type LucideProps
 } from "lucide-react-native";
 
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import { useAnthraTheme } from "../../design-system";
 import type { ActiveWorkoutSnapshot, DashboardStats } from "../../types";
-import { Button, Card } from "../../components/ui";
+import { AnimatedPressable, Button, Card, InteractiveCard, MetricCard } from "../../components/ui";
 import { ProgressBar } from "../../components/ProgressBar";
+import { useAccount } from "../account/AccountProvider";
+import { ProfileAvatar } from "../account/ProfileAvatar";
+import { useSocial } from "../social/SocialProvider";
+import {
+  getHomeLeaderboardPositions,
+  type HomeLeaderboardPosition
+} from "../social/homeLeaderboard";
 
 type HomeAction = {
   label: string;
@@ -47,6 +52,7 @@ type AnthraHomeScreenProps = {
   onOpenWorkout: () => void;
   onChooseTodayWorkout: () => void;
   onOpenActivity: () => void;
+  onOpenNutrition: () => void;
   onOpenReminders: () => void;
   onOpenLists: () => void;
   onOpenTracker: () => void;
@@ -54,37 +60,34 @@ type AnthraHomeScreenProps = {
   onOpenVault: () => void;
   onOpenProfile: () => void;
   onOpenSettings: () => void;
+  onOpenAccount: () => void;
+  onOpenFriends: () => void;
+  onOpenFriendsLeaderboard: () => void;
   onResumeWorkout: () => void;
   onEndWorkout: () => void;
+  initialScrollOffset?: number;
+  onScrollOffsetChange?: (offset: number) => void;
+  animateCards?: boolean;
+  onCardsAnimated?: () => void;
 };
 
-function ActionCard({ action, index }: { action: HomeAction; index: number }) {
+function ActionCard({ action, index, animateCards }: { action: HomeAction; index: number; animateCards: boolean }) {
   const theme = useAnthraTheme();
   const reduceMotion = useReducedMotion();
   const { width: screenWidth } = useWindowDimensions();
-  const scale = useSharedValue(1);
   const Icon = action.icon;
   const compact = screenWidth < 360;
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  const setPressed = (pressed: boolean) => {
-    if (reduceMotion) return;
-    scale.value = withSpring(pressed ? 0.965 : 1, { damping: 17, stiffness: 320, mass: 0.55 });
-  };
 
   return (
     <Animated.View
-      entering={reduceMotion ? undefined : FadeInDown.delay(90 + index * 55).springify().damping(18).stiffness(210)}
+      entering={reduceMotion || !animateCards ? undefined : FadeInDown.delay(90 + index * 55).springify().damping(18).stiffness(210)}
       style={{ flex: 1, minWidth: 0 }}
     >
-      <Animated.View style={[{ flex: 1, width: "100%" }, animatedStyle]}>
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => undefined);
-            action.onPress();
-          }}
-          onPressIn={() => setPressed(true)}
-          onPressOut={() => setPressed(false)}
+      <Animated.View style={{ flex: 1, width: "100%" }}>
+        <AnimatedPressable
+          onPress={action.onPress}
+          haptic="selection"
+          pressScale="subtle"
           accessibilityRole="button"
           accessibilityLabel={action.label}
           accessibilityHint={action.accessibilityHint ?? action.description}
@@ -96,11 +99,7 @@ function ActionCard({ action, index }: { action: HomeAction; index: number }) {
             borderWidth: 1,
             borderColor: theme.colors.borderStrong,
             backgroundColor: theme.colors.surfaceElevated,
-            shadowColor: theme.isDark ? "#000000" : "#5E2130",
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: theme.isDark ? 0.28 : 0.07,
-            shadowRadius: 14,
-            elevation: 2
+            ...theme.shadows.medium
           }}
         >
           <View className="flex-row items-start justify-between">
@@ -122,8 +121,8 @@ function ActionCard({ action, index }: { action: HomeAction; index: number }) {
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.72}
-            maxFontSizeMultiplier={1.15}
+            minimumFontScale={0.78}
+            maxFontSizeMultiplier={1.3}
             style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}
           >
             {action.label}
@@ -131,28 +130,30 @@ function ActionCard({ action, index }: { action: HomeAction; index: number }) {
           <Text
             numberOfLines={3}
             ellipsizeMode="tail"
-            maxFontSizeMultiplier={1.15}
-            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 3 }]}
+            maxFontSizeMultiplier={1.3}
+            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
           >
             {action.description}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </Animated.View>
     </Animated.View>
   );
 }
 
-function Section({ title, actions, startIndex }: { title: string; actions: HomeAction[]; startIndex: number }) {
+function Section({ title, actions, startIndex, animateCards }: { title: string; actions: HomeAction[]; startIndex: number; animateCards: boolean }) {
   const theme = useAnthraTheme();
+  const { width, fontScale } = useWindowDimensions();
   const gap = theme.spacing.md;
-  const rowCount = Math.ceil(actions.length / 2);
+  const columns = width < 340 || fontScale >= 1.5 ? 1 : 2;
+  const rowCount = Math.ceil(actions.length / columns);
 
   return (
     <View style={{ marginTop: theme.spacing["2xl"] }}>
       <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>{title.toUpperCase()}</Text>
       <View style={{ gap }}>
         {Array.from({ length: rowCount }, (_, rowIndex) => {
-          const rowActions = actions.slice(rowIndex * 2, rowIndex * 2 + 2);
+          const rowActions = actions.slice(rowIndex * columns, rowIndex * columns + columns);
 
           return (
             <View key={rowActions[0].label} style={{ flexDirection: "row", alignItems: "stretch", gap }}>
@@ -160,10 +161,11 @@ function Section({ title, actions, startIndex }: { title: string; actions: HomeA
                 <ActionCard
                   key={action.label}
                   action={action}
-                  index={startIndex + rowIndex * 2 + columnIndex}
+                  index={startIndex + rowIndex * columns + columnIndex}
+                  animateCards={animateCards}
                 />
               ))}
-              {rowActions.length === 1 && <View style={{ flex: 1 }} />}
+              {columns === 2 && rowActions.length === 1 && <View style={{ flex: 1 }} />}
             </View>
           );
         })}
@@ -174,45 +176,190 @@ function Section({ title, actions, startIndex }: { title: string; actions: HomeA
 
 function PrimaryAction({ label, onPress }: { label: string; onPress: () => void }) {
   const theme = useAnthraTheme();
-  const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return <Button label={label} icon={ArrowRight} iconPosition="end" onPress={onPress} fullWidth size="large" style={{ marginTop: theme.spacing.xl }} />;
+}
+
+function formatLeaderboardValue(position: HomeLeaderboardPosition): string {
+  if (position.value == null) return "Not shared";
+  if (position.metric === "steps") return `${position.value.toLocaleString()} steps`;
+  if (position.metric === "workouts") return `${position.value} ${position.value === 1 ? "workout" : "workouts"}`;
+  return `${position.value} ${position.value === 1 ? "day" : "days"}`;
+}
+
+function FriendsLeaderboardCard({
+  friendCount,
+  positions,
+  onPress
+}: {
+  friendCount: number;
+  positions: HomeLeaderboardPosition[];
+  onPress: () => void;
+}) {
+  const theme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const compact = width < 390 || fontScale >= 1.25;
+  const metrics = positions.map((position) => ({
+    ...position,
+    label: position.metric === "workouts" ? "Workouts" : position.metric === "streak" ? "Streak" : "Steps",
+    icon: position.metric === "workouts" ? Dumbbell : position.metric === "streak" ? Flame : Footprints
+  }));
 
   return (
-    <Animated.View style={[{ marginTop: theme.spacing.xl }, animatedStyle]}>
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-          onPress();
-        }}
-        onPressIn={() => {
-          if (!reduceMotion) scale.value = withSpring(0.975, { damping: 18, stiffness: 320 });
-        }}
-        onPressOut={() => {
-          if (!reduceMotion) scale.value = withSpring(1, { damping: 16, stiffness: 260 });
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={label}
+    <Card
+      padding="large"
+      radius="xlarge"
+      style={{
+        marginTop: theme.spacing.md,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.surfaceElevated,
+        ...theme.shadows.medium
+      }}
+    >
+      <View
         style={{
-          minHeight: 56,
-          width: "100%",
-          paddingHorizontal: theme.spacing.lg,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-          gap: theme.spacing.sm,
-          borderRadius: theme.radii.lg,
-          borderWidth: 1,
-          borderColor: theme.colors.brandSolid,
-          borderBottomWidth: 4,
-          borderBottomColor: theme.colors.brandPressed,
-          backgroundColor: theme.colors.brandSolid
+          gap: theme.spacing.md
         }}
       >
-        <Text style={[theme.typography.labelLarge, { color: theme.colors.textOnBrandSolid }]}>{label}</Text>
-        <ArrowRight accessible={false} color={theme.colors.textOnBrandSolid} size={19} />
-      </Pressable>
-    </Animated.View>
+        <View
+          style={{
+            width: compact ? 42 : 46,
+            height: compact ? 42 : 46,
+            flexShrink: 0,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: theme.radii.md,
+            borderWidth: 1,
+            borderColor: theme.colors.brandBorder,
+            backgroundColor: theme.colors.brandSoft
+          }}
+        >
+          <Trophy accessible={false} color={theme.colors.brand} size={compact ? 20 : 22} strokeWidth={2.2} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}
+          >
+            Friends Leaderboard
+          </Text>
+          <Text
+            numberOfLines={2}
+            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
+          >
+            {friendCount} {friendCount === 1 ? "friend" : "friends"} in circle · Opt-in standings
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", marginTop: theme.spacing.xl }}>
+        {metrics.map(({ icon: MetricIcon, ...position }) => {
+          const isFirst = position.rank === 1;
+          const isRanked = position.rank != null;
+          return (
+            <View
+              key={position.metric}
+              style={{
+                minWidth: 0,
+                minHeight: 88,
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: theme.spacing.xs,
+                borderLeftWidth: position.metric === metrics[0]?.metric ? 0 : theme.borderWidths.standard,
+                borderLeftColor: theme.colors.divider
+              }}
+            >
+              <View
+                style={{
+                  width: compact ? 28 : 32,
+                  height: compact ? 28 : 32,
+                  flexShrink: 0,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: theme.radii.full,
+                  backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceElevated
+                }}
+              >
+                <MetricIcon
+                  accessible={false}
+                  color={isFirst ? theme.colors.brand : theme.colors.textSecondary}
+                  size={compact ? 14 : 16}
+                  strokeWidth={2}
+                />
+              </View>
+              <View style={{ minWidth: 0, alignItems: "center", marginTop: theme.spacing.xs }}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                  style={[theme.typography.caption, { color: theme.colors.textSecondary, textAlign: "center" }]}
+                >
+                  {position.label}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={[theme.typography.caption, { color: theme.colors.textPrimary, fontWeight: "600", textAlign: "center", marginTop: theme.spacing.xs }]}
+                >
+                  {formatLeaderboardValue(position)}
+                </Text>
+              </View>
+
+              <View style={{ alignItems: "center", marginTop: theme.spacing.xs }}>
+                {isRanked ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: theme.spacing.xs,
+                      paddingHorizontal: theme.spacing.sm,
+                      paddingVertical: theme.spacing.xxs,
+                      borderRadius: theme.radii.full,
+                      backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceElevated
+                    }}
+                  >
+                    <Text
+                      style={[
+                        theme.typography.caption,
+                        {
+                          color: isFirst ? theme.colors.brand : theme.colors.textPrimary,
+                          fontWeight: "700",
+                          fontSize: 12,
+                          lineHeight: 14
+                        }
+                      ]}
+                    >
+                      #{position.rank}
+                    </Text>
+                    <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
+                      /{position.participantCount}
+                    </Text>
+                  </View>
+                ) : (
+                  <View
+                    style={{
+                      paddingHorizontal: theme.spacing.sm,
+                      paddingVertical: theme.spacing.xxs,
+                      borderRadius: theme.radii.full,
+                      backgroundColor: theme.colors.surfaceElevated
+                    }}
+                  >
+                    <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, }]}>
+                      Off
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      <PrimaryAction label="Go to leaderboard" onPress={onPress} />
+    </Card>
   );
 }
 
@@ -224,6 +371,7 @@ export function AnthraHomeScreen({
   onOpenWorkout,
   onChooseTodayWorkout,
   onOpenActivity,
+  onOpenNutrition,
   onOpenReminders,
   onOpenLists,
   onOpenTracker,
@@ -231,14 +379,23 @@ export function AnthraHomeScreen({
   onOpenVault,
   onOpenProfile,
   onOpenSettings,
+  onOpenAccount,
+  onOpenFriends,
+  onOpenFriendsLeaderboard,
   onResumeWorkout,
-  onEndWorkout
+  onEndWorkout,
+  initialScrollOffset = 0,
+  onScrollOffsetChange,
+  animateCards = true,
+  onCardsAnimated
 }: AnthraHomeScreenProps) {
   const theme = useAnthraTheme();
+  const account = useAccount();
+  const social = useSocial();
   const backgrounds = useScreenBackgrounds();
   const reduceMotion = useReducedMotion();
   const { fontScale, width } = useWindowDimensions();
-  const shouldStackCompactRows = width < 360 || fontScale >= 1.3;
+  const shouldStackCompactRows = width < 340 || fontScale >= 1.5;
   const dateLabel = new Intl.DateTimeFormat(undefined, {
     weekday: "long",
     month: "long",
@@ -248,49 +405,96 @@ export function AnthraHomeScreen({
   const wordmarkWidth = width;
   const wordmarkFontSize = wordmarkWidth * 0.28;
 
+  useEffect(() => {
+    onCardsAnimated?.();
+  }, [onCardsAnimated]);
+
+  useEffect(() => {
+    social.refresh().catch(() => undefined);
+  }, [social.refresh]);
+
+  const homeLeaderboard = social.snapshot && social.snapshot.overview.friends.length > 0
+    ? {
+        friendCount: social.snapshot.overview.friends.length,
+        positions: getHomeLeaderboardPositions(social.snapshot.leaderboard)
+      }
+    : null;
+
   const moveActions: HomeAction[] = [
-    { label: "Workout", description: "Plans, guided timer, history, and recovery", icon: Dumbbell, onPress: onOpenWorkout },
-    { label: "Activity", description: "Steps, connected workouts, and movement streaks", icon: Footprints, onPress: onOpenActivity }
+    { label: "Workout", description: "Create plans, follow timed workouts, and track progress", icon: Dumbbell, onPress: onOpenWorkout },
+    { label: "Activity", description: "Track your steps, workouts, and movement streaks", icon: Footprints, onPress: onOpenActivity },
+    { label: "Nutrition", description: "Log meals, calories, macros, and supplements offline", icon: Salad, onPress: onOpenNutrition }
   ];
   const organizeActions: HomeAction[] = [
-    { label: "Reminders", description: `${enabledReminderCount} active · schedules and completion history`, icon: BellRing, onPress: onOpenReminders },
-    { label: "Tracker", description: "Daily wins, flexible routines, streaks, and reports", icon: ChartNoAxesCombined, onPress: onOpenTracker },
-    { label: "Lists", description: "Capture, group, and complete everyday tasks", icon: ListTodo, onPress: onOpenLists },
-    { label: "Alarms", description: "Wake-up alarms with optional movement challenges", icon: AlarmClock, onPress: onOpenAlarms }
+    { label: "Reminders", description: `Schedule important reminders and track completion · ${enabledReminderCount} active`, icon: BellRing, onPress: onOpenReminders },
+    { label: "Tracker", description: "Build routines and track your daily or weekly progress", icon: ChartNoAxesCombined, onPress: onOpenTracker },
+    { label: "Lists", description: "Create simple lists and check off everyday tasks", icon: ListTodo, onPress: onOpenLists },
+    { label: "Alarms", description: "Set alarms with optional movement challenges to dismiss", icon: AlarmClock, onPress: onOpenAlarms }
   ];
   const moreActions: HomeAction[] = [
-    { label: "Vault", description: "Credentials protected by secure storage", icon: KeyRound, onPress: onOpenVault },
-    { label: "Profile", description: "Body metrics and personal goals", icon: UserRound, onPress: onOpenProfile },
-    { label: "Settings", description: "Schedule, appearance, reminders, and backups", icon: Settings2, onPress: onOpenSettings }
+    { label: "Friends", description: "Requests, friends, sharing, and daily leaderboards", icon: UsersRound, onPress: onOpenFriends },
+    { label: "Vault", description: "Store your passwords and account details securely", icon: KeyRound, onPress: onOpenVault },
+    { label: "Body", description: "Manage your measurements, BMI, and personal goals", icon: PersonStanding, onPress: onOpenProfile },
+    { label: "Settings", description: "Customize workouts, reminders, appearance, and backups", icon: Settings2, onPress: onOpenSettings }
   ];
 
   return (
     <ScreenLayout {...backgrounds.brandWash} safeAreaEdges={["top", "left", "right"]}>
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          width: "100%",
-          maxWidth: theme.layout.contentMaxWidth,
-          alignSelf: "center",
-          paddingHorizontal: theme.layout.screenPadding,
-          paddingTop: theme.spacing.lg,
-          paddingBottom: 0
-        }}
-      >
-        <View>
-          <Text style={[theme.typography.label, { color: theme.colors.brand }]}>ANTHRA</Text>
-          <Text
-            accessibilityRole="header"
-            style={[theme.typography.headline, { color: theme.colors.textPrimary, marginTop: 2 }]}
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentOffset={{ x: 0, y: initialScrollOffset }}
+          onScroll={(event) => onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={16}
+          contentContainerStyle={{
+            width: "100%",
+            maxWidth: theme.layout.contentMaxWidth,
+            alignSelf: "center",
+            paddingHorizontal: theme.layout.screenPadding,
+            paddingTop: theme.spacing.lg,
+            paddingBottom: 0
+          }}
+        >
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.lg }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[theme.typography.label, { color: theme.colors.brand }]}>ANTHRA</Text>
+            <Text
+              accessibilityRole="header"
+              style={[theme.typography.headline, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}
+            >
+              Today
+            </Text>
+            <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{dateLabel}</Text>
+          </View>
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel={account.user ? "Open your profile" : "Sign in to Anthra"}
+            onPress={onOpenAccount}
+            style={({ pressed }) => ({
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              borderWidth: 2,
+              borderColor: account.user ? theme.colors.brandBorder : theme.colors.borderStrong,
+              backgroundColor: account.user ? theme.colors.brandSoft : theme.colors.surfaceElevated,
+              opacity: pressed ? 0.72 : 1
+            })}
           >
-            Today
-          </Text>
-          <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>{dateLabel}</Text>
+            <ProfileAvatar
+              uri={account.profile?.avatarUrl}
+              size={48}
+              fallbackColor={account.user ? theme.colors.brand : theme.colors.textSecondary}
+              backgroundColor={account.user ? theme.colors.brandSoft : theme.colors.surfaceElevated}
+            />
+          </AnimatedPressable>
         </View>
 
         <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.delay(30).springify().damping(19).stiffness(190)}
+          entering={reduceMotion || !animateCards ? undefined : FadeInDown.delay(30).springify().damping(19).stiffness(190)}
           style={{ marginTop: theme.spacing["2xl"] }}
         >
         <Card
@@ -299,11 +503,7 @@ export function AnthraHomeScreen({
           style={{
             borderBottomWidth: 3,
             borderBottomColor: theme.colors.brandBorder,
-            shadowColor: theme.isDark ? "#000000" : "#6D2436",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: theme.isDark ? 0.25 : 0.07,
-            shadowRadius: 18,
-            elevation: 3
+            ...theme.shadows.medium
           }}
         >
           <Text style={[theme.typography.label, { color: theme.colors.brand }]}>TODAY’S FOCUS</Text>
@@ -322,82 +522,8 @@ export function AnthraHomeScreen({
           </Text>
 
           <View style={{ flexDirection: shouldStackCompactRows ? "column" : "row", gap: theme.spacing.sm, marginTop: theme.spacing.xl }}>
-            <View
-              className="min-w-0"
-              style={{
-                flex: shouldStackCompactRows ? undefined : 1,
-                minHeight: 86,
-                padding: theme.spacing.md,
-                overflow: "hidden",
-                borderRadius: theme.radii.lg,
-                borderWidth: 1,
-                borderColor: theme.colors.brandBorder,
-                backgroundColor: theme.colors.surface
-              }}
-            >
-              <View style={{ minWidth: 0, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs }}>
-                <Flame accessible={false} color={theme.colors.brand} size={16} />
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  maxFontSizeMultiplier={1}
-                  style={[
-                    theme.typography.caption,
-                    { minWidth: 0, flexShrink: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15 }
-                  ]}
-                >
-                  CURRENT STREAK
-                </Text>
-              </View>
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.78}
-                maxFontSizeMultiplier={1.15}
-                style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}
-              >
-                {stats.currentStreak} {stats.currentStreak === 1 ? "day" : "days"}
-              </Text>
-            </View>
-            <View
-              className="min-w-0"
-              style={{
-                flex: shouldStackCompactRows ? undefined : 1,
-                minHeight: 86,
-                padding: theme.spacing.md,
-                overflow: "hidden",
-                borderRadius: theme.radii.lg,
-                borderWidth: 1,
-                borderColor: theme.colors.brandBorder,
-                backgroundColor: theme.colors.surface
-              }}
-            >
-              <View style={{ minWidth: 0, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs }}>
-                <CalendarCheck2 accessible={false} color={theme.colors.brand} size={16} />
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  maxFontSizeMultiplier={1}
-                  style={[
-                    theme.typography.caption,
-                    { minWidth: 0, flexShrink: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15 }
-                  ]}
-                >
-                  THIS WEEK
-                </Text>
-              </View>
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.78}
-                maxFontSizeMultiplier={1.15}
-                style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}
-              >
-                {stats.weekCompleted}/{stats.weekGoal}
-              </Text>
-            </View>
+            <MetricCard title="Current streak" value={stats.currentStreak} unit={stats.currentStreak === 1 ? "day" : "days"} style={{ flex: shouldStackCompactRows ? undefined : 1 }} />
+            <MetricCard title="This week" value={`${stats.weekCompleted}/${stats.weekGoal}`} unit="workouts" style={{ flex: shouldStackCompactRows ? undefined : 1 }} />
           </View>
           <ProgressBar
             value={weeklyPercent}
@@ -436,9 +562,17 @@ export function AnthraHomeScreen({
           </Card>
         )}
 
-        <Section title="Move" actions={moveActions} startIndex={0} />
-        <Section title="Organize" actions={organizeActions} startIndex={2} />
-        <Section title="More" actions={moreActions} startIndex={6} />
+        {homeLeaderboard ? (
+          <FriendsLeaderboardCard
+            friendCount={homeLeaderboard.friendCount}
+            positions={homeLeaderboard.positions}
+            onPress={onOpenFriendsLeaderboard}
+          />
+        ) : null}
+
+        <Section title="Move" actions={moveActions} startIndex={0} animateCards={animateCards} />
+        <Section title="Organize" actions={organizeActions} startIndex={3} animateCards={animateCards} />
+        <Section title="More" actions={moreActions} startIndex={7} animateCards={animateCards} />
 
         <View
           accessible
@@ -505,7 +639,8 @@ export function AnthraHomeScreen({
             ANTHRA
           </Text>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </ScreenLayout>
   );
 }

@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Platform, Pressable, type PressableProps } from "react-native";
+import { Platform, type PressableProps } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
+import { AnimatedPressable, type HapticMode } from "./AnimatedPressable";
 
 export type IconButtonVariant = "standard" | "ghost" | "primary" | "danger";
 export type IconButtonSize = "small" | "medium" | "large";
@@ -13,6 +13,7 @@ export type IconButtonProps = Omit<PressableProps, "children" | "disabled"> & {
   size?: IconButtonSize;
   color?: string;
   disabled?: boolean;
+  haptic?: HapticMode;
 };
 
 export function IconButton({
@@ -22,6 +23,7 @@ export function IconButton({
   size = "medium",
   color,
   disabled = false,
+  haptic = "none",
   accessibilityState,
   className,
   style,
@@ -31,7 +33,6 @@ export function IconButton({
   ...props
 }: IconButtonProps) {
   const theme = useAnthraTheme();
-  const [pressed, setPressed] = useState(false);
   const variants = {
     standard: {
       background: theme.colors.surface,
@@ -63,34 +64,30 @@ export function IconButton({
     }
   } as const;
   const sizes = {
-    small: { target: theme.layout.compactTouchTarget, icon: 18 },
-    medium: { target: theme.layout.minTouchTarget, icon: 22 },
-    large: { target: 56, icon: 24 }
+    small: { target: theme.sizes.control.compact, icon: theme.sizes.icon.sm },
+    medium: { target: theme.sizes.control.regular, icon: 22 },
+    large: { target: theme.sizes.control.large, icon: theme.sizes.icon.lg }
   } as const;
   const palette = variants[variant];
   const metrics = sizes[size];
   const foreground = disabled ? theme.colors.disabledText : (color ?? palette.foreground);
 
   return (
-    <Pressable
+    <AnimatedPressable
       {...props}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ ...accessibilityState, disabled }}
-      onPressIn={(event) => {
-        setPressed(true);
-        onPressIn?.(event);
-      }}
-      onPressOut={(event) => {
-        setPressed(false);
-        onPressOut?.(event);
-      }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      haptic={disabled ? "none" : haptic}
+      pressScale="icon"
       android_ripple={android_ripple === undefined && Platform.OS === "android"
         ? { color: variant === "primary" ? "rgba(255,255,255,0.18)" : theme.colors.surfacePressed, borderless: true }
         : android_ripple}
       className={`items-center justify-center rounded-full ${className ?? ""}`}
-      style={[
+      style={({ pressed }) => [
         {
           width: metrics.target,
           height: metrics.target,
@@ -103,12 +100,11 @@ export function IconButton({
               ? palette.pressed
               : palette.background,
           opacity: disabled ? theme.motion.disabledOpacity : 1,
-          transform: [{ scale: pressed && !disabled ? theme.motion.pressedScale : 1 }]
         },
         typeof style === "function" ? style({ pressed }) : style
       ]}
     >
       <Icon accessible={false} color={foreground} size={metrics.icon} />
-    </Pressable>
+    </AnimatedPressable>
   );
 }

@@ -3,15 +3,8 @@
     <item name="android:enforceNavigationBarContrast" tools:targetApi="29">true</item>
     <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     <item name="colorPrimary">@color/colorPrimary</item>
-    <item name="android:windowBackground">@color/app_canvas</item>
-    <item name="android:statusBarColor">@color/app_canvas</item>
-    <item name="android:navigationBarColor">@color/app_canvas</item>
-    <item name="android:windowLightStatusBar">@bool/anthra_light_system_bars</item>
-    <item name="android:windowLightNavigationBar">@bool/anthra_light_system_bars</item>
+    <item name="android:statusBarColor">#ffffff</item>
     <item name="android:forceDarkAllowed" tools:targetApi="29">false</item>
-  </style>
-  <style name="Theme.App.SplashScreen" parent="AppTheme">
-    <item name="android:windowBackground">@drawable/ic_launcher_background</item>
   </style>
   <style name="AlarmChallengeTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
     <item name="android:windowBackground">#000000</item>
@@ -21,5 +14,8 @@
     <item name="android:windowLightNavigationBar">false</item>
     <item name="android:enforceNavigationBarContrast" tools:targetApi="29">false</item>
     <item name="android:forceDarkAllowed" tools:targetApi="29">false</item>
+  </style>
+  <style name="Theme.App.SplashScreen" parent="AppTheme">
+    <item name="android:windowBackground">@drawable/ic_launcher_background</item>
   </style>
 </resources>

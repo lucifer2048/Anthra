@@ -9,6 +9,9 @@ export type WeekdayPickerProps = {
   onChange: (days: number[]) => void;
   /** When true, at least one day must remain selected. */
   requireOne?: boolean;
+  variant?: "chip" | "card";
+  disabled?: boolean;
+  error?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -17,6 +20,9 @@ export function WeekdayPicker({
   value,
   onChange,
   requireOne = false,
+  variant = "chip",
+  disabled = false,
+  error,
   style
 }: WeekdayPickerProps) {
   const theme = useAnthraTheme();
@@ -57,14 +63,17 @@ export function WeekdayPicker({
                 selected={active}
                 onPress={() => toggle(day.value)}
                 size="comfortable"
+                variant={variant}
                 equal
                 accessibilityRole="checkbox"
                 accessibilityLabelPrefix={day.label}
+                disabled={disabled}
               />
             </View>
           );
         })}
       </View>
+      {error ? <Text accessibilityRole="alert" style={[theme.typography.caption, { color: theme.colors.danger, marginTop: theme.spacing.xs }]}>{error}</Text> : null}
     </View>
   );
 }

@@ -104,7 +104,7 @@ Add new tokens in `createScreenBackgrounds()` — do not hardcode fills in scree
 - `ScreenLayout` = outer chrome (background + safe area + status bar)
 - `ScreenShell` = optional inner composition (header + padded scroll + footer)
 
-`ScreenShell` must render **inside** `ScreenLayout` (or compose `ScreenLayout` itself). It must not mount its own competing `SafeAreaView` background.
+`ScreenShell` composes `ScreenLayout`; do not wrap it in another layout or safe-area container. Its standard slots are `header`, scrollable `children`, optional `refreshControl`, `stickyFooter`, and `bottomTab`. It automatically assigns the bottom inset to the footer/tab owner and keeps body content clear of persistent actions.
 
 ## App shell
 

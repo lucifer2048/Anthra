@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   Text,
   TextInput,
   useWindowDimensions,
@@ -34,7 +33,8 @@ import {
 } from "../features/workout/workoutTimeline";
 import type { Exercise, WorkoutPlan, WorkoutPlanInput, WorkoutSection } from "../types";
 import { ScreenLayout, useScreenBackgrounds } from "./layout";
-import { Button, ChoiceRow, IconButton, KeyboardAwareScrollView, Surface, TextField, WeekdayPicker } from "./ui";
+import { AnimatedPressable, Button, ChoiceRow, IconButton, KeyboardAwareScrollView, ResponsiveFieldRow, SheetDialog, StickyFormFooter, Surface, TextField, WeekdayPicker } from "./ui";
+import { ExerciseEditorSheet, PlanBasicsSection, PlanScheduleSection, SetEditorSheet, WorkoutSetCard } from "./PlanEditorSections";
 
 type EditableExercise = {
   id?: number;
@@ -241,7 +241,7 @@ export function PlanEditorModal({
   const theme = useAnthraTheme();
   const backgrounds = useScreenBackgrounds();
   const { fontScale, width } = useWindowDimensions();
-  const shouldStackControls = width < 420 || fontScale >= 1.2;
+  const shouldStackControls = width < 360 || fontScale >= 1.35;
   const isEditing = useMemo(() => Boolean(initialPlan), [initialPlan]);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -950,7 +950,7 @@ export function PlanEditorModal({
           >
             <View className="min-w-0 flex-1">
               <Text style={[theme.typography.label, { color: theme.colors.brand }]}>WORKOUT PLAN</Text>
-              <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: 2 }]}>
+              <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>
                 {isEditing ? "Edit plan" : "Create a plan"}
               </Text>
               <Text
@@ -958,7 +958,7 @@ export function PlanEditorModal({
                   theme.typography.caption,
                   {
                     color: draftSaveStatus === "error" ? theme.colors.danger : theme.colors.textSecondary,
-                    marginTop: 2
+                    marginTop: theme.spacing.xs
                   }
                 ]}
               >
@@ -1009,6 +1009,7 @@ export function PlanEditorModal({
               </Surface>
             )}
 
+            <PlanBasicsSection>
             <TextField
               label="Plan name"
               value={name}
@@ -1031,7 +1032,7 @@ export function PlanEditorModal({
                 <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Choose a starter, then adjust every interval to fit your training.</Text>
                 <View className="mt-3 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
                   {PLAN_TEMPLATES.map((template) => (
-                    <Pressable
+                    <AnimatedPressable
                       key={template.name}
                       onPress={() => applyTemplate(template)}
                       accessibilityRole="button"
@@ -1044,12 +1045,14 @@ export function PlanEditorModal({
                       })}
                     >
                       <Text style={[theme.typography.label, { color: theme.colors.brand }]}>{template.name}</Text>
-                    </Pressable>
+                    </AnimatedPressable>
                   ))}
                 </View>
               </Surface>
             )}
+            </PlanBasicsSection>
 
+            <PlanScheduleSection>
             <Surface
               variant="brand"
               padding="medium"
@@ -1066,7 +1069,7 @@ export function PlanEditorModal({
               </View>
               <View className="min-w-0 flex-1">
                 <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>Estimated duration</Text>
-                <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: 2 }]}>{estimatedDurationLabel}</Text>
+                <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{estimatedDurationLabel}</Text>
               </View>
               <View className="items-end">
                 <Text style={[theme.typography.titleMedium, { color: theme.colors.brand }]}>{exerciseCount}</Text>
@@ -1094,11 +1097,12 @@ export function PlanEditorModal({
                 style={{ marginTop: theme.spacing.md }}
               />
             </Surface>
+            </PlanScheduleSection>
 
             <View className="mt-6 flex-row items-end" style={{ gap: theme.spacing.md }}>
               <View className="min-w-0 flex-1">
                 <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>Sets</Text>
-                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>They run from top to bottom, including every loop and rest.</Text>
+                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>They run from top to bottom, including every loop and rest.</Text>
               </View>
               <View className="flex-row items-center" style={{ gap: theme.spacing.xs }}>
                 <Layers3 accessible={false} color={theme.colors.brand} size={19} />
@@ -1107,17 +1111,12 @@ export function PlanEditorModal({
             </View>
 
             {sections.map((section, sectionIndex) => (
-              <Surface
+              <WorkoutSetCard
                 key={section.localId}
-                variant="default"
-                padding="medium"
-                radius="large"
-                bordered
-                style={{ marginTop: theme.spacing.lg }}
               >
                 <Text style={[theme.typography.label, { color: theme.colors.brand }]}>SET {sectionIndex + 1}</Text>
                 <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{section.name}</Text>
-                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>
+                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
                   {section.loopsText} {section.loopsText === "1" ? "loop" : "loops"} · {section.restSecondsText}s set rest
                 </Text>
 
@@ -1157,8 +1156,8 @@ export function PlanEditorModal({
                     style={{ marginTop: theme.spacing.md }}
                   >
                     <Text style={[theme.typography.caption, { color: theme.colors.brand }]}>EXERCISE {exerciseIndex + 1}</Text>
-                    <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: 2 }]}>{exercise.name || "Unnamed"}</Text>
-                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>Work {exercise.workSecondsText}s · Rest {exercise.restSecondsText}s</Text>
+                    <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{exercise.name || "Unnamed"}</Text>
+                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Work {exercise.workSecondsText}s · Rest {exercise.restSecondsText}s</Text>
                     <View className="mt-2 flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
                       <View className="flex-row" style={{ gap: theme.spacing.xs }}>
                         <IconButton icon={ArrowUp} onPress={() => moveExercise(section.localId, exerciseIndex, -1)} disabled={exerciseIndex === 0} accessibilityLabel={`Move ${exercise.name} up`} variant="ghost" size="small" />
@@ -1180,61 +1179,14 @@ export function PlanEditorModal({
                   <Button label="Add exercise" icon={Plus} onPress={() => openExerciseModal(section.localId)} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
                   <Button label="Edit set" icon={Pencil} onPress={() => openSetModal(section)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
                 </View>
-              </Surface>
+              </WorkoutSetCard>
             ))}
           </KeyboardAwareScrollView>
 
-          <View
-            className="border-t px-5 pb-3 pt-3"
-            style={{ borderColor: theme.colors.divider, backgroundColor: theme.colors.surface }}
-          >
-            <View
-              style={{
-                width: "100%",
-                maxWidth: theme.layout.contentMaxWidth,
-                alignSelf: "center",
-                flexDirection: shouldStackControls ? "column" : "row",
-                gap: theme.spacing.md
-              }}
-            >
-              <Button label="Add set" icon={Plus} onPress={() => openSetModal()} variant="outline" size="large" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
-              <Button label="Save plan" onPress={save} loading={saving} variant="primary" size="large" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
-            </View>
-          </View>
+          <StickyFormFooter ownsSafeArea={false} primaryAction={{ label: "Save plan", onPress: save, loading: saving }} secondaryAction={{ label: "Add set", icon: Plus, onPress: () => openSetModal() }} />
         </KeyboardAvoidingView>
 
-        <Modal visible={setModalVisible} transparent animationType="fade" onRequestClose={() => setSetModalVisible(false)}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1"
-            style={{ backgroundColor: theme.colors.scrim }}
-          >
-            <KeyboardAwareScrollView
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-              contentContainerStyle={{
-                flexGrow: 1,
-                justifyContent: "center",
-                paddingHorizontal: theme.spacing.xl,
-                paddingVertical: theme.spacing.xl
-              }}
-            >
-              <Surface
-                variant="elevated"
-                padding="large"
-                radius="xlarge"
-                bordered
-                accessibilityViewIsModal
-                style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
-              >
-              <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
-                <View className="min-w-0 flex-1">
-                  <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>{setModalMode === "edit" ? "Edit set" : "Add a set"}</Text>
-                  <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Define its loop count and the recovery before the next set.</Text>
-                </View>
-                <IconButton icon={X} onPress={() => setSetModalVisible(false)} accessibilityLabel="Close set editor" variant="ghost" />
-              </View>
+        <SetEditorSheet visible={setModalVisible} title={setModalMode === "edit" ? "Edit set" : "Add a set"} subtitle="Define its loop count and the recovery before the next set." onClose={() => setSetModalVisible(false)} actionLabel={setModalMode === "edit" ? "Save set" : "Create set"} onSave={saveSetFromModal}>
 
               <TextField
                 ref={setNameInputRef}
@@ -1250,10 +1202,10 @@ export function PlanEditorModal({
                 required
                 containerStyle={{ marginTop: theme.spacing.lg }}
               />
-              <View className="mt-3" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
+              <ResponsiveFieldRow style={{ marginTop: theme.spacing.md }}>
                 <TextField ref={setLoopsInputRef} label="Loops (1–20)" value={newSetLoopsText} onChangeText={(value) => setNewSetLoopsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => setRestInputRef.current?.focus()} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
                 <TextField ref={setRestInputRef} label="Rest (0–600s)" value={newSetRestSecondsText} onChangeText={(value) => setNewSetRestSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="done" onSubmitEditing={saveSetFromModal} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
-              </View>
+              </ResponsiveFieldRow>
 
               <ChoiceRow
                 label="Quick set rest"
@@ -1268,47 +1220,9 @@ export function PlanEditorModal({
                 style={{ marginTop: theme.spacing.lg }}
               />
 
-                <View className="mt-5" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
-                  <Button label="Cancel" onPress={() => setSetModalVisible(false)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
-                  <Button label={setModalMode === "edit" ? "Save set" : "Create set"} onPress={saveSetFromModal} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
-                </View>
-              </Surface>
-            </KeyboardAwareScrollView>
-          </KeyboardAvoidingView>
-        </Modal>
+        </SetEditorSheet>
 
-        <Modal visible={exerciseModalVisible} transparent animationType="fade" onRequestClose={() => setExerciseModalVisible(false)}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1"
-            style={{ backgroundColor: theme.colors.scrim }}
-          >
-            <KeyboardAwareScrollView
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-              contentContainerStyle={{
-                flexGrow: 1,
-                justifyContent: "center",
-                paddingHorizontal: theme.spacing.xl,
-                paddingVertical: theme.spacing.xl
-              }}
-            >
-              <Surface
-                variant="elevated"
-                padding="large"
-                radius="xlarge"
-                bordered
-                accessibilityViewIsModal
-                style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
-              >
-              <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
-                <View className="min-w-0 flex-1">
-                  <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>{exerciseModalMode === "edit" ? "Edit exercise" : "Add an exercise"}</Text>
-                  <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Set the work interval and recovery that follows it.</Text>
-                </View>
-                <IconButton icon={X} onPress={() => setExerciseModalVisible(false)} accessibilityLabel="Close exercise editor" variant="ghost" />
-              </View>
+        <ExerciseEditorSheet visible={exerciseModalVisible} title={exerciseModalMode === "edit" ? "Edit exercise" : "Add an exercise"} subtitle="Set the work interval and recovery that follows it." onClose={() => setExerciseModalVisible(false)} actionLabel={exerciseModalMode === "edit" ? "Save exercise" : "Create exercise"} onSave={saveExerciseFromModal}>
 
               <TextField
                 ref={exerciseNameInputRef}
@@ -1324,10 +1238,10 @@ export function PlanEditorModal({
                 required
                 containerStyle={{ marginTop: theme.spacing.lg }}
               />
-              <View className="mt-3" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
+              <ResponsiveFieldRow style={{ marginTop: theme.spacing.md }}>
                 <TextField ref={exerciseWorkInputRef} label="Work (1–3600s)" value={newExerciseWorkSecondsText} onChangeText={(value) => setNewExerciseWorkSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => exerciseRestInputRef.current?.focus()} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
                 <TextField ref={exerciseRestInputRef} label="Rest (0–600s)" value={newExerciseRestSecondsText} onChangeText={(value) => setNewExerciseRestSecondsText(digitsOnly(value))} keyboardType="number-pad" selectTextOnFocus returnKeyType="done" onSubmitEditing={saveExerciseFromModal} containerStyle={{ flex: shouldStackControls ? undefined : 1 }} />
-              </View>
+              </ResponsiveFieldRow>
 
               <ChoiceRow
                 label="Quick work / rest"
@@ -1346,14 +1260,7 @@ export function PlanEditorModal({
                 style={{ marginTop: theme.spacing.lg }}
               />
 
-                <View className="mt-5" style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}>
-                  <Button label="Cancel" onPress={() => setExerciseModalVisible(false)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
-                  <Button label={exerciseModalMode === "edit" ? "Save exercise" : "Create exercise"} onPress={saveExerciseFromModal} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
-                </View>
-              </Surface>
-            </KeyboardAwareScrollView>
-          </KeyboardAvoidingView>
-        </Modal>
+        </ExerciseEditorSheet>
       </ScreenLayout>
     </Modal>
   );

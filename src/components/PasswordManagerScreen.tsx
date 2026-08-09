@@ -19,7 +19,7 @@ import {
 import { useAnthraTheme } from "../design-system";
 import type { VaultEntry } from "../types";
 import { ScreenLayout, useScreenBackgrounds } from "./layout";
-import { Button, Card, ScreenHeader, StatusBanner, Surface, SwitchRow, TextField } from "./ui";
+import { AnimatedPressable, Button, Card, ScreenHeader, StatusBanner, Surface, SwitchRow, TextField, ToastBanner } from "./ui";
 
 type PasswordManagerScreenProps = {
   keyboardBottomPadding: number;
@@ -510,34 +510,7 @@ export function PasswordManagerScreen({
         )}
       </ScrollView>
 
-      {(notice || copyNotice) && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            zIndex: 100,
-            elevation: 12,
-            top: headerHeight + anthraTheme.spacing.md,
-            left: anthraTheme.layout.screenPadding,
-            right: anthraTheme.layout.screenPadding
-          }}
-        >
-          <StatusBanner
-            title={copyNotice ? "Copied securely" : notice?.type === "success" ? "Vault updated" : "Vault needs attention"}
-            message={copyNotice || notice?.message}
-            variant={copyNotice || notice?.type === "success" ? "success" : "danger"}
-            style={{
-              width: "100%",
-              maxWidth: 520,
-              alignSelf: "center",
-              shadowColor: anthraTheme.isDark ? "#000000" : "#5D1B16",
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: anthraTheme.isDark ? 0.38 : 0.18,
-              shadowRadius: 18
-            }}
-          />
-        </View>
-      )}
+      <ToastBanner visible={Boolean(notice || copyNotice)} topOffset={headerHeight + anthraTheme.spacing.md} title={copyNotice ? "Copied securely" : notice?.type === "success" ? "Vault updated" : "Vault needs attention"} message={copyNotice || notice?.message} variant={copyNotice || notice?.type === "success" ? "success" : "danger"} />
     </ScreenLayout>
   );
 }

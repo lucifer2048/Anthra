@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "805252168071",
+    "project_id": "anthra-ed44c",
+    "storage_bucket": "anthra-ed44c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805252168071:android:58d04c9d85ea51ad34bb22",
+        "android_client_info": {
+          "package_name": "com.anthra.timer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAy3vDLTIigmo5ankUfRppODk1I9BwIObE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

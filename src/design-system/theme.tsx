@@ -11,13 +11,17 @@ import { useColorScheme as useSystemColorScheme } from "react-native";
 import { useColorScheme as useNativeWindColorScheme } from "nativewind";
 import {
   darkColors,
+  borderWidths,
+  createThemeShadows,
   layout,
   lightColors,
   motion,
   radii,
   spacing,
+  sizes,
   typography,
-  type SemanticColors
+  type SemanticColors,
+  type ThemeShadows
 } from "./tokens";
 
 export type ThemeMode = "system" | "light" | "dark";
@@ -29,10 +33,13 @@ export type ResolvedTheme = Readonly<{
   statusBarStyle: "light" | "dark";
   colors: SemanticColors;
   spacing: typeof spacing;
+  sizes: typeof sizes;
+  borderWidths: typeof borderWidths;
   radii: typeof radii;
   typography: typeof typography;
   motion: typeof motion;
   layout: typeof layout;
+  shadows: ThemeShadows;
 }>;
 
 const lightTheme: ResolvedTheme = Object.freeze({
@@ -41,10 +48,13 @@ const lightTheme: ResolvedTheme = Object.freeze({
   statusBarStyle: "dark",
   colors: lightColors,
   spacing,
+  sizes,
+  borderWidths,
   radii,
   typography,
   motion,
-  layout
+  layout,
+  shadows: createThemeShadows(false)
 });
 
 const darkTheme: ResolvedTheme = Object.freeze({
@@ -53,10 +63,13 @@ const darkTheme: ResolvedTheme = Object.freeze({
   statusBarStyle: "light",
   colors: darkColors,
   spacing,
+  sizes,
+  borderWidths,
   radii,
   typography,
   motion,
-  layout
+  layout,
+  shadows: createThemeShadows(true)
 });
 
 export const themes = Object.freeze({ light: lightTheme, dark: darkTheme });

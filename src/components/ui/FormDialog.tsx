@@ -11,6 +11,8 @@ import {
   type ViewStyle
 } from "react-native";
 import { X, type LucideIcon } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useReducedMotion } from "react-native-reanimated";
 import { useAnthraTheme } from "../../design-system";
 import { Button } from "./Button";
 import { IconButton } from "./IconButton";
@@ -39,6 +41,7 @@ export type FormDialogProps = {
   keyboardAware?: boolean;
   maxWidth?: number;
   contentStyle?: StyleProp<ViewStyle>;
+  backdropDismissEnabled?: boolean;
 };
 
 function DialogFooter({
@@ -103,9 +106,12 @@ export function FormDialog({
   children,
   keyboardAware = true,
   maxWidth = 520,
-  contentStyle
+  contentStyle,
+  backdropDismissEnabled = true
 }: FormDialogProps) {
   const theme = useAnthraTheme();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const { fontScale, width } = useWindowDimensions();
   const stack = width < 420 || fontScale >= 1.2;
 
@@ -146,7 +152,7 @@ export function FormDialog({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={backdropDismissEnabled ? onClose : undefined}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -161,7 +167,8 @@ export function FormDialog({
               flexGrow: 1,
               justifyContent: "center",
               paddingHorizontal: theme.spacing.xl,
-              paddingVertical: theme.spacing.xl
+              paddingTop: theme.spacing.xl + insets.top,
+              paddingBottom: theme.spacing.xl + insets.bottom
             }}
           >
             {body}
@@ -170,7 +177,7 @@ export function FormDialog({
           <Pressable
             className="flex-1 justify-center"
             style={{ paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.xl }}
-            onPress={onClose}
+            onPress={backdropDismissEnabled ? onClose : undefined}
           >
             <Pressable onPress={(event) => event.stopPropagation()}>{body}</Pressable>
           </Pressable>
@@ -191,6 +198,8 @@ export type SheetDialogProps = {
   error?: string | null;
   children: ReactNode;
   footer?: ReactNode;
+  backdropDismissEnabled?: boolean;
+  showDragHandle?: boolean;
 };
 
 export function SheetDialog({
@@ -203,20 +212,29 @@ export function SheetDialog({
   destructiveAction,
   error,
   children,
-  footer
+  footer,
+  backdropDismissEnabled = true,
+  showDragHandle = true
 }: SheetDialogProps) {
   const theme = useAnthraTheme();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const { fontScale, width } = useWindowDimensions();
+  const stackActions = width < 360 || fontScale >= 1.35;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "slide"} onRequestClose={backdropDismissEnabled ? onClose : undefined}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1 justify-end"
         style={{ backgroundColor: theme.colors.scrim }}
       >
-        <Pressable className="flex-1" onPress={onClose} accessibilityLabel="Dismiss" />
+        <Pressable className="flex-1" onPress={backdropDismissEnabled ? onClose : undefined} accessibilityLabel={backdropDismissEnabled ? "Dismiss" : undefined} />
         <View
-          style={{
+          style={[{
+            width: "100%",
+            maxWidth: theme.layout.contentMaxWidth,
+            alignSelf: "center",
             borderTopLeftRadius: theme.radii["2xl"],
             borderTopRightRadius: theme.radii["2xl"],
             backgroundColor: theme.colors.surfaceElevated,
@@ -225,9 +243,10 @@ export function SheetDialog({
             maxHeight: "92%",
             paddingHorizontal: theme.layout.screenPadding,
             paddingTop: theme.spacing.lg,
-            paddingBottom: theme.spacing["2xl"]
-          }}
+            paddingBottom: theme.spacing.lg + insets.bottom
+          }, theme.shadows.overlay]}
         >
+          {showDragHandle ? <View accessible={false} style={{ width: theme.spacing["4xl"], height: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.borderStrong, alignSelf: "center", marginBottom: theme.spacing.md }} /> : null}
           <View className="flex-row items-start" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
             <View className="min-w-0 flex-1">
               <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
@@ -260,7 +279,7 @@ export function SheetDialog({
               primaryAction={primaryAction}
               secondaryAction={secondaryAction}
               destructiveAction={destructiveAction}
-              stack
+              stack={stackActions}
             />
           ) : null}
         </View>

@@ -3,7 +3,6 @@ import {
   Alert,
   BackHandler,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   View
@@ -25,6 +24,7 @@ import {
 } from "../../db";
 import type { ListBuddyCategory, ListBuddyItem } from "../../types";
 import {
+  AnimatedPressable,
   Button,
   Card,
   EmptyState,
@@ -33,6 +33,7 @@ import {
   ProgressBar,
   ScreenHeader,
   SectionHeader,
+  SkeletonCard,
   StatusBanner,
   TextField
 } from "../../components/ui";
@@ -58,6 +59,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
   const [quickItemText, setQuickItemText] = useState("");
   const [recentlyClearedItems, setRecentlyClearedItems] = useState<ListBuddyItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [itemError, setItemError] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
@@ -98,7 +100,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
   useEffect(() => {
     refreshCategories().catch((error) => {
       setLoadError(error instanceof Error ? error.message : "Could not load your lists.");
-    });
+    }).finally(() => setInitialLoading(false));
   }, [refreshCategories]);
 
   useEffect(() => {
@@ -349,14 +351,10 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
           borderWidth: 1,
           borderColor: colors.brandBorder,
           backgroundColor: colors.surfaceElevated,
-          shadowColor: anthraTheme.isDark ? "#000000" : "#6D2436",
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: anthraTheme.isDark ? 0.2 : 0.06,
-          shadowRadius: 8,
-          elevation: 1
+          ...anthraTheme.shadows.low
         }}
       >
-        <Pressable
+        <AnimatedPressable
           onPress={() => {
             setSelectedCategoryId(category.id);
             setRecentlyClearedItems([]);
@@ -435,7 +433,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
               </View>
             )}
           </View>
-        </Pressable>
+        </AnimatedPressable>
       </View>
     );
   };
@@ -483,6 +481,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
           paddingBottom: spacing["4xl"]
         }}
       >
+        {initialLoading ? <SkeletonCard rows={3} /> : null}
         {loadError && (
           <View style={{ marginBottom: spacing.lg }}>
             <StatusBanner title="Lists need attention" message={loadError} variant="danger" />
@@ -515,7 +514,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
               </View>
             </Card>
 
-            {categories.length === 0 ? (
+            {initialLoading ? null : categories.length === 0 ? (
               <EmptyState
                 icon={ListTodo}
                 title="Create your first list"
@@ -728,7 +727,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                       borderBottomColor: colors.divider
                     }}
                   >
-                    <Pressable
+                    <AnimatedPressable
                       onPress={() => handleToggleItem(item)}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: item.completed }}
@@ -768,7 +767,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                       >
                         {item.text}
                       </Text>
-                    </Pressable>
+                    </AnimatedPressable>
 
                     <View className="flex-row" style={{ gap: spacing.xs }}>
                       <IconButton

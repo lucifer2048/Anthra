@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState, BackHandler, Keyboard, Platform } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as Haptics from "expo-haptics";
 
 import { PasswordManagerScreen } from "../../components/PasswordManagerScreen";
 import { VaultEntryModal } from "../../components/VaultEntryModal";
@@ -179,6 +180,7 @@ export function VaultBuddyScreen({ onBack }: VaultBuddyScreenProps) {
         clearCopiedVaultPassword().catch(() => undefined);
       }, 30_000);
       setVaultNotice({ type: "success", message: "Password copied. Clipboard clears in 30 seconds." });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
     },
     [clearCopiedVaultPassword]
   );
@@ -238,6 +240,7 @@ export function VaultBuddyScreen({ onBack }: VaultBuddyScreenProps) {
         }
 
         vaultPinAttemptRef.current = registerVaultPinSuccess();
+        if (mode === "reveal") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
         try {
           if (mode === "reveal") {
             setRevealedVaultIds((prev) => (prev.includes(entryId) ? prev : [...prev, entryId]));
@@ -290,10 +293,12 @@ export function VaultBuddyScreen({ onBack }: VaultBuddyScreenProps) {
             ? "Incorrect PIN."
             : `Incorrect PIN. Try again in ${nextStatus.remainingWaitSeconds} seconds.`
         );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
         return;
       }
 
       vaultPinAttemptRef.current = registerVaultPinSuccess();
+      if (requestedMode !== "copy") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
 
       if (requestedMode === "unlock") {
         const entries = await getVaultEntries();
@@ -318,6 +323,7 @@ export function VaultBuddyScreen({ onBack }: VaultBuddyScreenProps) {
       if (!requestIsCurrent()) return;
       const message = error instanceof Error ? error.message : "Could not verify PIN.";
       setPinModalError(message);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
     } finally {
       if (requestIsCurrent()) setPinVerifying(false);
     }

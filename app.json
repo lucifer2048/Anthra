@@ -3,7 +3,7 @@
     "name": "Anthra",
     "slug": "anthra",
     "scheme": "anthra",
-    "version": "1.0.16",
+    "version": "1.0.29",
     "icon": "./assets/icons/icon-red.png",
     "notification": {
       "icon": "./assets/icons/notification-icon-white.png",
@@ -35,11 +35,21 @@
           "faceIDPermission": "Allow Anthra to use Face ID to unlock Password Buddy."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Anthra to choose profile and meal photos.",
+          "cameraPermission": "Allow Anthra to photograph meals for nutrition analysis.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "android": {
+      "googleServicesFile": "./google-services.json",
       "package": "com.anthra.timer",
-      "versionCode": 16,
+      "versionCode": 29,
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false,
       "blockedPermissions": [
@@ -53,19 +63,28 @@
         "backgroundImage": "./assets/icons/adaptive-icon-background-black.png"
       },
       "permissions": [
-        "CAMERA",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "ACTIVITY_RECOGNITION",
+        "android.permission.CAMERA",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_EXERCISE",
-        "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "SCHEDULE_EXACT_ALARM",
-        "USE_FULL_SCREEN_INTENT",
-        "WAKE_LOCK"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.WAKE_LOCK",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
       ]
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2fae3e07-1038-4e38-8b2c-6d790cd33cc1"
+      }
+    },
+    "owner": "psy-holdings"
   }
 }

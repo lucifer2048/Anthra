@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Text, TextInput, useWindowDimens
 import { Eye, EyeOff, KeyRound, ShieldCheck, WandSparkles } from "lucide-react-native";
 
 import { useAnthraTheme } from "../design-system";
-import { Button, Card, KeyboardAwareScrollView, StatusBanner, TextField } from "./ui";
+import { Button, FormDialog, TextField } from "./ui";
 import {
   INITIAL_VAULT_EDITOR_PRIVACY_STATE,
   vaultEditorPrivacyReducer,
@@ -83,71 +83,7 @@ function VaultEntryEditor(props: VaultEntryModalProps) {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={closeEditor}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1, backgroundColor: anthraTheme.colors.scrim }}
-      >
-        <KeyboardAwareScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            paddingHorizontal: anthraTheme.spacing.xl,
-            paddingVertical: anthraTheme.spacing["3xl"]
-          }}
-        >
-          <Card
-            accessibilityViewIsModal
-            variant="elevated"
-            padding="large"
-            style={{ width: "100%", maxWidth: anthraTheme.layout.contentMaxWidth, alignSelf: "center" }}
-          >
-            <View className="flex-row items-start" style={{ gap: anthraTheme.spacing.md }}>
-              <View
-                className="items-center justify-center"
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: anthraTheme.radii.md,
-                  backgroundColor: anthraTheme.colors.brandSoft
-                }}
-              >
-                <KeyRound accessible={false} color={anthraTheme.colors.brand} size={23} />
-              </View>
-              <View className="min-w-0 flex-1">
-                <Text style={[anthraTheme.typography.label, { color: anthraTheme.colors.brand }]}>SECURE ENTRY</Text>
-                <Text
-                  accessibilityRole="header"
-                  style={[
-                    anthraTheme.typography.titleLarge,
-                    { color: anthraTheme.colors.textPrimary, marginTop: 2 }
-                  ]}
-                >
-                  {props.editing ? "Edit credential" : "Add credential"}
-                </Text>
-              </View>
-            </View>
-
-            <Text
-              style={[
-                anthraTheme.typography.body,
-                { color: anthraTheme.colors.textSecondary, marginTop: anthraTheme.spacing.md }
-              ]}
-            >
-              Details are stored in your protected on-device vault.
-            </Text>
-
-            {props.error.length > 0 && (
-              <StatusBanner
-                title="Couldn’t save credential"
-                message={props.error}
-                variant="danger"
-                style={{ marginTop: anthraTheme.spacing.lg }}
-              />
-            )}
+    <FormDialog visible title={props.editing ? "Edit credential" : "Add credential"} subtitle="Details are stored in your protected on-device vault." onClose={closeEditor} backdropDismissEnabled={!props.saving && !privacyState.generating} error={props.error || null} primaryAction={{ label: "Save credential", icon: ShieldCheck, onPress: props.onSave, loading: props.saving }} secondaryAction={{ label: "Cancel", onPress: closeEditor, disabled: props.saving }} maxWidth={anthraTheme.layout.contentMaxWidth}>
 
             <TextField
               ref={appNameInputRef}
@@ -242,36 +178,6 @@ function VaultEntryEditor(props: VaultEntryModalProps) {
               />
             </View>
 
-            <View
-              style={{
-                flexDirection: shouldStackActions ? "column" : "row",
-                gap: anthraTheme.spacing.md,
-                paddingTop: anthraTheme.spacing.xl,
-                marginTop: anthraTheme.spacing.xl,
-                borderTopWidth: 1,
-                borderTopColor: anthraTheme.colors.divider
-              }}
-            >
-              <Button
-                label="Cancel"
-                variant="outline"
-                onPress={closeEditor}
-                accessibilityLabel="Cancel password entry"
-                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
-              />
-              <Button
-                label="Save credential"
-                icon={ShieldCheck}
-                onPress={props.onSave}
-                loading={props.saving}
-                disabled={props.saving}
-                accessibilityLabel="Save password entry"
-                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
-              />
-            </View>
-          </Card>
-        </KeyboardAwareScrollView>
-      </KeyboardAvoidingView>
-    </Modal>
+    </FormDialog>
   );
 }

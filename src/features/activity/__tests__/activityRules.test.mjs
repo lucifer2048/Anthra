@@ -136,7 +136,9 @@ test("legacy backup versions remain supported", () => {
   assert.equal(isSupportedAnthraBackupVersion(2), true);
   assert.equal(isSupportedAnthraBackupVersion(3), true);
   assert.equal(isSupportedAnthraBackupVersion(4), true);
-  assert.equal(isSupportedAnthraBackupVersion(5), false);
+  assert.equal(isSupportedAnthraBackupVersion(5), true);
+  assert.equal(isSupportedAnthraBackupVersion(6), true);
+  assert.equal(isSupportedAnthraBackupVersion(7), false);
 
   const v1 = normalizeLegacyBackupTables(1, { plans: [] });
   assert.deepEqual(v1.alarms, []);
@@ -150,4 +152,6 @@ test("legacy backup versions remain supported", () => {
     user_settings: [{ id: 1, notificationsEnabled: 1 }]
   });
   assert.equal(v3.user_settings[0].reminderDelivery, "notification");
+  assert.deepEqual(v3.activity_daily_summary, []);
+  assert.deepEqual(v3.nutrition_entries, []);
 });

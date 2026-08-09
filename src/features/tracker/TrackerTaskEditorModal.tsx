@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { Calendar1, CalendarDays, CalendarRange, Check, Repeat2, type LucideIcon } from "lucide-react-native";
+import { Text, View } from "react-native";
+import { Calendar1, CalendarRange, Repeat2, type LucideIcon } from "lucide-react-native";
 
 import { normalizeDays } from "../../constants/schedule";
-import { Button, ScreenHeader, StatusBanner, SwitchRow, TextField, TimePickerField, WeekdayPicker } from "../../components/ui";
+import { ChoiceRow, DatePickerField, SheetDialog, StatusBanner, SwitchRow, TextField, TimePickerField, WeekdayPicker } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { dateKeyInTimeZone } from "../activity/activityStats";
 import { shiftTrackerDate } from "./trackerStats";
@@ -48,8 +47,6 @@ export function TrackerTaskEditorModal({
   onSave
 }: Props) {
   const theme = useAnthraTheme();
-  const { width, fontScale } = useWindowDimensions();
-  const stackRecurrenceOptions = width < 520 || fontScale >= 1.15;
   const today = dateKeyInTimeZone(Date.now(), timezone);
   const [title, setTitle] = useState("");
   const [recurrence, setRecurrence] = useState<TrackerRecurrence>("daily");
@@ -58,7 +55,6 @@ export function TrackerTaskEditorModal({
   const [notificationEnabled, setNotificationEnabled] = useState(false);
   const [hour, setHour] = useState(9);
   const [minute, setMinute] = useState(0);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -70,7 +66,6 @@ export function TrackerTaskEditorModal({
     setNotificationEnabled(task?.notificationEnabled ?? false);
     setHour(task?.notificationHour ?? 9);
     setMinute(task?.notificationMinute ?? 0);
-    setDatePickerOpen(false);
     setError("");
   }, [task, today, visible]);
 
@@ -101,9 +96,7 @@ export function TrackerTaskEditorModal({
     const [year, month, day] = onceDate.split("-").map(Number);
     return new Date(year, month - 1, day, 12);
   })();
-  const handleDate = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === "android") setDatePickerOpen(false);
-    if (event.type === "dismissed" || !selected) return;
+  const handleDate = (selected: Date) => {
     setOnceDate(
       `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`
     );
@@ -117,27 +110,14 @@ export function TrackerTaskEditorModal({
     : undefined;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: theme.colors.canvas }}>
-        <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingHorizontal: theme.layout.screenPadding }}>
-          <ScreenHeader
-            eyebrow="TRACKER BUDDY"
-            title={task ? "Edit task" : "New task"}
-            subtitle={task ? "Changes begin today after confirmation" : "Build it around your routine"}
-            onBack={onClose}
-            backLabel="Close task editor"
-          />
-        </View>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            width: "100%",
-            maxWidth: theme.layout.contentMaxWidth,
-            alignSelf: "center",
-            padding: theme.layout.screenPadding,
-            paddingBottom: theme.spacing["6xl"]
-          }}
-        >
+    <SheetDialog
+      visible={visible}
+      title={task ? "Edit task" : "New task"}
+      subtitle={task ? "Changes begin today after confirmation" : "Build it around your routine"}
+      onClose={onClose}
+      backdropDismissEnabled={!saving}
+      primaryAction={{ label: task ? "Review changes" : "Add task", onPress: submit, loading: saving }}
+    >
           {error ? <StatusBanner variant="danger" title="Check this task" message={error} style={{ marginBottom: theme.spacing.lg }} /> : null}
           <TextField
             label="Task name"
@@ -149,86 +129,7 @@ export function TrackerTaskEditorModal({
             returnKeyType="done"
           />
 
-          <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm }]}>REPEATS</Text>
-          <View
-            style={{
-              flexDirection: stackRecurrenceOptions ? "column" : "row",
-              gap: theme.spacing.sm
-            }}
-          >
-            {RECURRENCE.map((option) => {
-              const selected = recurrence === option.value;
-              const OptionIcon = option.icon;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setRecurrence(option.value)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected, checked: selected }}
-                  style={({ pressed }) => ({
-                    flex: stackRecurrenceOptions ? undefined : 1,
-                    minWidth: 0,
-                    minHeight: stackRecurrenceOptions ? 76 : 112,
-                    flexDirection: stackRecurrenceOptions ? "row" : "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: theme.spacing.md,
-                    gap: stackRecurrenceOptions ? theme.spacing.md : 0,
-                    borderRadius: theme.radii.lg,
-                    borderWidth: 2,
-                    borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
-                    backgroundColor: selected ? theme.colors.brandSoft : pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated
-                  })}
-                >
-                  <View style={{
-                    width: 34,
-                    height: 34,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: theme.radii.full,
-                    backgroundColor: selected ? theme.colors.surface : theme.colors.surfaceSubtle
-                  }}>
-                    <OptionIcon accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={18} />
-                  </View>
-                  <View
-                    style={{
-                      width: stackRecurrenceOptions ? undefined : "100%",
-                      flex: stackRecurrenceOptions ? 1 : undefined,
-                      minWidth: 0,
-                      alignItems: stackRecurrenceOptions ? "flex-start" : "center"
-                    }}
-                  >
-                    <Text
-                      style={[
-                        theme.typography.bodyStrong,
-                        {
-                          width: "100%",
-                          color: selected ? theme.colors.brand : theme.colors.textPrimary,
-                          marginTop: stackRecurrenceOptions ? 0 : theme.spacing.sm,
-                          textAlign: stackRecurrenceOptions ? "left" : "center"
-                        }
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    <Text
-                      style={[
-                        theme.typography.caption,
-                        {
-                          width: "100%",
-                          color: theme.colors.textSecondary,
-                          marginTop: 2,
-                          textAlign: stackRecurrenceOptions ? "left" : "center"
-                        }
-                      ]}
-                    >
-                      {option.description}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <ChoiceRow label="Repeats" options={RECURRENCE} value={recurrence} onChange={setRecurrence} layout="equal" variant="card" style={{ marginTop: theme.spacing.xl }} />
 
           {recurrence === "weekdays" && (
             <WeekdayPicker
@@ -240,44 +141,7 @@ export function TrackerTaskEditorModal({
           )}
 
           {recurrence === "once" && (
-            <View style={{ marginTop: theme.spacing.lg }}>
-              <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>DATE</Text>
-              <Pressable
-                onPress={() => setDatePickerOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Task date, ${formatDate(onceDate)}`}
-                style={({ pressed }) => ({
-                  minHeight: 56,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: theme.spacing.md,
-                  paddingHorizontal: theme.spacing.lg,
-                  borderRadius: theme.radii.lg,
-                  borderWidth: 2,
-                  borderColor: theme.colors.borderStrong,
-                  backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated
-                })}
-              >
-                <CalendarDays color={theme.colors.brand} size={20} />
-                <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary, flex: 1 }]}>{formatDate(onceDate)}</Text>
-                <Text style={[theme.typography.label, { color: theme.colors.brand }]}>Change</Text>
-              </Pressable>
-              {datePickerOpen && (
-                <View style={Platform.OS === "ios" ? { marginTop: theme.spacing.sm, borderRadius: theme.radii.lg, backgroundColor: theme.colors.surfaceSubtle } : undefined}>
-                  <DateTimePicker
-                    value={pickerDate}
-                    mode="date"
-                    display={Platform.OS === "ios" ? "inline" : "default"}
-                    minimumDate={new Date()}
-                    maximumDate={maximumDate}
-                    onChange={handleDate}
-                    themeVariant={theme.mode}
-                    accentColor={theme.colors.brand}
-                  />
-                  {Platform.OS === "ios" && <Button label="Done" variant="secondary" onPress={() => setDatePickerOpen(false)} fullWidth />}
-                </View>
-              )}
-            </View>
+            <DatePickerField label="Date" value={pickerDate} onChange={handleDate} minimumDate={new Date()} maximumDate={maximumDate} style={{ marginTop: theme.spacing.lg }} />
           )}
 
           <View style={{ marginTop: theme.spacing.xl }}>
@@ -306,17 +170,6 @@ export function TrackerTaskEditorModal({
             </View>
           )}
 
-          <Button
-            label={task ? "Review changes" : "Add task"}
-            icon={Check}
-            onPress={submit}
-            loading={saving}
-            fullWidth
-            size="large"
-            style={{ marginTop: theme.spacing["2xl"] }}
-          />
-        </ScrollView>
-      </View>
-    </Modal>
+    </SheetDialog>
   );
 }

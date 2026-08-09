@@ -7,6 +7,7 @@ import {
   type TextInputProps,
   type ViewStyle
 } from "react-native";
+import Animated, { FadeIn, FadeOut, useReducedMotion } from "react-native-reanimated";
 import type { LucideIcon } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
 import { useFocusedInputScroller } from "./KeyboardAwareScrollView";
@@ -21,6 +22,8 @@ export type TextFieldProps = Omit<TextInputProps, "editable"> & {
   trailing?: ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
   containerClassName?: string;
+  reserveMessageSpace?: boolean;
+  showCharacterCount?: boolean;
 };
 
 export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
@@ -34,6 +37,8 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
     trailing,
     containerStyle,
     containerClassName,
+    reserveMessageSpace = false,
+    showCharacterCount = false,
     accessibilityLabel,
     accessibilityState,
     className,
@@ -49,6 +54,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
 ) {
   const theme = useAnthraTheme();
   const revealFocusedInput = useFocusedInputScroller();
+  const reduceMotion = useReducedMotion();
   const [focused, setFocused] = useState(false);
   const borderColor = error
     ? theme.colors.danger
@@ -66,13 +72,13 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       <View
         className="w-full flex-row items-center"
         style={{
-          minHeight: multiline ? 120 : 56,
+          minHeight: multiline ? theme.layout.multilineFieldHeight : theme.sizes.control.large,
           alignItems: multiline ? "flex-start" : "center",
           gap: theme.spacing.sm,
           paddingHorizontal: theme.spacing.lg,
           paddingVertical: multiline ? theme.spacing.md : theme.spacing.sm,
           borderRadius: theme.radii.lg,
-          borderWidth: 1,
+          borderWidth: theme.borderWidths.standard,
           borderColor,
           backgroundColor: disabled ? theme.colors.disabledSurface : theme.colors.surfaceSubtle
         }}
@@ -116,21 +122,27 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
         {trailing}
       </View>
 
-      {(error || helperText) && (
-        <Text
-          accessibilityRole={error ? "alert" : undefined}
-          accessibilityLiveRegion={error ? "assertive" : "polite"}
-          style={[
-            theme.typography.caption,
-            {
-              color: error ? theme.colors.danger : theme.colors.textSecondary,
-              marginTop: theme.spacing.xs
-            }
-          ]}
-        >
-          {error ?? helperText}
-        </Text>
-      )}
+      {reserveMessageSpace || error || helperText || showCharacterCount ? <View style={{ minHeight: theme.typography.caption.lineHeight + theme.spacing.xs, flexDirection: "row", gap: theme.spacing.sm }}>
+        {error || helperText ? (
+          <Animated.Text
+            entering={reduceMotion ? undefined : FadeIn.duration(theme.motion.duration.fast)}
+            exiting={reduceMotion ? undefined : FadeOut.duration(theme.motion.duration.fast)}
+            accessibilityRole={error ? "alert" : undefined}
+            accessibilityLiveRegion={error ? "assertive" : "polite"}
+            style={[
+              theme.typography.caption,
+              { flex: 1, color: error ? theme.colors.danger : theme.colors.textSecondary, marginTop: theme.spacing.xs }
+            ]}
+          >
+            {error ?? helperText}
+          </Animated.Text>
+        ) : <View style={{ flex: 1 }} />}
+        {showCharacterCount && props.maxLength ? (
+          <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs, fontVariant: ["tabular-nums"] }]}>
+            {String(props.value ?? props.defaultValue ?? "").length}/{props.maxLength}
+          </Text>
+        ) : null}
+      </View> : null}
     </View>
   );
 });

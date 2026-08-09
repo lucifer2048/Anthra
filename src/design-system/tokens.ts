@@ -1,4 +1,4 @@
-import { Platform, type TextStyle } from "react-native";
+import { Platform, StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 /**
  * Anthra's raw semantic color roles. Components should consume these roles
@@ -116,6 +116,27 @@ export const spacing = {
   "6xl": 64
 } as const;
 
+export const sizes = {
+  control: {
+    compact: 44,
+    regular: 48,
+    large: 56
+  },
+  icon: {
+    xs: 16,
+    sm: 18,
+    md: 20,
+    lg: 24,
+    xl: 32
+  }
+} as const;
+
+export const borderWidths = {
+  hairline: StyleSheet.hairlineWidth,
+  standard: 1,
+  focused: 2
+} as const;
+
 export const radii = {
   none: 0,
   sm: 8,
@@ -127,7 +148,10 @@ export const radii = {
 } as const;
 
 type TypographyToken = Readonly<
-  Pick<TextStyle, "fontFamily" | "fontSize" | "lineHeight" | "fontWeight" | "letterSpacing">
+  Pick<
+    TextStyle,
+    "fontFamily" | "fontSize" | "lineHeight" | "fontWeight" | "letterSpacing" | "fontVariant"
+  >
 >;
 
 const systemFontFamily = Platform.select({
@@ -147,7 +171,16 @@ export const typography = {
   bodyStrong: { fontFamily: systemFontFamily, fontSize: 15, lineHeight: 22, fontWeight: "600", letterSpacing: 0 },
   labelLarge: { fontFamily: systemFontFamily, fontSize: 15, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1 },
   label: { fontFamily: systemFontFamily, fontSize: 13, lineHeight: 18, fontWeight: "600", letterSpacing: 0.15 },
-  caption: { fontFamily: systemFontFamily, fontSize: 12, lineHeight: 17, fontWeight: "400", letterSpacing: 0.1 }
+  caption: { fontFamily: systemFontFamily, fontSize: 12, lineHeight: 16, fontWeight: "400", letterSpacing: 0.1 },
+  eyebrow: { fontFamily: systemFontFamily, fontSize: 12, lineHeight: 16, fontWeight: "700", letterSpacing: 0.8 },
+  metric: {
+    fontFamily: systemFontFamily,
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    fontVariant: ["tabular-nums"]
+  }
 } as const satisfies Record<string, TypographyToken>;
 
 export const motion = {
@@ -163,14 +196,60 @@ export const motion = {
     emphasized: [0.2, 0, 0, 1.2]
   },
   pressedScale: 0.98,
+  pressedScales: {
+    subtle: 0.99,
+    tactile: 0.975,
+    icon: 0.94
+  },
+  spring: {
+    press: { damping: 18, stiffness: 420, mass: 0.7 },
+    release: { damping: 16, stiffness: 300, mass: 0.75 },
+    sheet: { damping: 24, stiffness: 260, mass: 0.9 }
+  },
   disabledOpacity: 0.52
 } as const;
 
+export type ThemeShadows = Readonly<{
+  none: ViewStyle;
+  low: ViewStyle;
+  medium: ViewStyle;
+  overlay: ViewStyle;
+}>;
+
+export function createThemeShadows(isDark: boolean): ThemeShadows {
+  const color = isDark ? "#000000" : "#4B2028";
+  return Object.freeze({
+    none: Object.freeze({ shadowOpacity: 0, elevation: 0 }),
+    low: Object.freeze({
+      shadowColor: color,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.16 : 0.06,
+      shadowRadius: 6,
+      elevation: isDark ? 1 : 2
+    }),
+    medium: Object.freeze({
+      shadowColor: color,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.2 : 0.09,
+      shadowRadius: 12,
+      elevation: isDark ? 2 : 4
+    }),
+    overlay: Object.freeze({
+      shadowColor: color,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.24 : 0.14,
+      shadowRadius: 20,
+      elevation: isDark ? 4 : 8
+    })
+  });
+}
+
 export const layout = {
-  minTouchTarget: 48,
-  compactTouchTarget: 44,
+  minTouchTarget: sizes.control.regular,
+  compactTouchTarget: sizes.control.compact,
   screenPadding: 20,
-  contentMaxWidth: 720
+  contentMaxWidth: 720,
+  multilineFieldHeight: 120
 } as const;
 
 export const designTokens = {
@@ -179,6 +258,8 @@ export const designTokens = {
     dark: darkColors
   },
   spacing,
+  sizes,
+  borderWidths,
   radii,
   typography,
   motion,

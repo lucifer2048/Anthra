@@ -7,3 +7,17 @@ yarn-debug.*
 yarn-error.*
 *.log
 
+.env
+.env.*
+!.env.example
+
+# Production Android signing material must never be committed.
+*.jks
+*.keystore
+!android/app/debug.keystore
+android/keystore.properties
+
+# Firebase Admin / FCM service-account keys are secrets. The Android client
+# configuration file named google-services.json is intentionally not ignored.
+firebase-service-account*.json
+*-firebase-adminsdk-*.json

@@ -9,29 +9,44 @@ import {
   Linking,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   useWindowDimensions,
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CheckCircle2, Clock3, History as HistoryIcon, Trash2 } from "lucide-react-native";
+import {
+  BellRing,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CircleAlert,
+  Clock3,
+  History as HistoryIcon,
+  Search,
+  Trash2,
+  X
+} from "lucide-react-native";
 
 import { ReminderTabBar, type ReminderTab } from "../../components/ReminderTabBar";
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import {
+  AnimatedPressable,
   Button,
   Card,
+  ChoiceRow,
+  DisclosureCard,
+  EmptyState,
   IconButton,
   KeyboardAwareScrollView,
   ScreenHeader,
   StatusBanner,
   SwitchRow,
   TextField,
-  TimePickerField
+  TimePickerField,
+  WeekdayPicker
 } from "../../components/ui";
-import { WEEKDAY_OPTIONS, normalizeDays } from "../../constants/schedule";
+import { WEEKDAY_OPTIONS } from "../../constants/schedule";
 import { useAnthraTheme } from "../../design-system";
 import {
   deleteReminderItem,
@@ -54,6 +69,7 @@ import {
   sendTestNotification,
   type NotificationHealth
 } from "../../utils/notificationHealth";
+import { ReminderEditorSheet } from "./ReminderEditorSheet";
 import { formatTimestampInTimeZone, getDeviceTimeZone } from "../../utils/timezone";
 import { validateOneTimeReminder } from "../../utils/reminderValidation";
 import {
@@ -90,7 +106,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
   const { colors, isDark } = theme;
   const { fontScale, width: windowWidth } = useWindowDimensions();
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), []);
-  const shouldStackActions = windowWidth < 420 || fontScale >= 1.2;
+  const shouldStackActions = windowWidth < 360 || fontScale >= 1.35;
   const reminderCalendarDaySize = Math.max(
     32,
     Math.min(40, Math.floor((Math.min(windowWidth, 640) - 104) / 7))
@@ -115,6 +131,8 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
   const [notificationHealth, setNotificationHealth] = useState<NotificationHealth | null>(null);
   const [notificationHealthLoading, setNotificationHealthLoading] = useState(false);
   const [notificationTestNotice, setNotificationTestNotice] = useState<string | null>(null);
+  const [notificationPanelExpanded, setNotificationPanelExpanded] = useState(false);
+  const [reminderSearchText, setReminderSearchText] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const keyboardBottomPadding = keyboardHeight > 0 ? keyboardHeight + 16 : 24;
@@ -202,6 +220,23 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
   }, [reminderNotice]);
 
   useEffect(() => {
+    if (
+      notificationHealth &&
+      (!notificationHealth.supported || notificationHealth.permission !== "granted")
+    ) {
+      setNotificationPanelExpanded(true);
+    }
+  }, [notificationHealth]);
+
+  const handleScreenBack = useCallback(() => {
+    if (reminderTrackerView === "history") {
+      setReminderTrackerView("reminders");
+      return;
+    }
+    onBack();
+  }, [onBack, reminderTrackerView]);
+
+  useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (keyboardHeight > 0) {
@@ -215,10 +250,14 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
         }
         return true;
       }
+      if (reminderTrackerView === "history") {
+        setReminderTrackerView("reminders");
+        return true;
+      }
       return false;
     });
     return () => subscription.remove();
-  }, [keyboardHeight, reminderEditorOpen, reminderSaving]);
+  }, [keyboardHeight, reminderEditorOpen, reminderSaving, reminderTrackerView]);
 
   const openReminderEditor = (item?: ReminderItem) => {
     setReminderSaving(false);
@@ -256,18 +295,6 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
     });
     setReminderCalendarMonth(getReminderCalendarMonthFromDateLabel(dateLabel));
     setReminderEditorOpen(true);
-  };
-
-  const toggleReminderDay = (day: number) => {
-    setReminderForm((prev) => {
-      const nextDays = prev.days.includes(day)
-        ? prev.days.filter((value) => value !== day)
-        : normalizeDays([...prev.days, day]);
-      return {
-        ...prev,
-        days: nextDays
-      };
-    });
   };
 
   const handleSaveReminder = async () => {
@@ -509,6 +536,39 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
     () => reminderItems.filter((item) => item.enabled).length,
     [reminderItems]
   );
+  const filteredReminderItems = useMemo(() => {
+    const query = reminderSearchText.trim().toLocaleLowerCase();
+    if (!query) return reminderItems;
+    return reminderItems.filter((item) =>
+      [
+        item.title,
+        item.note,
+        formatReminderModeLabel(item.mode),
+        formatReminderSchedule(item)
+      ].some((value) => value.toLocaleLowerCase().includes(query))
+    );
+  }, [reminderItems, reminderSearchText]);
+  const notificationNeedsAttention = Boolean(
+    notificationHealth &&
+    (!notificationHealth.supported || notificationHealth.permission !== "granted")
+  );
+  const notificationStatusLabel = notificationHealthLoading
+    ? "Checking…"
+    : notificationNeedsAttention
+      ? "Needs attention"
+      : notificationHealth?.permission === "granted"
+        ? "Working"
+        : "Not checked";
+  const notificationStatusColor = notificationNeedsAttention
+    ? theme.colors.warning
+    : notificationHealth?.permission === "granted"
+      ? theme.colors.success
+      : colors.textSecondary;
+  const notificationStatusBackground = notificationNeedsAttention
+    ? theme.colors.warningSoft
+    : notificationHealth?.permission === "granted"
+      ? theme.colors.successSoft
+      : colors.surfaceSubtle;
 
   return (
     <>
@@ -522,8 +582,8 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
             eyebrow="ORGANIZE"
             title="Reminders"
             subtitle={`${enabledReminderCount} active · ${deviceTimeZone}`}
-            onBack={() => onBack()}
-            backLabel="Back to Today"
+            onBack={handleScreenBack}
+            backLabel={reminderTrackerView === "history" ? "Back to Reminders" : "Back to Today"}
             action={<Button label="New" size="small" onPress={() => openReminderEditor()} />}
             style={{ width: "100%", maxWidth: theme.layout.contentMaxWidth, alignSelf: "center" }}
           />
@@ -546,87 +606,109 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
             </Text>
           </View>
 
-          <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
-            <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
-              <View className="min-w-0 flex-1">
-                <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: colors.brand }}>
-                  Notifications
-                </Text>
-                <Text className="mt-1 text-base font-bold" style={{ color: colors.textPrimary }}>
-                  {notificationHealthLoading
-                    ? "Checking device status…"
-                    : notificationHealth?.permission === "granted"
-                      ? `${notificationHealth.reminderCount} scheduled`
-                      : `Permission: ${notificationHealth?.permission ?? "unknown"}`}
-                </Text>
-              </View>
-              {notificationHealthLoading && <ActivityIndicator size="small" color={colors.brand} />}
-            </View>
-            <Text className="mt-3 text-sm font-semibold" style={{ color: colors.textSecondary }}>
-              {notificationHealth?.nextReminderTriggerAt
-                ? `Next: ${formatTimestampInTimeZone(notificationHealth.nextReminderTriggerAt, deviceTimeZone)}`
-                : notificationHealth?.supported === false
-                  ? "Use a development build to test native notifications."
-                  : "No upcoming reminder notification detected."}
-            </Text>
-            <View
-              className="mt-4"
-              style={{ flexDirection: shouldStackActions ? "column" : "row", gap: theme.spacing.sm }}
-            >
-              <Button
-                label="Send test"
-                onPress={() => handleSendTestNotification().catch(() => undefined)}
-                variant="secondary"
-                size="small"
-                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
-              />
-              <Button
-                label="System settings"
-                onPress={() => Linking.openSettings().catch(() => undefined)}
-                variant="outline"
-                size="small"
-                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
-              />
-            </View>
-            {notificationTestNotice && (
-              <Text className="mt-3 text-sm font-semibold" style={{ color: colors.brand }}>
-                {notificationTestNotice}
-              </Text>
-            )}
-          </View>
+          {reminderTrackerView === "reminders" && (
+            <DisclosureCard title="Notification status" summary={notificationHealthLoading ? "Checking device status…" : notificationStatusLabel} expanded={notificationPanelExpanded} onExpandedChange={setNotificationPanelExpanded} style={{ marginTop: theme.spacing.lg }}>
+                  <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                    {notificationHealthLoading
+                      ? "Checking device status…"
+                      : notificationHealth?.permission === "granted"
+                        ? `${notificationHealth.reminderCount} scheduled`
+                        : `Permission: ${notificationHealth?.permission ?? "unknown"}`}
+                  </Text>
+                  <Text className="mt-2 text-sm font-semibold" style={{ color: colors.textSecondary }}>
+                    {notificationHealth?.nextReminderTriggerAt
+                      ? `Next: ${formatTimestampInTimeZone(notificationHealth.nextReminderTriggerAt, deviceTimeZone)}`
+                      : notificationHealth?.supported === false
+                        ? "Use a development build to test native notifications."
+                        : "No upcoming reminder notification detected."}
+                  </Text>
+                  <View
+                    className="mt-4"
+                    style={{ flexDirection: shouldStackActions ? "column" : "row", gap: theme.spacing.sm }}
+                  >
+                    <Button
+                      label="Send test"
+                      onPress={() => handleSendTestNotification().catch(() => undefined)}
+                      variant="secondary"
+                      size="small"
+                      style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
+                    />
+                    <Button
+                      label="System settings"
+                      onPress={() => Linking.openSettings().catch(() => undefined)}
+                      variant="outline"
+                      size="small"
+                      style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
+                    />
+                  </View>
+                  {notificationTestNotice && (
+                    <Text className="mt-3 text-sm font-semibold" style={{ color: colors.brand }}>
+                      {notificationTestNotice}
+                    </Text>
+                  )}
+            </DisclosureCard>
+          )}
           {reminderTrackerView === "reminders" && (
             <>
-              {reminderItems.length === 0 && (
-                <View className="mt-4 rounded-2xl border border-dashed p-5" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
-                  <Text className="text-base" style={{ color: colors.textSecondary }}>No reminders yet.</Text>
-                </View>
+              <TextField
+                label="Search reminders"
+                value={reminderSearchText}
+                onChangeText={setReminderSearchText}
+                placeholder="Search by title, note, or schedule"
+                leadingIcon={Search}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Search reminders by title, note, or schedule"
+                containerStyle={{ marginTop: theme.spacing.lg }}
+                trailing={reminderSearchText.length > 0 ? (
+                  <IconButton
+                    icon={X}
+                    size="small"
+                    variant="ghost"
+                    accessibilityLabel="Clear reminder search"
+                    onPress={() => setReminderSearchText("")}
+                  />
+                ) : undefined}
+              />
+              {reminderItems.length === 0 && <EmptyState icon={BellRing} title="No reminders yet" description="Create a one-time or repeating reminder when you’re ready." style={{ marginTop: theme.spacing.lg }} />}
+              {reminderItems.length > 0 && filteredReminderItems.length === 0 && (
+                <Card variant="subtle" padding="large" style={{ alignItems: "center", marginTop: theme.spacing.lg }}>
+                  <View
+                    className="items-center justify-center"
+                    style={{ width: 48, height: 48, borderRadius: theme.radii.full, backgroundColor: colors.brandSoft }}
+                  >
+                    <Search accessible={false} color={colors.brand} size={22} />
+                  </View>
+                  <Text className="mt-3 text-base font-bold" style={{ color: colors.textPrimary }}>
+                    No reminders found
+                  </Text>
+                  <Text className="mt-1 text-center text-sm" style={{ color: colors.textSecondary }}>
+                    Try a different title, note, or schedule.
+                  </Text>
+                  <Button
+                    label="Clear search"
+                    variant="ghost"
+                    size="small"
+                    onPress={() => setReminderSearchText("")}
+                    style={{ marginTop: theme.spacing.md }}
+                  />
+                </Card>
               )}
-              {reminderItems.map((item) => (
+              {filteredReminderItems.map((item) => (
                 <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
                   <View className="flex-row items-start justify-between">
                     <View className="min-w-0 flex-1 pr-3">
                       <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{item.title}</Text>
-                      <Text className="mt-1 text-xs font-black uppercase tracking-[1.2px]" style={{ color: colors.brand }}>
+                      <Text style={[theme.typography.eyebrow, { color: colors.brand, marginTop: theme.spacing.xs }]}>
                         {formatReminderModeLabel(item.mode)}
                       </Text>
-                      <Text className="mt-1 text-sm font-semibold uppercase tracking-[1.2px]" style={{ color: colors.textSecondary }}>
+                      <Text style={[theme.typography.label, { color: colors.textSecondary, marginTop: theme.spacing.xs }]}>
                         {formatReminderSchedule(item)}
                       </Text>
                       {item.note.trim().length > 0 && <Text className="mt-2 text-base" style={{ color: colors.textSecondary }}>{item.note}</Text>}
                     </View>
                     <View className="items-end" style={{ gap: theme.spacing.xs }}>
-                      <Pressable
-                        onPress={() => handleToggleReminder(item).catch(() => undefined)}
-                        accessibilityRole="switch"
-                        accessibilityLabel={`${item.title} reminder`}
-                        accessibilityState={{ checked: item.enabled }}
-                        className="min-h-[44px] items-center justify-center rounded-full px-3 py-2"
-                        style={{ backgroundColor: item.enabled ? withAlpha(colors.brand, 0.22) : withAlpha(colors.textPrimary, 0.1) }}
-                      >
-                        <Text className="text-xs font-black uppercase" style={{ color: item.enabled ? colors.brand : colors.textSecondary }}>
-                          {item.enabled ? "On" : "Off"}
-                        </Text>
-                      </Pressable>
                       <IconButton
                         icon={Trash2}
                         onPress={() => handleDeleteReminder(item)}
@@ -636,6 +718,13 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                       />
                     </View>
                   </View>
+                  <SwitchRow
+                    label="Reminder enabled"
+                    description={item.enabled ? "Notifications are scheduled." : "This reminder is paused."}
+                    value={item.enabled}
+                    onValueChange={() => handleToggleReminder(item).catch(() => undefined)}
+                    style={{ marginTop: theme.spacing.md }}
+                  />
                   <Button
                     label="Edit reminder"
                     onPress={() => openReminderEditor(item)}
@@ -770,60 +859,13 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                 width: "100%",
                 maxWidth: 520,
                 alignSelf: "center",
-                shadowColor: isDark ? "#000000" : reminderNotice.type === "success" ? "#173D2B" : "#5D1B16",
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: isDark ? 0.34 : 0.18,
-                shadowRadius: 18,
-                elevation: 10
+                ...theme.shadows.overlay
               }}
             />
           </View>
         )}
       </ScreenLayout>
-      <Modal
-        visible={reminderEditorOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setReminderEditorOpen(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
-          style={{ backgroundColor: theme.colors.scrim }}
-        >
-          <SafeAreaView
-            edges={["bottom"]}
-            style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 16 }}
-          >
-          <View
-            accessibilityViewIsModal
-            className="w-full rounded-3xl border p-5"
-            style={{ borderColor: colors.border,
-              backgroundColor: colors.surfaceElevated,
-              maxWidth: 640,
-              maxHeight: "92%",
-              alignSelf: "center"
-            }}
-          >
-            <Text accessibilityRole="header" className="text-2xl font-black" style={{ color: colors.textPrimary }}>
-              {reminderForm.id ? "Edit Reminder" : "New Reminder"}
-            </Text>
-            {reminderEditorError.length > 0 && (
-              <StatusBanner
-                className="mt-3"
-                title="Check this reminder"
-                message={reminderEditorError}
-                variant="danger"
-              />
-            )}
-            <KeyboardAwareScrollView
-              className="mt-2"
-              style={{ flexShrink: 1 }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-              contentContainerStyle={{ paddingBottom: 8 }}
-            >
+      <ReminderEditorSheet visible={reminderEditorOpen} editing={Boolean(reminderForm.id)} saving={reminderSaving} error={reminderEditorError} onClose={() => { setReminderEditorOpen(false); setReminderEditorError(""); }} onSave={() => handleSaveReminder().catch(() => undefined)}>
               <TextField
                 label="Title"
                 value={reminderForm.title}
@@ -835,47 +877,30 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                 required
                 containerStyle={{ marginTop: 8 }}
               />
-              <Text className="mb-2 mt-3 text-sm font-semibold" style={{ color: colors.textSecondary }}>Reminder Type</Text>
-              <View className="flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
-                {([
+              <ChoiceRow<ReminderMode>
+                label="Reminder type"
+                value={reminderForm.mode}
+                layout="equal"
+                variant="card"
+                options={[
                   { value: "time", label: "Recurring" },
-                  { value: "multi", label: "Multiple Times" },
+                  { value: "multi", label: "Multiple times" },
                   { value: "interval", label: "Interval" },
-                  { value: "once", label: "One Time" }
-                ] as { value: ReminderMode; label: string }[]).map((option) => {
-                  const selected = reminderForm.mode === option.value;
-                  return (
-                    <Pressable
-                      key={`reminder-mode-${option.value}`}
-                      onPress={() => {
-                        const nextDateLabel = reminderForm.dateLabel || getDeviceTodayLabel();
-                        setReminderForm((prev) => ({
-                          ...prev,
-                          mode: option.value,
-                          dateLabel: prev.dateLabel || nextDateLabel
-                        }));
-                        if (option.value === "once") {
-                          setReminderCalendarMonth(getReminderCalendarMonthFromDateLabel(nextDateLabel));
-                        }
-                      }}
-                      accessibilityRole="radio"
-                      accessibilityLabel={option.label}
-                      accessibilityState={{ checked: selected, selected }}
-                      className="min-h-[48px] items-center justify-center rounded-xl border px-3 py-2"
-                      style={{
-                        flexBasis: "47%",
-                        flexGrow: 1,
-                        borderColor: selected ? colors.brand : colors.brandBorder,
-                        backgroundColor: selected ? withAlpha(colors.brand, 0.18) : colors.surfaceSubtle
-                      }}
-                    >
-                      <Text className="text-center text-xs font-black uppercase" style={{ color: selected ? colors.brand : colors.textSecondary }}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                  { value: "once", label: "One time" }
+                ]}
+                onChange={(mode) => {
+                  const nextDateLabel = reminderForm.dateLabel || getDeviceTodayLabel();
+                  setReminderForm((prev) => ({
+                    ...prev,
+                    mode,
+                    dateLabel: prev.dateLabel || nextDateLabel
+                  }));
+                  if (mode === "once") {
+                    setReminderCalendarMonth(getReminderCalendarMonthFromDateLabel(nextDateLabel));
+                  }
+                }}
+                style={{ marginTop: theme.spacing.md }}
+              />
               <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
                 {reminderForm.mode === "interval"
                   ? "Best for things like drink water every hour."
@@ -920,39 +945,18 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                         style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}
                       >
                         <View className="flex-row items-center justify-between">
-                          <Pressable
-                            onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))}
-                            accessibilityRole="button"
-                            accessibilityLabel="Previous month"
-                            className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
-                            style={{ borderColor: colors.brandBorder, backgroundColor: colors.surface }}
-                          >
-                            <Text numberOfLines={1} maxFontSizeMultiplier={1.2} className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>Prev</Text>
-                          </Pressable>
+                          <Button label="Previous" size="small" variant="outline" onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))} />
                           <Text
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
-                            minimumFontScale={0.72}
-                            maxFontSizeMultiplier={1.2}
-                            className="text-base font-black"
-                            style={{ minWidth: 0, flex: 1, color: colors.textPrimary, textAlign: "center" }}
+                            style={[theme.typography.bodyStrong, { minWidth: 0, flex: 1, color: colors.textPrimary, textAlign: "center" }]}
                           >
                             {formatReminderCalendarMonth(reminderCalendarMonth)}
                           </Text>
-                          <Pressable
-                            onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))}
-                            accessibilityRole="button"
-                            accessibilityLabel="Next month"
-                            className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
-                            style={{ borderColor: colors.brandBorder, backgroundColor: colors.surface }}
-                          >
-                            <Text numberOfLines={1} maxFontSizeMultiplier={1.2} className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>Next</Text>
-                          </Pressable>
+                          <Button label="Next" size="small" variant="outline" onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))} />
                         </View>
                         <View className="mt-3 flex-row">
                           {WEEKDAY_OPTIONS.map((day) => (
                             <View key={`calendar-head-${day.value}`} className="flex-1 items-center">
-                              <Text className="text-xs font-black uppercase" style={{ color: colors.textSecondary }}>
+                              <Text style={[theme.typography.eyebrow, { color: colors.textSecondary }]}>
                                 {day.short}
                               </Text>
                             </View>
@@ -963,7 +967,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             const selected = reminderForm.dateLabel === day.dateLabel;
                             const disabled = day.isPast;
                             return (
-                              <Pressable
+                              <AnimatedPressable
                                 key={`calendar-day-${day.dateLabel}`}
                                 onPress={() => {
                                   if (disabled) return;
@@ -1006,7 +1010,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                                     {day.day}
                                   </Text>
                                 </View>
-                              </Pressable>
+                              </AnimatedPressable>
                             );
                           })}
                         </View>
@@ -1046,42 +1050,36 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             mutedColor={colors.textSecondary}
                           />
                           {reminderForm.timeSlots.filter((value) => value.trim()).length > 1 && (
-                            <Pressable
-                              onPress={() =>
-                                setReminderForm((prev) => {
-                                  const compacted = prev.timeSlots.filter((_, slotIndex) => slotIndex !== index && prev.timeSlots[slotIndex].trim());
-                                  return { ...prev, timeSlots: ensureReminderTimeInputs(compacted) };
-                                })
-                              }
-                              accessibilityRole="button"
+                            <Button
+                              label="Remove time"
+                              variant="danger"
+                              size="small"
+                              onPress={() => setReminderForm((prev) => {
+                                const compacted = prev.timeSlots.filter((_, slotIndex) => slotIndex !== index && prev.timeSlots[slotIndex].trim());
+                                return { ...prev, timeSlots: ensureReminderTimeInputs(compacted) };
+                              })}
                               accessibilityLabel={`Remove time ${index + 1}`}
-                              className="mt-2 min-h-[44px] items-center justify-center rounded-xl border"
-                              style={{ borderColor: theme.colors.danger, backgroundColor: theme.colors.dangerSoft }}
-                            >
-                              <Text className="text-sm font-black uppercase" style={{ color: theme.colors.danger }}>Remove</Text>
-                            </Pressable>
+                              fullWidth
+                              style={{ marginTop: theme.spacing.sm }}
+                            />
                           )}
                         </View>
                       );
                     })}
                   </View>
                   {reminderForm.timeSlots.filter((value) => value.trim()).length < 4 && (
-                    <Pressable
-                      onPress={() =>
-                        setReminderForm((prev) => {
-                          const compacted = prev.timeSlots.filter((value) => value.trim());
-                          const last = parseReminderTimeSlotInput(compacted[compacted.length - 1] ?? "08:00") ?? { hour: 8, minute: 0 };
-                          const nextHour = (last.hour + 4) % 24;
-                          return { ...prev, timeSlots: ensureReminderTimeInputs([...compacted, formatTimeLabel(nextHour, last.minute)]) };
-                        })
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel="Add another reminder time"
-                      className="mt-3 min-h-[48px] items-center justify-center rounded-xl border"
-                      style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}
-                    >
-                      <Text className="text-sm font-black uppercase" style={{ color: colors.brand }}>Add another time</Text>
-                    </Pressable>
+                    <Button
+                      label="Add another time"
+                      variant="outline"
+                      fullWidth
+                      onPress={() => setReminderForm((prev) => {
+                        const compacted = prev.timeSlots.filter((value) => value.trim());
+                        const last = parseReminderTimeSlotInput(compacted[compacted.length - 1] ?? "08:00") ?? { hour: 8, minute: 0 };
+                        const nextHour = (last.hour + 4) % 24;
+                        return { ...prev, timeSlots: ensureReminderTimeInputs([...compacted, formatTimeLabel(nextHour, last.minute)]) };
+                      })}
+                      style={{ marginTop: theme.spacing.md }}
+                    />
                   )}
                   <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
                     Add up to 4 daily times. Anthra handles the time format for you.
@@ -1152,31 +1150,12 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
               />
               {reminderForm.mode !== "once" && (
                 <>
-                  <Text className="mb-2 mt-3 text-sm font-semibold" style={{ color: colors.textSecondary }}>Days</Text>
-                  <View className="flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
-                    {WEEKDAY_OPTIONS.map((day) => {
-                      const selected = reminderForm.days.includes(day.value);
-                      return (
-                        <Pressable
-                          key={`rday-${day.value}`}
-                          onPress={() => toggleReminderDay(day.value)}
-                          accessibilityRole="checkbox"
-                          accessibilityLabel={day.label}
-                          accessibilityState={{ checked: selected }}
-                          className="min-h-[48px] items-center justify-center rounded-xl border px-2 py-2"
-                          style={{
-                            width: windowWidth < 520 || fontScale >= 1.2 ? "22%" : "12%",
-                            borderColor: selected ? colors.brand : colors.brandBorder,
-                            backgroundColor: selected ? withAlpha(colors.brand, 0.2) : colors.surfaceSubtle
-                          }}
-                        >
-                          <Text className="text-xs font-bold uppercase" style={{ color: selected ? colors.brand : colors.textSecondary }}>
-                            {day.short}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <WeekdayPicker
+                    label="Days"
+                    value={reminderForm.days}
+                    onChange={(days) => setReminderForm((prev) => ({ ...prev, days }))}
+                    style={{ marginTop: theme.spacing.md }}
+                  />
                   <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
                     Leave all days off to repeat every day.
                   </Text>
@@ -1191,33 +1170,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                 onValueChange={(enabled) => setReminderForm((prev) => ({ ...prev, enabled }))}
                 style={{ marginTop: theme.spacing.lg }}
               />
-            </KeyboardAwareScrollView>
-            <View
-              className="mt-5"
-              style={{ flexDirection: shouldStackActions ? "column" : "row", gap: theme.spacing.md }}
-            >
-              <Button
-                label="Cancel"
-                onPress={() => {
-                  setReminderEditorOpen(false);
-                  setReminderEditorError("");
-                }}
-                variant="outline"
-                fullWidth
-                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
-              />
-              <Button
-                label="Save reminder"
-                onPress={() => handleSaveReminder().catch(() => undefined)}
-                loading={reminderSaving}
-                fullWidth
-                style={{ flex: shouldStackActions ? undefined : 1, alignSelf: "stretch" }}
-              />
-            </View>
-          </View>
-          </SafeAreaView>
-        </KeyboardAvoidingView>
-      </Modal>
+      </ReminderEditorSheet>
     </>
   );
 }

@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Clock3 } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
 import { Button } from "./Button";
 import { ChoiceRow } from "./ChoiceRow";
+import { AnimatedPressable } from "./AnimatedPressable";
 
 type TimePickerFieldProps = {
   label: string;
@@ -57,20 +58,21 @@ export function TimePickerField({
       <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>
         {label}
       </Text>
-      <Pressable
+      <AnimatedPressable
         onPress={() => setOpen(true)}
+        haptic="selection"
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${formatTime(hour, minute)}`}
         accessibilityHint="Opens the time picker"
         accessibilityState={{ expanded: open }}
         className="flex-row items-center"
         style={({ pressed }) => ({
-          minHeight: 56,
+          minHeight: theme.sizes.control.large,
           gap: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
           paddingVertical: theme.spacing.sm,
           borderRadius: theme.radii.md,
-          borderWidth: open || emphasized ? 2 : 1,
+          borderWidth: open || emphasized ? theme.borderWidths.focused : theme.borderWidths.standard,
           borderColor: open ? theme.colors.focusRing : theme.colors.borderStrong,
           backgroundColor: pressed
             ? theme.colors.surfacePressed
@@ -95,7 +97,7 @@ export function TimePickerField({
           {formatTime(hour, minute)}
         </Text>
         <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[theme.typography.label, { color: theme.colors.brand }]}>Change</Text>
-      </Pressable>
+      </AnimatedPressable>
 
       {presets.length > 0 && (
         <ChoiceRow

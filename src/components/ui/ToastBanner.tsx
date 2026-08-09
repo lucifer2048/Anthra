@@ -1,24 +1,30 @@
 import { View } from "react-native";
+import Animated, { FadeInDown, FadeOutUp, useReducedMotion } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAnthraTheme } from "../../design-system";
 import { StatusBanner, type StatusBannerProps } from "./StatusBanner";
 
 export type ToastBannerProps = StatusBannerProps & {
   visible: boolean;
-  topOffset: number;
+  topOffset?: number;
 };
 
 export function ToastBanner({ visible, topOffset, style, ...props }: ToastBannerProps) {
   const theme = useAnthraTheme();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   if (!visible) return null;
 
   return (
-    <View
-      pointerEvents="none"
+    <Animated.View
+      entering={reduceMotion ? undefined : FadeInDown.duration(theme.motion.duration.deliberate)}
+      exiting={reduceMotion ? undefined : FadeOutUp.duration(theme.motion.duration.standard)}
+      pointerEvents={props.onDismiss ? "auto" : "none"}
       style={{
         position: "absolute",
         left: theme.layout.screenPadding,
         right: theme.layout.screenPadding,
-        top: topOffset,
+        top: topOffset ?? insets.top + theme.spacing.sm,
         zIndex: 20,
         maxWidth: theme.layout.contentMaxWidth,
         alignSelf: "center",
@@ -29,15 +35,11 @@ export function ToastBanner({ visible, topOffset, style, ...props }: ToastBanner
         {...props}
         style={[
           {
-            shadowColor: theme.isDark ? "#000000" : "#4B2028",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: theme.isDark ? 0.4 : 0.12,
-            shadowRadius: 12,
-            elevation: 6
+            ...theme.shadows.overlay
           },
           style
         ]}
       />
-    </View>
+    </Animated.View>
   );
 }

@@ -13,6 +13,7 @@ export type ScreenHeaderProps = {
   action?: ReactNode;
   style?: StyleProp<ViewStyle>;
   className?: string;
+  divider?: boolean;
 };
 
 export function ScreenHeader({
@@ -23,14 +24,15 @@ export function ScreenHeader({
   backLabel = "Go back",
   action,
   style,
-  className
+  className,
+  divider = false
 }: ScreenHeaderProps) {
   const theme = useAnthraTheme();
 
   return (
     <View
       className={`w-full flex-row items-center ${className ?? ""}`}
-      style={[{ gap: theme.spacing.md, paddingVertical: theme.spacing.lg }, style]}
+      style={[{ gap: theme.spacing.md, paddingVertical: theme.spacing.lg, borderBottomWidth: divider ? theme.borderWidths.standard : 0, borderBottomColor: theme.colors.divider }, style]}
     >
       {onBack && (
         <IconButton
@@ -47,11 +49,11 @@ export function ScreenHeader({
             {eyebrow}
           </Text>
         )}
-        <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
+        <Text accessibilityRole="header" numberOfLines={2} maxFontSizeMultiplier={1.4} style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
           {title}
         </Text>
         {subtitle && (
-          <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
+          <Text numberOfLines={2} maxFontSizeMultiplier={1.4} style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
             {subtitle}
           </Text>
         )}

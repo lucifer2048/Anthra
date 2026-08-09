@@ -36,6 +36,15 @@ import {
   normalizeLegacyBackupTables
 } from "./backupCompatibility";
 import { TRACKER_MIGRATIONS } from "../features/tracker/trackerSchema";
+import {
+  ACTIVITY_MIGRATIONS,
+  ACTIVITY_TABLE_NAMES
+} from "../features/activity/activitySchema";
+import {
+  NUTRITION_MIGRATIONS,
+  NUTRITION_TABLE_NAMES
+} from "../features/nutrition/nutritionSchema";
+import { SOCIAL_CACHE_MIGRATIONS } from "../features/social/socialSchema";
 import { MAX_LIST_ITEM_LENGTH, MAX_LIST_NAME_LENGTH } from "../constants/listBuddy";
 
 const SQLiteAny = SQLite as unknown as Record<string, unknown>;
@@ -77,7 +86,7 @@ type QueryResult = {
 
 export type AnthraBackup = {
   format: "anthra-backup";
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5 | 6;
   createdAt: number;
   appDataNotice: string;
   tables: Record<string, Record<string, QueryValue>[]>;
@@ -101,7 +110,18 @@ const BACKUP_TABLES: Array<{ name: string; columns: string[] }> = [
   { name: "tracker_buddy_trackers", columns: ["id", "name", "createdDate", "archivedAt", "createdAt", "updatedAt"] },
   { name: "tracker_buddy_tasks", columns: ["id", "trackerId", "archivedAt", "createdAt", "updatedAt"] },
   { name: "tracker_buddy_task_versions", columns: ["id", "taskId", "title", "recurrence", "daysCsv", "onceDate", "notificationEnabled", "notificationHour", "notificationMinute", "timezone", "validFrom", "validTo", "sortOrder", "createdAt", "updatedAt"] },
-  { name: "tracker_buddy_completions", columns: ["id", "taskId", "versionId", "dateKey", "completedAt"] }
+  { name: "tracker_buddy_completions", columns: ["id", "taskId", "versionId", "dateKey", "completedAt"] },
+  { name: "activity_settings", columns: ["id", "dailyGoal", "phoneTrackingEnabled", "shareScope", "updatedAt"] },
+  { name: "activity_daily_summary", columns: ["dateKey", "timezone", "phoneSteps", "healthConnectSteps", "authoritativeSteps", "authoritativeSource", "sourcePackagesCsv", "updatedAt"] },
+  { name: "activity_workouts", columns: ["id", "source", "originPackage", "externalId", "clientRecordId", "clientRecordVersion", "title", "exerciseType", "startTime", "endTime", "durationSeconds", "dateKey", "timezone", "lastModifiedTime", "importedAt"] },
+  { name: "activity_sources", columns: ["packageName", "sourceType", "displayName", "lastSeenAt"] },
+  { name: "activity_sync_state", columns: ["syncKey", "lastAttemptAt", "lastSuccessAt", "error"] },
+  { name: "step_sensor_checkpoints", columns: ["dateKey", "timezone", "baselineRaw", "lastRaw", "steps", "counterReset", "rebootDetected", "updatedAt"] }
+  ,{ name: "nutrition_goals", columns: ["id", "ownerId", "calorieGoal", "proteinGoalGrams", "carbohydrateGoalGrams", "fatGoalGrams", "fibreGoalGrams", "syncState", "createdAt", "updatedAt", "deletedAt"] }
+  ,{ name: "nutrition_entries", columns: ["id", "ownerId", "mealType", "source", "consumedAt", "localDate", "timezone", "imageReference", "imageMime", "analyzerProvider", "analyzerModel", "analyzerRequestId", "confidence", "syncState", "createdAt", "updatedAt", "deletedAt"] }
+  ,{ name: "nutrition_entry_items", columns: ["id", "entryId", "foodId", "name", "servingQuantity", "servingUnit", "servingGrams", "calories", "proteinGrams", "carbohydrateGrams", "fatGrams", "fibreGrams", "sugarGrams", "sodiumMilligrams", "nutrientSource", "nutrientSourceRef", "servingAssumption", "confidence", "sortOrder", "createdAt", "updatedAt", "deletedAt"] }
+  ,{ name: "nutrition_custom_foods", columns: ["id", "ownerId", "name", "category", "barcode", "servingQuantity", "servingUnit", "servingGrams", "calories", "proteinGrams", "carbohydrateGrams", "fatGrams", "fibreGrams", "sugarGrams", "sodiumMilligrams", "nutrientSource", "nutrientSourceRef", "servingAssumption", "syncState", "createdAt", "updatedAt", "deletedAt"] }
+  ,{ name: "nutrition_sync_queue", columns: ["resourceType", "resourceId", "operation", "attempts", "nextAttemptAt", "lastError", "createdAt", "updatedAt"] }
 ];
 
 function sqlLooksLikeSelect(sql: string): boolean {
@@ -701,6 +721,15 @@ export async function initDatabase(): Promise<void> {
   for (const migration of TRACKER_MIGRATIONS) {
     await runQuery(migration);
   }
+  for (const migration of ACTIVITY_MIGRATIONS) {
+    await runQuery(migration);
+  }
+  for (const migration of NUTRITION_MIGRATIONS) {
+    await runQuery(migration);
+  }
+  for (const migration of SOCIAL_CACHE_MIGRATIONS) {
+    await runQuery(migration);
+  }
 
   if (!(await hasColumn("plans", "workoutDays"))) {
     await runQuery("ALTER TABLE plans ADD COLUMN workoutDays TEXT NOT NULL DEFAULT '';");
@@ -1090,6 +1119,21 @@ export async function getWorkoutHistory(limit = 30): Promise<WorkoutHistoryEntry
       comment: String(row.comment ?? "")
     };
   });
+}
+
+export async function getCompletedWorkoutCountInRange(
+  startTimestamp: number,
+  endTimestamp: number
+): Promise<number> {
+  const result = await runQuery(
+    `SELECT COUNT(*) AS total
+     FROM workout_sessions
+     WHERE completed = 1
+       AND COALESCE(endedAt, startedAt) >= ?
+       AND COALESCE(endedAt, startedAt) < ?;`,
+    [startTimestamp, endTimestamp]
+  );
+  return Math.max(0, Number(result.rows[0]?.total ?? 0));
 }
 
 export async function deleteWorkoutSession(sessionId: number): Promise<void> {
@@ -2151,7 +2195,7 @@ export async function createAnthraBackup(): Promise<AnthraBackup> {
 
   return {
     format: "anthra-backup",
-    version: 4,
+    version: 6,
     createdAt: Date.now(),
     appDataNotice: "Password Buddy credentials are excluded because they are protected by device secure storage.",
     tables
@@ -2203,12 +2247,22 @@ function validateBackup(candidate: unknown): AnthraBackup {
 
 export async function restoreAnthraBackup(candidate: unknown): Promise<void> {
   const backup = validateBackup(candidate);
+  const tablesToRestore =
+    backup.version >= 6
+      ? BACKUP_TABLES
+      : BACKUP_TABLES.filter(
+          (table) =>
+            backup.version >= 5
+              ? !(NUTRITION_TABLE_NAMES as readonly string[]).includes(table.name)
+              : !(ACTIVITY_TABLE_NAMES as readonly string[]).includes(table.name) &&
+                !(NUTRITION_TABLE_NAMES as readonly string[]).includes(table.name)
+        );
   const restore = async () => {
-    for (const table of [...BACKUP_TABLES].reverse()) {
+    for (const table of [...tablesToRestore].reverse()) {
       await runQuery(`DELETE FROM ${table.name};`);
     }
 
-    for (const table of BACKUP_TABLES) {
+    for (const table of tablesToRestore) {
       const rows = backup.tables[table.name];
       const placeholders = table.columns.map(() => "?").join(", ");
       const sql = `INSERT INTO ${table.name} (${table.columns.join(", ")}) VALUES (${placeholders});`;

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   AppState,
   Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -31,11 +30,14 @@ import {
 import { ProgressBar } from "../../components/ProgressBar";
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import {
+  AnimatedPressable,
   Button,
   Card,
   ChoiceRow,
   IconButton,
   ScreenHeader,
+  SheetDialog,
+  SkeletonCard,
   StatusBanner,
   Surface
 } from "../../components/ui";
@@ -99,6 +101,8 @@ import {
   ActivityStreakCard
 } from "./ActivityStreakCard";
 import { ActivityHistoryChart } from "./components/ActivityHistoryChart";
+import { supabase } from "../../services/supabaseClient";
+import { publishTodaySocialStats } from "../social/socialService";
 
 type ActivityBuddyScreenProps = {
   onBack: () => void;
@@ -552,6 +556,15 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
     [summaries, todayKey]
   );
   const todaySteps = todaySummary?.authoritativeSteps ?? 0;
+  const publishedGoalKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const milestoneKey = `${todayKey}:${settings.dailyGoal}`;
+    if (todaySteps < settings.dailyGoal || publishedGoalKeyRef.current === milestoneKey || !supabase) return;
+    publishedGoalKeyRef.current = milestoneKey;
+    publishTodaySocialStats(supabase).catch(() => {
+      publishedGoalKeyRef.current = null;
+    });
+  }, [settings.dailyGoal, todayKey, todaySteps]);
   const activityDateKeys = useMemo(
     () => qualifyingActivityDateKeys(summaries, workouts, settings.dailyGoal),
     [settings.dailyGoal, summaries, workouts]
@@ -817,50 +830,10 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               />
             </View>
           ) : (
-            <View
-              accessible
-              accessibilityLabel="Loading Activity. Checking only the sources you have enabled."
-              accessibilityLiveRegion="polite"
-              className="items-center"
-            >
-              <View
-                className="items-center justify-center"
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: theme.radii.xl,
-                  backgroundColor: theme.colors.brandSoft
-                }}
-              >
-                <Footprints accessible={false} color={theme.colors.brand} size={34} />
-              </View>
-              <ActivityIndicator
-                accessibilityElementsHidden
-                color={theme.colors.brand}
-                size="small"
-                style={{ marginTop: theme.spacing.xl }}
-              />
-              <Text
-                accessibilityRole="header"
-                style={[
-                  theme.typography.titleMedium,
-                  { color: theme.colors.textPrimary, marginTop: theme.spacing.md }
-                ]}
-              >
-                Preparing your activity
-              </Text>
-              <Text
-                style={[
-                  theme.typography.body,
-                  {
-                    color: theme.colors.textSecondary,
-                    marginTop: theme.spacing.sm,
-                    textAlign: "center"
-                  }
-                ]}
-              >
-                Checking only the sources you have enabled.
-              </Text>
+            <View accessibilityLabel="Loading Activity dashboard" accessibilityState={{ busy: true }} style={{ width: "100%", maxWidth: theme.layout.contentMaxWidth, gap: theme.spacing.lg }}>
+              <SkeletonCard rows={2} />
+              <SkeletonCard rows={3} />
+              <SkeletonCard rows={2} />
             </View>
           )}
         </View>
@@ -955,9 +928,6 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                 </Text>
               </View>
               <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
                 style={[
                   theme.typography.display,
                   { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }
@@ -1286,65 +1256,8 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         </Card>
       </ScrollView>
 
-      <Modal
-        visible={sharePreviewOpen}
-        transparent
-        statusBarTranslucent
-        animationType="fade"
-        onRequestClose={closeSharePreview}
-      >
-        <SafeAreaView
-          style={{ flex: 1, backgroundColor: theme.colors.scrim }}
-          accessibilityViewIsModal
-        >
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              paddingHorizontal: theme.spacing.sm,
-              paddingVertical: theme.spacing["2xl"]
-            }}
-          >
+      <SheetDialog visible={sharePreviewOpen} title="Share preview" subtitle="Nothing is shared until you confirm." onClose={closeSharePreview} backdropDismissEnabled={!sharing} error={shareError} primaryAction={{ label: "Share now", icon: Share2, onPress: shareConfirmed, loading: sharing }} secondaryAction={{ label: "Cancel", onPress: closeSharePreview, disabled: sharing }}>
             <View className="items-center" style={{ width: "100%" }}>
-              <Surface
-                variant="elevated"
-                padding="medium"
-                radius="large"
-                bordered
-                style={{
-                  width: Math.min(ACTIVITY_STREAK_CARD_WIDTH, previewAvailableWidth),
-                  alignItems: "center"
-                }}
-              >
-                <Text
-                  accessibilityRole="header"
-                  style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}
-                >
-                  Share preview
-                </Text>
-                <View className="mt-1 flex-row items-center" style={{ minWidth: 0, gap: theme.spacing.xs }}>
-                  <ShieldCheck accessible={false} color={theme.colors.brand} size={15} />
-                  <Text
-                    style={[theme.typography.caption, { minWidth: 0, flexShrink: 1, color: theme.colors.textSecondary }]}
-                  >
-                    Nothing is shared until you confirm
-                  </Text>
-                </View>
-              </Surface>
-
-              {shareError ? (
-                <StatusBanner
-                  title="Couldn’t share this card"
-                  message={shareError}
-                  variant="danger"
-                  style={{
-                    width: Math.min(ACTIVITY_STREAK_CARD_WIDTH, previewAvailableWidth),
-                    marginTop: theme.spacing.md
-                  }}
-                />
-              ) : null}
-
               <View
                 style={{
                   width: previewCardWidth,
@@ -1377,29 +1290,8 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                 </View>
               </View>
 
-              <View
-                className="mt-4 w-full max-w-[320px]"
-                style={{ flexDirection: shouldStackModalActions ? "column" : "row", gap: theme.spacing.sm }}
-              >
-                <Button
-                  label="Cancel"
-                  variant="outline"
-                  disabled={sharing}
-                  onPress={closeSharePreview}
-                  style={{ flex: shouldStackModalActions ? undefined : 1, alignSelf: "stretch" }}
-                />
-                <Button
-                  label="Share Now"
-                  icon={Share2}
-                  loading={sharing}
-                  onPress={shareConfirmed}
-                  style={{ flex: shouldStackModalActions ? undefined : 1, alignSelf: "stretch" }}
-                />
-              </View>
             </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+      </SheetDialog>
     </ScreenLayout>
   );
 }

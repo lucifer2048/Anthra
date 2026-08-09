@@ -1,6 +1,8 @@
 import { CircleCheck, Info, TriangleAlert, XCircle, type LucideIcon } from "lucide-react-native";
 import { Text, View, type ViewProps } from "react-native";
 import { useAnthraTheme } from "../../design-system";
+import { IconButton } from "./IconButton";
+import { X } from "lucide-react-native";
 
 export type StatusBannerVariant = "info" | "success" | "warning" | "danger";
 
@@ -8,12 +10,16 @@ export type StatusBannerProps = Omit<ViewProps, "accessibilityRole"> & {
   title: string;
   message?: string;
   variant?: StatusBannerVariant;
+  onDismiss?: () => void;
+  dismissLabel?: string;
 };
 
 export function StatusBanner({
   title,
   message,
   variant = "info",
+  onDismiss,
+  dismissLabel = "Dismiss message",
   accessibilityLabel,
   className,
   style,
@@ -58,6 +64,7 @@ export function StatusBanner({
           </Text>
         )}
       </View>
+      {onDismiss ? <IconButton icon={X} onPress={onDismiss} accessibilityLabel={dismissLabel} variant="ghost" size="small" haptic="none" /> : null}
     </View>
   );
 }

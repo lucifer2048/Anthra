@@ -2,8 +2,6 @@ import { useMemo, useRef } from "react";
 import {
   Alert,
   Platform,
-  Pressable,
-  ScrollView,
   Text,
   type TextInput,
   useWindowDimensions,
@@ -20,9 +18,9 @@ import { STREAK_CARD_HEIGHT, STREAK_CARD_WIDTH, StreakCard } from "../../compone
 import { TimePickerField } from "../../components/TimePickerField";
 import { AppearanceControl } from "../../components/AppearanceControl";
 import { WorkoutTabBar, type WorkoutTab } from "../../components/WorkoutTabBar";
-import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
-import { Button, ScreenHeader, StatusBanner, SwitchRow, TextField } from "../../components/ui";
-import { WEEKDAY_OPTIONS, formatDays, matchesDay } from "../../constants/schedule";
+import { useScreenBackgrounds } from "../../components/layout";
+import { AnimatedPressable, Button, ChoiceRow, DisclosureCard, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
+import { formatDays, matchesDay } from "../../constants/schedule";
 import { useAnthraTheme } from "../../design-system";
 import type {
   DashboardStats,
@@ -43,9 +41,11 @@ import {
   parseStrictWholeNumber,
   withAlpha
 } from "./workoutHelpers";
+import { BodyProfileView, WorkoutHistoryView, WorkoutOverview, WorkoutPlansView, WorkoutSettingsView } from "./WorkoutViews";
 
 export type WorkoutBuddyScreenProps = {
   onBack: () => void;
+  section?: "workout" | "profile" | "settings";
   activeTab: WorkoutTab;
   onTabChange: (tab: WorkoutTab) => void;
   planListMode: "all" | "today";
@@ -104,6 +104,7 @@ export type WorkoutBuddyScreenProps = {
 
 export function WorkoutBuddyScreen({
   onBack,
+  section = "workout",
   activeTab,
   onTabChange,
   planListMode,
@@ -166,7 +167,7 @@ export function WorkoutBuddyScreen({
   const textMuted = theme.colors.textSecondary;
   const cardBackground = theme.colors.surfaceElevated;
   const inputBackground = theme.colors.surfaceSubtle;
-  const shouldStackWorkoutActions = windowWidth < 420 || fontScale >= 1.2;
+  const shouldStackWorkoutActions = windowWidth < 360 || fontScale >= 1.35;
   const shouldStackWorkoutHeaders = windowWidth < 390 || fontScale >= 1.25;
   const shouldStackWorkoutStats = windowWidth < 340 || fontScale >= 1.5;
 
@@ -179,25 +180,21 @@ export function WorkoutBuddyScreen({
     [theme.colors.brand, theme.colors.brandBorder, theme.colors.brandSoft]
   );
   const workoutCardStyle = { borderColor, backgroundColor: cardBackground };
-  const workoutInputSurfaceStyle = {
-    borderColor: theme.colors.borderStrong,
-    backgroundColor: inputBackground
-  };
-
   const workoutTimeZoneOptions = useMemo(
     () => Array.from(new Set([deviceTimeZone, "Asia/Kolkata"])),
     [deviceTimeZone]
   );
 
+  const activeSection = section === "workout" ? activeTab : section;
   const tabTitle =
-    activeTab === "home"
+    activeSection === "home"
       ? "Overview"
-      : activeTab === "plans"
+      : activeSection === "plans"
         ? "Workout Plans"
-        : activeTab === "history"
+        : activeSection === "history"
           ? "History"
-          : activeTab === "profile"
-            ? "Profile"
+          : activeSection === "profile"
+            ? "Body"
             : "Settings";
 
   const currentWeekday = getDayPartsInTimeZone(
@@ -327,32 +324,14 @@ export function WorkoutBuddyScreen({
 
   return (
     <View style={{ flex: 1 }}>
-      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
-          <View className="border-b px-5" style={{ borderColor }}>
-            <ScreenHeader
-              eyebrow="MOVE"
-              title={tabTitle}
-              subtitle={activeTab === "home" ? `${workoutDaysLabel} schedule` : undefined}
-              onBack={onBack}
-              backLabel="Back to Today"
-              style={{ width: "100%", maxWidth: theme.layout.contentMaxWidth, alignSelf: "center" }}
-            />
-          </View>
-
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{
-              width: "100%",
-              maxWidth: theme.layout.contentMaxWidth,
-              alignSelf: "center",
-              padding: 20,
-              paddingTop: 24,
-              paddingBottom: keyboardBottomPadding
-            }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {activeTab === "home" && (
-              <>
+      <ScreenShell
+        header={{ eyebrow: section === "workout" ? "MOVE" : "ANTHRA", title: tabTitle, subtitle: activeSection === "home" ? `${workoutDaysLabel} schedule` : undefined, onBack, backLabel: "Back to Today", divider: true }}
+        background={backgrounds.canvas}
+        contentStyle={{ paddingBottom: keyboardBottomPadding }}
+        bottomTab={section === "workout" ? <WorkoutTabBar activeTab={activeTab} onChange={(tab) => { if (tab === "plans") onPlanListModeChange("all"); onTabChange(tab); }} /> : undefined}
+      >
+            {activeSection === "home" && (
+              <WorkoutOverview>
                 <View className="rounded-3xl border p-5" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: workoutTheme.accentSoft }}>
                   <View
                     style={{
@@ -363,20 +342,19 @@ export function WorkoutBuddyScreen({
                     }}
                   >
                     <View className="rounded-full px-3 py-1" style={{ backgroundColor: withAlpha(workoutTheme.accent, 0.2) }}>
-                      <Text className="text-xs font-black uppercase tracking-[1.5px]" style={{ color: workoutTheme.accent }}>
+                      <Text style={[theme.typography.eyebrow, { color: workoutTheme.accent }]}>
                         {isWorkoutDayToday ? "Workout Day" : "Recovery Day"}
                       </Text>
                     </View>
                     <Text
                       numberOfLines={shouldStackWorkoutHeaders ? undefined : 1}
-                      className="text-xs font-semibold uppercase tracking-[1.5px]"
-                      style={{ color: textMuted, flexShrink: 1, textAlign: shouldStackWorkoutHeaders ? "left" : "right" }}
+                      style={[theme.typography.eyebrow, { color: textMuted, flexShrink: 1, textAlign: shouldStackWorkoutHeaders ? "left" : "right" }]}
                     >
                       {workoutDaysLabel}
                     </Text>
                   </View>
 
-                  <Text className="mt-4 text-3xl font-black" style={{ color: textPrimary }}>
+                  <Text style={[theme.typography.headline, { color: textPrimary, marginTop: theme.spacing.lg }]}>
                     {quickStartPlan
                       ? `Start ${quickStartPlan.name}`
                       : isWorkoutDayToday
@@ -384,7 +362,7 @@ export function WorkoutBuddyScreen({
                         : "Today is for recovery"}
                   </Text>
 
-                  <Text className="mt-2 text-sm leading-6" style={{ color: textMuted }}>
+                  <Text style={[theme.typography.bodyLarge, { color: textMuted, marginTop: theme.spacing.sm }]}>
                     {quickStartPlan
                       ? todaysPlans.length > 1
                         ? `${todaysPlans.length} plans match today. Anthra is ready to launch the first one.`
@@ -430,22 +408,8 @@ export function WorkoutBuddyScreen({
                   className="mt-5"
                   style={{ flexDirection: shouldStackWorkoutStats ? "column" : "row", gap: theme.spacing.md }}
                 >
-                  <View
-                    className="rounded-2xl border p-4"
-                    style={[workoutCardStyle, { flex: shouldStackWorkoutStats ? undefined : 1 }]}
-                  >
-                    <Text className="text-xs font-semibold uppercase tracking-[1.7px]" style={{ color: textMuted }}>Streak</Text>
-                    <Text className="mt-2 text-4xl font-black" style={{ color: workoutTheme.accent }}>{stats.currentStreak}</Text>
-                    <Text className="text-sm font-semibold" style={{ color: textMuted }}>days</Text>
-                  </View>
-                  <View
-                    className="rounded-2xl border p-4"
-                    style={[workoutCardStyle, { flex: shouldStackWorkoutStats ? undefined : 1 }]}
-                  >
-                    <Text className="text-xs font-semibold uppercase tracking-[1.7px]" style={{ color: textMuted }}>Sessions</Text>
-                    <Text className="mt-2 text-4xl font-black" style={{ color: textPrimary }}>{qualifyingSessionCount}</Text>
-                    <Text className="text-sm font-semibold" style={{ color: textMuted }}>logged</Text>
-                  </View>
+                  <MetricCard title="Streak" value={stats.currentStreak} unit="days" style={{ flex: shouldStackWorkoutStats ? undefined : 1 }} />
+                  <MetricCard title="Sessions" value={qualifyingSessionCount} unit="logged" style={{ flex: shouldStackWorkoutStats ? undefined : 1 }} />
                 </View>
 
                 <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
@@ -458,10 +422,10 @@ export function WorkoutBuddyScreen({
                     }}
                   >
                     <View className="min-w-0 flex-1">
-                      <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>
+                      <Text style={[theme.typography.eyebrow, { color: textMuted }]}>
                         Weekly Progress
                       </Text>
-                      <Text className="mt-1 text-xl font-black" style={{ color: textPrimary }}>
+                      <Text style={[theme.typography.titleMedium, { color: textPrimary, marginTop: theme.spacing.xs }]}>
                         {stats.weekCompleted >= stats.weekGoal ? "Goal on track" : "Keep the streak moving"}
                       </Text>
                     </View>
@@ -489,18 +453,18 @@ export function WorkoutBuddyScreen({
                     />
                   </View>
 
-                  <Text className="mt-3 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
+                  <Text style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.md }]}>
                     {stats.streakWeeks > 0
                       ? `Streak running for ${stats.streakWeeks} week${stats.streakWeeks === 1 ? "" : "s"}`
                       : "Finish this week strong to start your streak"}
                   </Text>
                 </View>
 
-              </>
+              </WorkoutOverview>
             )}
 
-            {activeTab === "plans" && (
-              <>
+            {activeSection === "plans" && (
+              <WorkoutPlansView>
                 <View
                   style={{
                     flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
@@ -510,7 +474,7 @@ export function WorkoutBuddyScreen({
                   }}
                 >
                   <View className="min-w-0 flex-1">
-                    <Text className="text-2xl font-black" style={{ color: textPrimary }}>
+                    <Text style={[theme.typography.titleLarge, { color: textPrimary }]}>
                       {planListMode === "today" ? "Choose today’s workout" : "Your Plans"}
                     </Text>
                     {planListMode === "today" && (
@@ -583,7 +547,7 @@ export function WorkoutBuddyScreen({
                     <Swipeable
                       key={plan.id}
                       renderRightActions={() => (
-                        <Pressable
+                        <AnimatedPressable
                           onPress={() => onDeletePlan(plan)}
                           accessibilityRole="button"
                           accessibilityLabel={`Delete ${plan.name}`}
@@ -591,7 +555,7 @@ export function WorkoutBuddyScreen({
                           style={{ backgroundColor: theme.colors.dangerSolid }}
                         >
                           <Text className="font-bold" style={{ color: theme.colors.textOnDangerSolid }}>Delete</Text>
-                        </Pressable>
+                        </AnimatedPressable>
                       )}
                     >
                       <View className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
@@ -600,7 +564,7 @@ export function WorkoutBuddyScreen({
                             <Text className="mt-1 text-sm" style={{ color: theme.colors.textTertiary }}>
                               {setCount} {setCount === 1 ? "set" : "sets"} · {exerciseCount} {exerciseCount === 1 ? "exercise" : "exercises"}
                             </Text>
-                            <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: theme.colors.textTertiary }}>
+                            <Text style={[theme.typography.eyebrow, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs }]}>
                               {formatDays(plan.workoutDays)}
                             </Text>
                         </View>
@@ -631,11 +595,11 @@ export function WorkoutBuddyScreen({
                     </Swipeable>
                   );
                 })}
-              </>
+              </WorkoutPlansView>
             )}
 
-            {activeTab === "history" && (
-              <>
+            {activeSection === "history" && (
+              <WorkoutHistoryView>
                 <View
                   style={{
                     flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
@@ -644,8 +608,8 @@ export function WorkoutBuddyScreen({
                     gap: theme.spacing.xs
                   }}
                 >
-                  <Text className="text-2xl font-black" style={{ color: textPrimary }}>Workout History</Text>
-                  <Text className="text-sm font-semibold" style={{ color: textMuted }}>{history.length} sessions</Text>
+                  <Text style={[theme.typography.titleLarge, { color: textPrimary }]}>Workout History</Text>
+                  <Text style={[theme.typography.label, { color: textMuted }]}>{history.length} sessions</Text>
                 </View>
 
                 {history.length === 0 && (
@@ -669,12 +633,12 @@ export function WorkoutBuddyScreen({
                     <View className="flex-row items-start justify-between">
                       <View className="min-w-0 flex-1 pr-4">
                         <Text className="text-base font-bold" style={{ color: textPrimary }}>{entry.planName}</Text>
-                        <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
+                        <Text style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.xs }]}>
                           {formatHistoryDate(entry.startedAt)}
                         </Text>
                       </View>
                       <View className="items-end gap-2">
-                        <Pressable
+                        <AnimatedPressable
                           onPress={() => onDeleteHistoryEntry(entry)}
                           accessibilityRole="button"
                           accessibilityLabel={`Delete ${entry.planName} workout from history`}
@@ -682,17 +646,12 @@ export function WorkoutBuddyScreen({
                           style={{ backgroundColor: theme.colors.dangerSoft }}
                         >
                           <Trash2 size={18} color={theme.colors.danger} />
-                        </Pressable>
+                        </AnimatedPressable>
                         <View
                           className="rounded-lg px-2 py-1"
                           style={{ backgroundColor: entry.completed ? theme.colors.successSoft : theme.colors.warningSoft }}
                         >
-                          <Text
-                            numberOfLines={1}
-                            maxFontSizeMultiplier={1.2}
-                            className="text-xs font-black uppercase"
-                            style={{ color: entry.completed ? theme.colors.success : theme.colors.warning }}
-                          >
+                          <Text numberOfLines={1} style={[theme.typography.eyebrow, { color: entry.completed ? theme.colors.success : theme.colors.warning }]}>
                             {entry.completed ? "Completed" : "Partial"}
                           </Text>
                         </View>
@@ -736,19 +695,23 @@ export function WorkoutBuddyScreen({
                     )}
 
                     {entry.comment.trim().length > 0 && (
-                      <View className="mt-2 rounded-xl border px-3 py-2" style={workoutInputSurfaceStyle}>
-                        <Text className="text-xs" style={{ color: textMuted }}>{entry.comment}</Text>
-                      </View>
+                      <DisclosureCard
+                        title="Session notes"
+                        summary="Tap to review"
+                        style={{ marginTop: theme.spacing.sm }}
+                      >
+                        <Text style={[theme.typography.body, { color: textMuted }]}>{entry.comment}</Text>
+                      </DisclosureCard>
                     )}
                   </View>
                 ))}
-              </>
+              </WorkoutHistoryView>
             )}
 
-            {activeTab === "profile" && (
-              <>
+            {activeSection === "profile" && (
+              <BodyProfileView>
                 <View className="rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>Body Metrics</Text>
+                  <SectionHeader title="Body metrics" />
                   <View
                     className="mt-4"
                     style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: theme.spacing.md }}
@@ -792,14 +755,14 @@ export function WorkoutBuddyScreen({
                       gap: theme.spacing.sm
                     }}
                   >
-                    <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>BMI</Text>
+                    <Text style={[theme.typography.eyebrow, { color: textMuted }]}>BMI</Text>
                     <View className="rounded-full px-3 py-1" style={{ backgroundColor: bmiSummary.badgeBackground }}>
-                      <Text className="text-xs font-black uppercase" style={{ color: bmiSummary.badgeTextColor }}>
+                      <Text style={[theme.typography.eyebrow, { color: bmiSummary.badgeTextColor }]}>
                         {bmiSummary.label}
                       </Text>
                     </View>
                   </View>
-                  <Text className="mt-3 text-6xl font-black" style={{ color: bmiSummary.textColor }}>
+                  <Text style={[theme.typography.metric, { color: bmiSummary.textColor, marginTop: theme.spacing.md }]}>
                     {roundedBmi != null ? roundedBmi : "--"}
                   </Text>
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>{bmiSummary.note}</Text>
@@ -819,63 +782,48 @@ export function WorkoutBuddyScreen({
                 </View>
 
                 <Button
-                  label="Save profile"
+                  label="Save body details"
                   onPress={onSaveProfile}
                   loading={profileSaving}
                   fullWidth
                   size="large"
-                  style={{ marginTop: 20 }}
+                  style={{ marginTop: theme.spacing.xl }}
                 />
 
                 {profileNotice && (
                   <StatusBanner
                     className="mt-3"
-                    title={profileNotice.type === "success" ? "Profile saved" : "Profile not saved"}
+                    title={profileNotice.type === "success" ? "Body details saved" : "Body details not saved"}
                     message={profileNotice.message}
                     variant={profileNotice.type === "success" ? "success" : "danger"}
                   />
                 )}
-              </>
+              </BodyProfileView>
             )}
 
-            {activeTab === "settings" && (
-              <>
+            {activeSection === "settings" && (
+              <WorkoutSettingsView>
                 <View className="rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>
-                    Default Plan Schedule
-                  </Text>
+                  <SectionHeader title="Workout plan defaults" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                     New plans start with {formatDays(settings.workoutDays)}. Existing plan days control Today and workout reminders.
                   </Text>
 
-                  <View className="mt-4 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
-                    {WEEKDAY_OPTIONS.map((day) => {
-                      const isActive = settings.workoutDays.includes(day.value);
-                      return (
-                        <Pressable
-                          key={day.value}
-                          onPress={() => onToggleGlobalWorkoutDay(day.value)}
-                          accessibilityRole="checkbox"
-                          accessibilityLabel={day.label}
-                          accessibilityState={{ checked: isActive }}
-                          className="min-h-[48px] items-center justify-center rounded-xl border px-2 py-2"
-                          style={{
-                            width: windowWidth < 520 || fontScale >= 1.2 ? "22%" : "12%",
-                            borderColor: isActive ? workoutTheme.accent : workoutTheme.accentBorder,
-                            backgroundColor: isActive ? withAlpha(workoutTheme.accent, 0.22) : inputBackground
-                          }}
-                        >
-                          <Text className="text-xs font-bold uppercase" style={{ color: isActive ? workoutTheme.accent : textMuted }}>
-                            {day.short}
-                          </Text>
-                        </Pressable>
+                  <WeekdayPicker
+                    label="Default training days"
+                    value={settings.workoutDays}
+                    onChange={(days) => {
+                      const changedDay = [...settings.workoutDays, ...days].find(
+                        (day) => settings.workoutDays.includes(day) !== days.includes(day)
                       );
-                    })}
-                  </View>
+                      if (changedDay != null) onToggleGlobalWorkoutDay(changedDay);
+                    }}
+                    style={{ marginTop: theme.spacing.lg }}
+                  />
 
                   <View className="mt-5">
                     <TextField
-                      label="Weekly streak goal"
+                      label="Workout weekly streak goal"
                       value={weeklyGoalText}
                       onChangeText={(value) => {
                         if (settingsNotice) onClearSettingsNotice();
@@ -890,41 +838,26 @@ export function WorkoutBuddyScreen({
                 </View>
 
                 <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>
-                    Reminder Settings
-                  </Text>
+                  <SectionHeader title="Workout reminders" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                     Choose workout time and set up to 3 reminder intervals.
                   </Text>
-                  <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.2px]" style={{ color: textMuted }}>
+                  <Text style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.xs }]}>
                     Scheduled in {settings.timezone}
                   </Text>
 
-                  <View className="mt-3 flex-row flex-wrap gap-2">
-                    {workoutTimeZoneOptions.map((timezone) => {
-                      const active = settings.timezone === timezone;
-                      return (
-                        <Pressable
-                          key={timezone}
-                          onPress={() => {
-                            if (settingsNotice) onClearSettingsNotice();
-                            onSettingsChange((current) => ({ ...current, timezone }));
-                          }}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: active }}
-                          className="min-h-[44px] justify-center rounded-xl border px-3 py-2"
-                          style={{
-                            borderColor: active ? workoutTheme.accent : workoutTheme.accentBorder,
-                            backgroundColor: active ? withAlpha(workoutTheme.accent, 0.2) : inputBackground
-                          }}
-                        >
-                          <Text className="text-xs font-black" style={{ color: active ? workoutTheme.accent : textMuted }}>
-                            {timezone === deviceTimeZone ? `Device · ${timezone}` : timezone}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <ChoiceRow
+                    value={settings.timezone}
+                    options={workoutTimeZoneOptions.map((timezone) => ({
+                      value: timezone,
+                      label: timezone === deviceTimeZone ? `Device · ${timezone}` : timezone
+                    }))}
+                    onChange={(timezone) => {
+                      if (settingsNotice) onClearSettingsNotice();
+                      onSettingsChange((current) => ({ ...current, timezone }));
+                    }}
+                    style={{ marginTop: theme.spacing.md }}
+                  />
 
                   <SwitchRow
                     label="Workout reminders"
@@ -940,50 +873,21 @@ export function WorkoutBuddyScreen({
                   />
 
                   <View className="mt-4">
-                    <Text className="mb-2 text-xs font-semibold" style={{ color: theme.colors.textTertiary }}>
-                      How should Anthra remind you?
-                    </Text>
-                    <View className="flex-row gap-2">
-                      {([
+                    <ChoiceRow
+                      label="How should Anthra remind you?"
+                      value={settings.reminderDelivery}
+                      layout="equal"
+                      disabled={!settings.notificationsEnabled}
+                      options={[
                         { value: "notification", label: "Notification" },
-                        { value: "alarm", label: "Alarm" },
-                        { value: "both", label: "Both" }
-                      ] as const).map((option) => {
-                        const active = settings.reminderDelivery === option.value;
-                        const platformUnsupported =
-                          Platform.OS !== "android" && option.value !== "notification";
-                        return (
-                          <Pressable
-                            key={option.value}
-                            disabled={platformUnsupported}
-                            onPress={() => {
-                              if (settingsNotice) onClearSettingsNotice();
-                              onSettingsChange((current) => ({ ...current, reminderDelivery: option.value }));
-                            }}
-                            accessibilityRole="radio"
-                            accessibilityLabel={`${option.label} workout reminders`}
-                            accessibilityState={{ checked: active, selected: active }}
-                            className="min-h-[48px] flex-1 items-center justify-center rounded-xl border px-2 py-2"
-                            style={{
-                              borderColor: active ? workoutTheme.accent : workoutTheme.accentBorder,
-                              backgroundColor: active ? withAlpha(workoutTheme.accent, 0.2) : inputBackground,
-                              opacity: platformUnsupported ? 0.35 : settings.notificationsEnabled ? 1 : 0.55
-                            }}
-                          >
-                            <Text
-                              numberOfLines={1}
-                              adjustsFontSizeToFit
-                              minimumFontScale={0.68}
-                              maxFontSizeMultiplier={1.2}
-                              className="text-center text-xs font-black"
-                              style={{ minWidth: 0, color: active ? workoutTheme.accent : textMuted }}
-                            >
-                              {option.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                        { value: "alarm", label: "Alarm", disabled: Platform.OS !== "android" },
+                        { value: "both", label: "Both", disabled: Platform.OS !== "android" }
+                      ]}
+                      onChange={(reminderDelivery) => {
+                        if (settingsNotice) onClearSettingsNotice();
+                        onSettingsChange((current) => ({ ...current, reminderDelivery }));
+                      }}
+                    />
                     <Text className="mt-2 text-xs" style={{ color: textMuted }}>
                       Workout alarms ring full-screen on Android and use a regular Dismiss button. Push-up verification is only used by Alarm Buddy.
                     </Text>
@@ -1013,33 +917,19 @@ export function WorkoutBuddyScreen({
                   </View>
 
                   <View className="mt-4">
-                    <Text className="mb-2 text-xs font-semibold" style={{ color: theme.colors.textTertiary }}>How many reminders?</Text>
-                    <View className="flex-row gap-2">
-                      {[1, 2, 3].map((count) => {
-                        const active = reminderCount === count;
-                        return (
-                          <Pressable
-                            key={count}
-                            onPress={() => {
-                              if (settingsNotice) onClearSettingsNotice();
-                              onReminderCountChange(count);
-                            }}
-                            accessibilityRole="radio"
-                            accessibilityLabel={`${count} workout reminder${count === 1 ? "" : "s"}`}
-                            accessibilityState={{ checked: active, selected: active }}
-                            className="min-h-[44px] flex-1 items-center justify-center rounded-xl border py-2"
-                            style={{
-                              borderColor: active ? workoutTheme.accent : workoutTheme.accentBorder,
-                              backgroundColor: active ? withAlpha(workoutTheme.accent, 0.2) : inputBackground
-                            }}
-                          >
-                            <Text className="text-sm font-black" style={{ color: active ? workoutTheme.accent : textMuted }}>
-                              {count}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                    <ChoiceRow
+                      label="How many reminders?"
+                      value={String(reminderCount)}
+                      layout="equal"
+                      options={[1, 2, 3].map((count) => ({
+                        value: String(count),
+                        label: `${count}`
+                      }))}
+                      onChange={(value) => {
+                        if (settingsNotice) onClearSettingsNotice();
+                        onReminderCountChange(Number(value));
+                      }}
+                    />
                   </View>
 
                   <View className="mt-4 gap-2">
@@ -1057,33 +947,33 @@ export function WorkoutBuddyScreen({
                     ))}
                   </View>
 
-                  <Text className="mt-3 text-xs font-semibold uppercase tracking-[1.5px]" style={{ color: textMuted }}>
+                  <Text style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.md }]}>
                     {reminderPreview}
                   </Text>
                 </View>
 
                 <Button
-                  label="Save settings"
+                  label="Save workout settings"
                   onPress={onSaveSettings}
                   loading={settingsSaving}
                   fullWidth
                   size="large"
-                  style={{ marginTop: 20 }}
+                  style={{ marginTop: theme.spacing.xl }}
                 />
 
                 {settingsNotice && (
                   <StatusBanner
                     className="mt-3"
-                    title={settingsNotice.type === "success" ? "Settings saved" : "Settings not saved"}
+                    title={settingsNotice.type === "success" ? "Workout settings saved" : "Workout settings not saved"}
                     message={settingsNotice.message}
                     variant={settingsNotice.type === "success" ? "success" : "danger"}
                   />
                 )}
 
                 <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
-                  <Text className="text-sm font-semibold uppercase tracking-[2px]" style={{ color: textMuted }}>Backup & Restore</Text>
+                  <SectionHeader title="Anthra backup & restore" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
-                    Save workouts, history, alarms, reminders, lists, profile, and settings as a JSON file. Password Buddy stays in secure device storage and is never exported.
+                    Save workouts, history, alarms, reminders, lists, body details, and settings as a JSON file. Password Buddy stays in secure device storage and is never exported.
                   </Text>
                   <View
                     className="mt-4"
@@ -1110,18 +1000,9 @@ export function WorkoutBuddyScreen({
                 <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
                   <AppearanceControl />
                 </View>
-              </>
+              </WorkoutSettingsView>
             )}
-          </ScrollView>
-
-          <WorkoutTabBar
-            activeTab={activeTab}
-            onChange={(tab) => {
-              if (tab === "plans") onPlanListModeChange("all");
-              onTabChange(tab);
-            }}
-          />
-        </ScreenLayout>
+      </ScreenShell>
 
         <View
           className="absolute -left-[2000px] -top-[2000px]"

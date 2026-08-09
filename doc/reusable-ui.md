@@ -23,6 +23,7 @@ When building or editing screens **or adding any feature with UI**:
 |-----------|------|
 | `Button` | Primary actions |
 | `IconButton` | Icon-only actions |
+| `AnimatedPressable` | Reduced-motion-aware spring press feedback with opt-in semantic haptics |
 | `TextField` | Labeled text inputs |
 | `ScreenHeader` | Back + title + optional action |
 | `Surface` / `Card` | Elevated / bordered panels |
@@ -30,8 +31,8 @@ When building or editing screens **or adding any feature with UI**:
 | `StatusBanner` | Inline alert / feedback |
 | `KeyboardAwareScrollView` | Form scrolling with keyboard |
 | `ProgressBar` | Animated progress track |
-| `ChoiceRow` / `ChoiceChip` | Single-select chip row (replaces ad-hoc chips + old `QuickChoiceRow`) |
-| `WeekdayPicker` | Multi-select weekday chips (`WEEKDAY_OPTIONS`) |
+| `ChoiceRow` / `ChoiceChip` | Single-select chip or card row (replaces ad-hoc chips + old `QuickChoiceRow`) |
+| `WeekdayPicker` | Multi-select weekday chips with an optional card treatment (`WEEKDAY_OPTIONS`) |
 | `EmptyState` | Icon + title + body + optional CTA |
 | `SectionHeader` | Section title + meta / action |
 | `BottomTabBar` | Shared bottom tabs |
@@ -41,6 +42,17 @@ When building or editing screens **or adding any feature with UI**:
 | `ScreenShell` | Header + padded scroll + footer (composes `ScreenLayout`) |
 | `ScreenLayout` | **Required** outer wrapper — `src/components/layout` — see `doc/screen-layout-system.md` |
 | `TimePickerField` | Time field + optional preset chips |
+| `DatePickerField` | Labeled native date picker with validation and disabled states |
+| `InteractiveCard` | Pressable semantic card for entity rows and navigation targets |
+| `MetricCard` | Responsive title/value/unit summary card with tabular numerals |
+| `SegmentedControl` | Accessible equal-width view/filter selector |
+| `DisclosureCard` | Animated expandable summary/detail surface |
+| `ResponsiveFieldRow` | Field group that stacks at narrow widths or large font scales |
+| `StickyFormFooter` | Safe-area-aware persistent form action region |
+| `SkeletonBlock` / `SkeletonRow` / `SkeletonCard` | Shape-preserving loading placeholders |
+| `BlockingLoadingState` | Single blocking load/error/retry state for app or screen startup |
+| `RatingControl` | Accessible haptic rating selector |
+| `PersonRow` | Consistent avatar/identity/action row for social lists |
 
 ## Leave feature-specific
 
@@ -75,19 +87,19 @@ Do **not** force these into generic kit components unless a third consumer appea
 - Reminder / Workout / Tracker tab bars are thin wrappers over `BottomTabBar`
 - Empty states migrated on Alarm, List, Tracker
 
-### Phase 3 — Dialogs ✅ (partial)
+### Phase 3 — Dialogs ✅
 
 - `FormDialog` / `SheetDialog` available in kit
-- Migrated List category/item modals and Tracker rename/create modal
-- Alarm / Reminder / Plan nested editors can adopt `SheetDialog` / `FormDialog` next
+- Migrated List, Tracker, Alarm, Reminder, Vault, feedback, activity-share, and Plan nested editors
+- Complex Plan editing remains a full-screen modal so drafts, keyboard behavior, and long-list scroll position survive nested sheets
 
-### Phase 4 — Screen chrome ✅ (kit ready)
+### Phase 4 — Screen chrome ✅
 
-- `ScreenShell` available; adopt on Buddy screens when extracting from `App.tsx`
+- `ScreenShell` owns `ScreenLayout` and is adopted by Workout, Nutrition, and Account; Hub and legacy roots use `ScreenLayout` directly where they need specialized composition
 
-### Phase 5 — Optional
+### Phase 5 — Interaction and loading ✅
 
-- Generic list-row only if ≥3 entity cards still share structure after dialog/empty extraction
+- Shared press feedback, haptics, skeletons, disclosure, segmented controls, responsive fields, and sticky form actions are available and in use
 
 ## Checklist for new UI
 

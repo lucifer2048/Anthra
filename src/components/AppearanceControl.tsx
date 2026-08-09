@@ -1,15 +1,12 @@
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
-import * as Haptics from "expo-haptics";
+import { Text, useWindowDimensions, View } from "react-native";
 import { Check, MonitorCog, Moon, Sun, type LucideIcon } from "lucide-react-native";
 import Animated, {
   FadeInDown,
-  useAnimatedStyle,
   useReducedMotion,
-  useSharedValue,
-  withSpring
 } from "react-native-reanimated";
 
 import { useAnthraTheme, useThemeMode, type ThemeMode } from "../design-system";
+import { AnimatedPressable } from "./ui";
 
 const APPEARANCE_OPTIONS = [
   { mode: "system", label: "Auto", Icon: MonitorCog },
@@ -32,26 +29,17 @@ function AppearanceOptionCard({
 }) {
   const theme = useAnthraTheme();
   const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <Animated.View
       entering={reduceMotion ? undefined : FadeInDown.delay(80 + index * 60).springify().damping(18).stiffness(220)}
       style={{ flex: 1 }}
     >
-      <Animated.View style={[{ width: "100%" }, animatedStyle]}>
-      <Pressable
-        onPress={() => {
-          Haptics.selectionAsync().catch(() => undefined);
-          onSelect();
-        }}
-        onPressIn={() => {
-          if (!reduceMotion) scale.value = withSpring(0.95, { damping: 18, stiffness: 340 });
-        }}
-        onPressOut={() => {
-          if (!reduceMotion) scale.value = withSpring(1, { damping: 16, stiffness: 280 });
-        }}
+      <Animated.View style={{ width: "100%" }}>
+      <AnimatedPressable
+        onPress={onSelect}
+        haptic="selection"
+        pressScale="icon"
         accessibilityRole="radio"
         accessibilityLabel={`${label} appearance`}
         accessibilityState={{ selected, checked: selected }}
@@ -94,7 +82,7 @@ function AppearanceOptionCard({
           )}
         </View>
         <Text style={[theme.typography.label, { color: selected ? theme.colors.brand : theme.colors.textSecondary }]}>{label}</Text>
-      </Pressable>
+      </AnimatedPressable>
       </Animated.View>
     </Animated.View>
   );

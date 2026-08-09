@@ -4,4 +4,5 @@
   <string name="step_tracking_channel_description">Keeps Anthra counting steps when the app is closed.</string>
   <string name="step_tracking_notification_title">Anthra is counting your steps</string>
   <string name="step_tracking_notification_text">Background step tracking is active</string>
+  <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
 </resources>

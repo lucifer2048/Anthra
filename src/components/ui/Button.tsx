@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, type PressableProps } from "react-native";
+import { ActivityIndicator, Platform, Text, View, type PressableProps } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
+import { AnimatedPressable, type HapticMode } from "./AnimatedPressable";
 
 export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 export type ButtonSize = "small" | "medium" | "large";
@@ -15,6 +15,8 @@ export type ButtonProps = Omit<PressableProps, "children" | "disabled"> & {
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
+  haptic?: HapticMode;
+  loadingAccessibilityLabel?: string;
 };
 
 export function Button({
@@ -26,6 +28,8 @@ export function Button({
   loading = false,
   disabled = false,
   fullWidth = false,
+  haptic = "none",
+  loadingAccessibilityLabel,
   accessibilityLabel,
   accessibilityState,
   className,
@@ -36,7 +40,6 @@ export function Button({
   ...props
 }: ButtonProps) {
   const theme = useAnthraTheme();
-  const [pressed, setPressed] = useState(false);
   const isDisabled = disabled || loading;
   const isVisuallyDisabled = disabled && !loading;
 
@@ -74,9 +77,9 @@ export function Button({
   } as const;
 
   const sizes = {
-    small: { minHeight: 44, paddingHorizontal: 14, iconSize: 18 },
-    medium: { minHeight: theme.layout.minTouchTarget, paddingHorizontal: 18, iconSize: 20 },
-    large: { minHeight: 56, paddingHorizontal: 22, iconSize: 22 }
+    small: { minHeight: theme.sizes.control.compact, paddingHorizontal: theme.spacing.md, iconSize: theme.sizes.icon.sm },
+    medium: { minHeight: theme.sizes.control.regular, paddingHorizontal: theme.spacing.lg, iconSize: theme.sizes.icon.md },
+    large: { minHeight: theme.sizes.control.large, paddingHorizontal: theme.spacing.xl, iconSize: theme.sizes.icon.lg }
   } as const;
 
   const palette = variants[variant];
@@ -84,29 +87,24 @@ export function Button({
   const contentColor = isVisuallyDisabled ? theme.colors.disabledText : palette.foreground;
 
   return (
-    <Pressable
+    <AnimatedPressable
       {...props}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityLabel={loading ? (loadingAccessibilityLabel ?? `${accessibilityLabel ?? label}, loading`) : (accessibilityLabel ?? label)}
       accessibilityState={{
         ...accessibilityState,
         disabled: isDisabled,
         busy: loading
       }}
-      onPressIn={(event) => {
-        setPressed(true);
-        onPressIn?.(event);
-      }}
-      onPressOut={(event) => {
-        setPressed(false);
-        onPressOut?.(event);
-      }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      haptic={loading || disabled ? "none" : haptic}
       android_ripple={android_ripple === undefined && Platform.OS === "android"
         ? { color: variant === "primary" || variant === "danger" ? "rgba(255,255,255,0.18)" : theme.colors.surfacePressed }
         : android_ripple}
       className={`flex-row items-center justify-center ${fullWidth ? "w-full" : ""} ${className ?? ""}`}
-      style={[
+      style={({ pressed }) => [
         {
           minHeight: metrics.minHeight,
           paddingHorizontal: metrics.paddingHorizontal,
@@ -121,17 +119,16 @@ export function Button({
               ? palette.pressed
               : palette.background,
           opacity: isVisuallyDisabled ? theme.motion.disabledOpacity : 1,
-          transform: [{ scale: pressed && !isDisabled ? theme.motion.pressedScale : 1 }],
           alignSelf: fullWidth ? "stretch" : "flex-start"
         },
         typeof style === "function" ? style({ pressed }) : style
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={palette.foreground} size="small" />
-      ) : (
-        Icon && iconPosition === "start" && <Icon accessible={false} color={contentColor} size={metrics.iconSize} />
-      )}
+      {(loading || (Icon && iconPosition === "start")) ? (
+        <View style={{ width: metrics.iconSize, height: metrics.iconSize, alignItems: "center", justifyContent: "center" }}>
+          {loading ? <ActivityIndicator color={palette.foreground} size="small" /> : Icon ? <Icon accessible={false} color={contentColor} size={metrics.iconSize} /> : null}
+        </View>
+      ) : null}
       <Text
         numberOfLines={1}
         maxFontSizeMultiplier={1.4}
@@ -151,6 +148,6 @@ export function Button({
       {!loading && Icon && iconPosition === "end" && (
         <Icon accessible={false} color={contentColor} size={metrics.iconSize} />
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }

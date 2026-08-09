@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AppState,
-  Pressable,
+  BackHandler,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -42,7 +43,7 @@ import {
 
 import { formatDays } from "../../constants/schedule";
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
-import { Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, StatusBanner, TextField } from "../../components/ui";
+import { AnimatedPressable, Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, SkeletonCard, StatusBanner, TextField, ToastBanner } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { getDeviceTimeZone } from "../../utils/timezone";
 import {
@@ -141,7 +142,7 @@ function ProgressRing({ percentage, done, due, size = 152 }: { percentage: numbe
   );
 }
 
-function TaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: () => void }) {
+function TrackerTaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: () => void }) {
   const theme = useAnthraTheme();
   const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
@@ -159,16 +160,12 @@ function TaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: () => voi
           borderWidth: 1,
           borderColor: task.done ? theme.colors.success : theme.colors.borderStrong,
           backgroundColor: task.done ? theme.colors.successSoft : theme.colors.surfaceElevated,
-          shadowColor: theme.isDark ? "#000000" : "#4B2028",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: task.done ? 0.04 : 0.12,
-          shadowRadius: 12,
-          elevation: task.done ? 1 : 4
+          ...(task.done ? theme.shadows.low : theme.shadows.medium)
         },
         style
       ]}
     >
-      <Pressable
+      <AnimatedPressable
         onPress={onToggle}
         android_ripple={{ color: theme.colors.surfacePressed }}
         accessibilityRole="checkbox"
@@ -199,24 +196,34 @@ function TaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: () => voi
           borderColor: theme.colors.borderStrong,
           backgroundColor: task.done ? theme.colors.success : "transparent"
         }}>
-          {task.done && <Check accessible={false} color={theme.isDark ? theme.colors.canvas : "#FFFFFF"} size={21} strokeWidth={3} />}
+          {task.done && <Check accessible={false} color={theme.colors.textOnBrandSolid} size={theme.sizes.icon.md} strokeWidth={3} />}
         </View>
         <View style={{ flex: 1, minWidth: 0, alignSelf: "stretch", justifyContent: "center" }}>
           <Text numberOfLines={2} style={[theme.typography.titleSmall, { width: "100%", color: theme.colors.textPrimary, textAlign: "left", textDecorationLine: task.done ? "line-through" : "none" }]}>{task.title}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: theme.spacing.sm, marginTop: theme.spacing.sm }}>
-            <View style={{ maxWidth: "100%", paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radii.full, backgroundColor: theme.colors.surfaceSubtle }}>
+            <View style={{ maxWidth: "100%", paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.surfaceSubtle }}>
               <Text numberOfLines={2} style={[theme.typography.caption, { flexShrink: 1, color: theme.colors.textSecondary }]}>{taskScheduleLabel(task)}</Text>
             </View>
             {task.notificationEnabled && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}>
                 <Bell accessible={false} color={theme.colors.brand} size={13} />
                 <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.brand }]}>{formatTime(task.notificationHour, task.notificationMinute)}</Text>
               </View>
             )}
           </View>
         </View>
-      </Pressable>
+      </AnimatedPressable>
     </Animated.View>
+  );
+}
+
+function CalendarCell({ dateKey, done, due, percentage, selected, onPress }: { dateKey: string; done: number; due: number; percentage: number | null; selected: boolean; onPress: () => void }) {
+  const theme = useAnthraTheme();
+  const intensity = percentage ?? 0;
+  return (
+    <AnimatedPressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${formatShortDate(dateKey)}, ${done} of ${due} complete`} accessibilityState={{ selected }} style={{ width: theme.sizes.icon.xl, height: theme.sizes.icon.xl, borderRadius: theme.radii.sm, alignItems: "center", justifyContent: "center", borderWidth: selected ? theme.borderWidths.focused : theme.borderWidths.standard, borderColor: selected ? theme.colors.brand : intensity === 100 && due > 0 ? theme.colors.success : theme.colors.border, backgroundColor: intensity === 100 && due > 0 ? theme.colors.successSoft : intensity > 0 ? theme.colors.brandSoft : theme.colors.surfaceSubtle }}>
+      <Text style={[theme.typography.caption, { color: intensity === 100 && due > 0 ? theme.colors.success : intensity > 0 ? theme.colors.brand : theme.colors.textTertiary }]}>{Number(dateKey.slice(-2))}</Text>
+    </AnimatedPressable>
   );
 }
 
@@ -231,7 +238,7 @@ function SummaryCard({ label, summary, icon: Icon }: { label: string; summary: T
         <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[theme.typography.label, { color: theme.colors.textSecondary }]}>{label.toUpperCase()}</Text>
       </View>
       <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.25} style={[theme.typography.display, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{summary.percentage}%</Text>
-      <Text maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{summary.done}/{summary.due} tasks · {summary.perfectDays} perfect {summary.perfectDays === 1 ? "day" : "days"}</Text>
+      <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{summary.done}/{summary.due} tasks · {summary.perfectDays} perfect {summary.perfectDays === 1 ? "day" : "days"}</Text>
     </Card>
   );
 }
@@ -280,13 +287,13 @@ function TaskActivityCard({
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Task activity</Text>
-          <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>{subtitle}</Text>
+          <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{subtitle}</Text>
         </View>
-        <View style={{ flexDirection: "row", padding: 3, gap: 3, borderRadius: theme.radii.md, backgroundColor: theme.colors.surfaceSubtle }}>
+        <View style={{ flexDirection: "row", padding: theme.spacing.xs, gap: theme.spacing.xs, borderRadius: theme.radii.md, backgroundColor: theme.colors.surfaceSubtle }}>
           {(["week", "month"] as const).map((option) => {
             const active = range === option;
             return (
-              <Pressable
+              <AnimatedPressable
                 key={option}
                 onPress={() => onRangeChange(option)}
                 accessibilityRole="button"
@@ -303,7 +310,7 @@ function TaskActivityCard({
                 }}
               >
                 <Text style={[theme.typography.label, { color: active ? theme.colors.brand : theme.colors.textSecondary, textTransform: "capitalize" }]}>{option}</Text>
-              </Pressable>
+              </AnimatedPressable>
             );
           })}
         </View>
@@ -328,7 +335,7 @@ function TaskActivityCard({
                 }}
               >
                 <Text numberOfLines={2} maxFontSizeMultiplier={1.2} style={[theme.typography.label, { color: theme.colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
-                <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[theme.typography.caption, { color: theme.colors.brand, marginTop: 2 }]}>{item.percentage}% · {item.done}/{item.due}</Text>
+                <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[theme.typography.caption, { color: theme.colors.brand, marginTop: theme.spacing.xs }]}>{item.percentage}% · {item.done}/{item.due}</Text>
               </View>
             ))}
           </View>
@@ -369,7 +376,7 @@ function TaskActivityCard({
                     const selected = day.dateKey === selectedDay;
                     return (
                       <View key={day.dateKey} style={{ width: columnWidth, alignItems: "center" }}>
-                        <Pressable
+                        <AnimatedPressable
                           onPress={() => onSelectDay(day.dateKey)}
                           accessibilityRole="button"
                           accessibilityLabel={`${item.title}, ${formatShortDate(day.dateKey)}, ${day.status === "notScheduled" ? "not scheduled" : day.status}`}
@@ -450,6 +457,24 @@ export function TrackerBuddyScreen({ onBack }: Props) {
   const [celebration, setCelebration] = useState<string | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleScreenBack = useCallback(() => {
+    if (view !== "today") {
+      setView("today");
+      return;
+    }
+    onBack();
+  }, [onBack, view]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (view === "today") return false;
+      setView("today");
+      return true;
+    });
+    return () => subscription.remove();
+  }, [view]);
 
   const selectedTracker = trackers.find((tracker) => tracker.id === selectedId) ?? null;
   const doneCount = dayTasks.filter((task) => task.done).length;
@@ -723,8 +748,8 @@ export function TrackerBuddyScreen({ onBack }: Props) {
           eyebrow="ORGANIZE"
           title="Tracker Buddy"
           subtitle="Small wins, repeated your way"
-          onBack={onBack}
-          backLabel="Back to Today"
+          onBack={handleScreenBack}
+          backLabel={view === "today" ? "Back to Today" : "Back to Tracker"}
           action={<IconButton icon={Plus} accessibilityLabel="Create tracker" onPress={openNewTracker} variant="primary" />}
           style={{ maxWidth: theme.layout.contentMaxWidth, alignSelf: "center" }}
         />
@@ -743,7 +768,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
         {notice && <StatusBanner title="Tracker Buddy" message={notice} variant={notice.toLowerCase().includes("could not") ? "danger" : "info"} style={{ marginBottom: theme.spacing.md }} />}
 
         {!ready ? (
-          <Card variant="subtle" padding="large"><Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>Preparing your trackers…</Text></Card>
+          <SkeletonCard rows={3} />
         ) : trackers.length === 0 ? (
           <EmptyState
             icon={Gamepad2}
@@ -770,14 +795,10 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                         borderWidth: 1,
                         borderColor: selected ? theme.colors.brand : theme.colors.borderStrong,
                         backgroundColor: selected ? theme.colors.brandSoft : theme.colors.surfaceElevated,
-                        shadowColor: theme.isDark ? "#000000" : "#5E2130",
-                        shadowOffset: { width: 0, height: 3 },
-                        shadowOpacity: selected ? 0.12 : 0.07,
-                        shadowRadius: 10,
-                        elevation: selected ? 3 : 2
+                        ...(selected ? theme.shadows.medium : theme.shadows.low)
                       }}
                     >
-                      <Pressable
+                      <AnimatedPressable
                         onPress={() => refresh(tracker.id).catch(() => undefined)}
                         android_ripple={{ color: theme.colors.surfacePressed }}
                         accessibilityRole="radio"
@@ -796,7 +817,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                           <Target accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={17} />
                         </View>
                         <Text numberOfLines={1} style={[theme.typography.labelLarge, { maxWidth: trackerNameMaxWidth, flexShrink: 1, color: selected ? theme.colors.brand : theme.colors.textPrimary, textAlign: "left" }]}>{tracker.name}</Text>
-                      </Pressable>
+                      </AnimatedPressable>
                     </View>
                   );
                 })}
@@ -806,7 +827,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
             {view === "today" && (
               <>
                 <Animated.View entering={reduceMotion ? undefined : FadeInDown.springify().damping(19)} style={{ marginTop: theme.spacing.lg }}>
-                  <Card variant="brand" padding="large" style={{ shadowColor: theme.isDark ? "#000000" : "#6E1020", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 }}>
+                  <Card variant="brand" padding="large" elevation="medium">
                     <View
                       style={{
                         width: "100%",
@@ -818,7 +839,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={[theme.typography.label, { color: theme.colors.brand }]}>TODAY · {formatShortDate(today).toUpperCase()}</Text>
                         <Text style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}>{doneCount} of {dayTasks.length}</Text>
-                        <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: 2 }]}>tasks complete</Text>
+                        <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>tasks complete</Text>
                         <View style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: theme.spacing.xs, marginTop: theme.spacing.lg, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.surface }}>
                           <Flame color={theme.colors.brand} size={16} />
                           <Text style={[theme.typography.label, { color: theme.colors.textPrimary }]}>{streak} day streak</Text>
@@ -835,7 +856,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
                     <View>
                       <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Today’s tasks</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>{dayTasks.length} scheduled</Text>
+                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{dayTasks.length} scheduled</Text>
                     </View>
                     <Button label="Add" icon={Plus} size="small" variant="secondary" onPress={() => {
                       setEditingTask(null);
@@ -851,7 +872,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                   ) : (
                     <View style={{ gap: theme.spacing.md }}>
                       {dayTasks.map((task) => (
-                        <TaskRow key={task.id} task={task} onToggle={() => toggleTask(task)} />
+                        <TrackerTaskRow key={task.id} task={task} onToggle={() => toggleTask(task)} />
                       ))}
                     </View>
                   )}
@@ -862,7 +883,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
             {view === "reports" && (
               <View style={{ marginTop: theme.spacing["2xl"], gap: theme.spacing.lg }}>
                 <Card variant="subtle" padding="none" radius="large">
-                  <Pressable
+                  <AnimatedPressable
                     onPress={() => setReportInfoExpanded((expanded) => !expanded)}
                     android_ripple={{ color: theme.colors.surfacePressed }}
                     accessibilityRole="button"
@@ -884,7 +905,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>How report cycles work</Text>
                       {!reportInfoExpanded && (
-                        <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>Weekly and monthly boundaries</Text>
+                        <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Weekly and monthly boundaries</Text>
                       )}
                     </View>
                     <ChevronDown
@@ -893,7 +914,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                       size={20}
                       style={{ transform: [{ rotate: reportInfoExpanded ? "180deg" : "0deg" }] }}
                     />
-                  </Pressable>
+                  </AnimatedPressable>
                   {reportInfoExpanded && (
                     <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(180)} style={{ paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg }}>
                       <View style={{ height: 1, backgroundColor: theme.colors.divider, marginBottom: theme.spacing.md }} />
@@ -930,7 +951,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                     />
                     <View style={{ flex: 1, minWidth: 0, alignItems: "center" }}>
                       <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, textAlign: "center" }]}>{formatMonth(reportMonthStart)}</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, textAlign: "center", marginTop: 2 }]}>Rolling 1-year history</Text>
+                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, textAlign: "center", marginTop: theme.spacing.xs }]}>Rolling 1-year history</Text>
                     </View>
                     <IconButton
                       icon={ChevronRight}
@@ -950,7 +971,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
 
                 <Card padding="large">
                   <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Monday–Sunday</Text>
-                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>{formatShortDate(mondayStart(selectedReportDay))}–{formatShortDate(shiftTrackerDate(mondayStart(selectedReportDay), 6))}</Text>
+                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{formatShortDate(mondayStart(selectedReportDay))}–{formatShortDate(shiftTrackerDate(mondayStart(selectedReportDay), 6))}</Text>
                   <View style={{ flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.lg }}>
                     {Array.from({ length: 7 }, (_, index) => {
                       const dateKey = shiftTrackerDate(mondayStart(selectedReportDay), index);
@@ -959,7 +980,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                       const perfect = day && day.due > 0 && day.done === day.due;
                       return (
                         <View key={dateKey} style={{ flex: 1, alignItems: "center" }}>
-                          <Pressable
+                          <AnimatedPressable
                             disabled={future || dateKey < historyCutoff}
                             onPress={() => {
                               setReportMonthStart(monthBounds(dateKey).start);
@@ -979,9 +1000,9 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                               backgroundColor: future ? theme.colors.surfaceSubtle : perfect ? theme.colors.success : day?.done ? theme.colors.brandSoft : theme.colors.surfacePressed
                             }}
                           >
-                            {perfect ? <Check color={theme.isDark ? theme.colors.canvas : "#FFFFFF"} size={16} /> : <Text style={[theme.typography.caption, { color: day?.done ? theme.colors.brand : theme.colors.textTertiary }]}>{day?.done ?? "·"}</Text>}
-                          </Pressable>
-                          <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 5 }]}>{["M", "T", "W", "T", "F", "S", "S"][index]}</Text>
+                            {perfect ? <Check color={theme.colors.textOnBrandSolid} size={16} /> : <Text style={[theme.typography.caption, { color: day?.done ? theme.colors.brand : theme.colors.textTertiary }]}>{day?.done ?? "·"}</Text>}
+                          </AnimatedPressable>
+                          <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{["M", "T", "W", "T", "F", "S", "S"][index]}</Text>
                         </View>
                       );
                     })}
@@ -990,32 +1011,9 @@ export function TrackerBuddyScreen({ onBack }: Props) {
 
                 <Card padding="large">
                   <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>{formatMonth(reportMonthStart)} consistency</Text>
-                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>Tap any retained day to see exactly what was completed or missed.</Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: theme.spacing.lg }}>
-                    {monthly.days.map((day) => {
-                      const intensity = day.percentage ?? 0;
-                      return (
-                        <Pressable
-                          key={day.dateKey}
-                          onPress={() => setSelectedReportDay(day.dateKey)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${formatShortDate(day.dateKey)}, ${day.done} of ${day.due} complete`}
-                          accessibilityState={{ selected: selectedReportDay === day.dateKey }}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: theme.radii.sm,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderWidth: selectedReportDay === day.dateKey ? 2 : 1,
-                            borderColor: selectedReportDay === day.dateKey ? theme.colors.brand : intensity === 100 && day.due > 0 ? theme.colors.success : theme.colors.border,
-                            backgroundColor: intensity === 100 && day.due > 0 ? theme.colors.successSoft : intensity > 0 ? theme.colors.brandSoft : theme.colors.surfaceSubtle
-                          }}
-                        >
-                          <Text style={[theme.typography.caption, { color: intensity === 100 && day.due > 0 ? theme.colors.success : intensity > 0 ? theme.colors.brand : theme.colors.textTertiary }]}>{Number(day.dateKey.slice(-2))}</Text>
-                        </Pressable>
-                      );
-                    })}
+                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Tap any retained day to see exactly what was completed or missed.</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm, marginTop: theme.spacing.lg }}>
+                    {monthly.days.map((day) => <CalendarCell key={day.dateKey} {...day} selected={selectedReportDay === day.dateKey} onPress={() => setSelectedReportDay(day.dateKey)} />)}
                   </View>
                 </Card>
 
@@ -1023,7 +1021,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                   <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md }}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Day details</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>{formatShortDate(selectedReportDay)} · {reportDayTasks.filter((task) => task.done).length} of {reportDayTasks.length} completed</Text>
+                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{formatShortDate(selectedReportDay)} · {reportDayTasks.filter((task) => task.done).length} of {reportDayTasks.length} completed</Text>
                     </View>
                     {selectedReportDay === shiftTrackerDate(today, -1) && (
                       <View style={{ paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}>
@@ -1073,7 +1071,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
                     <View>
                       <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Tasks</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 2 }]}>Schedule and notification settings</Text>
+                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Schedule and notification settings</Text>
                     </View>
                     <Button label="Add" icon={Plus} size="small" variant="secondary" onPress={() => {
                       setEditingTask(null);
@@ -1094,15 +1092,11 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                             borderWidth: 1,
                             borderColor: theme.colors.borderStrong,
                             backgroundColor: theme.colors.surfaceElevated,
-                            shadowColor: theme.isDark ? "#000000" : "#4B2028",
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.1,
-                            shadowRadius: 12,
-                            elevation: 4,
+                            ...theme.shadows.medium,
                             borderRadius: theme.radii.xl
                           }}
                         >
-                          <Pressable
+                          <AnimatedPressable
                             onPress={() => {
                               setEditingTask(task);
                               setTaskEditorOpen(true);
@@ -1132,7 +1126,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                               deleteTask(task);
                             }} variant="ghost" />
                             <ChevronRight accessible={false} color={theme.colors.textTertiary} size={20} />
-                          </Pressable>
+                          </AnimatedPressable>
                         </View>
                       ))}
                     </View>
@@ -1146,37 +1140,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
 
       {ready && trackers.length > 0 && <TrackerTabBar activeTab={view} onChange={setView} />}
 
-      {celebration && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            left: theme.layout.screenPadding,
-            right: theme.layout.screenPadding,
-            top: insets.top + headerHeight + theme.spacing.md,
-            zIndex: 20
-          }}
-        >
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.springify().damping(18)}
-            exiting={reduceMotion ? undefined : FadeOutUp.duration(180)}
-            style={{ width: "100%", maxWidth: 520, alignSelf: "center" }}
-          >
-            <StatusBanner
-              title="Nice work!"
-              message={celebration}
-              variant="success"
-              style={{
-                shadowColor: theme.isDark ? "#000000" : "#173D2B",
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: theme.isDark ? 0.34 : 0.18,
-                shadowRadius: 18,
-                elevation: 10
-              }}
-            />
-          </Animated.View>
-        </View>
-      )}
+      <ToastBanner visible={Boolean(celebration)} title="Nice work!" message={celebration ?? undefined} variant="success" topOffset={insets.top + headerHeight + theme.spacing.md} />
 
       <FormDialog
         visible={trackerModalOpen}

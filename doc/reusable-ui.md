@@ -37,8 +37,8 @@ When building or editing screens **or adding any feature with UI**:
 | `SectionHeader` | Section title + meta / action; stacks meta/action under the title on narrow widths / large Dynamic Type |
 | `BottomTabBar` | Shared bottom tabs |
 | `ToastBanner` | Absolutely positioned status toast |
-| `FormDialog` | Centered modal shell + footer actions |
-| `SheetDialog` | Bottom sheet modal shell + footer actions |
+| `FormDialog` | Centered modal shell + footer actions; title/subtitle truncate at large Dynamic Type |
+| `SheetDialog` | Bottom sheet modal shell + footer actions; title/subtitle truncate at large Dynamic Type |
 | `ScreenShell` | Header + padded scroll + footer (composes `ScreenLayout`) |
 | `ScreenLayout` | **Required** outer wrapper — `src/components/layout` — see `doc/screen-layout-system.md` |
 | `TimePickerField` | Time field + optional preset chips |

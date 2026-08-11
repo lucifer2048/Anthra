@@ -33,7 +33,7 @@ import {
 } from "../features/workout/workoutTimeline";
 import type { Exercise, WorkoutPlan, WorkoutPlanInput, WorkoutSection } from "../types";
 import { ScreenLayout, useScreenBackgrounds } from "./layout";
-import { AnimatedPressable, Button, ChoiceRow, IconButton, KeyboardAwareScrollView, ResponsiveFieldRow, SheetDialog, StickyFormFooter, Surface, TextField, WeekdayPicker } from "./ui";
+import { AnimatedPressable, Button, ChoiceRow, IconButton, KeyboardAwareScrollView, ResponsiveFieldRow, ScreenHeader, SheetDialog, StickyFormFooter, Surface, TextField, WeekdayPicker } from "./ui";
 import { ExerciseEditorSheet, PlanBasicsSection, PlanScheduleSection, SetEditorSheet, WorkoutSetCard } from "./PlanEditorSections";
 
 type EditableExercise = {
@@ -938,35 +938,28 @@ export function PlanEditorModal({
           style={{ backgroundColor: theme.colors.canvas }}
         >
           <View
-            className="flex-row items-center px-5 pb-3 pt-2"
             style={{
               width: "100%",
               maxWidth: theme.layout.contentMaxWidth,
               alignSelf: "center",
-              gap: theme.spacing.md,
+              paddingHorizontal: theme.layout.screenPadding,
+              paddingTop: theme.spacing.sm,
+              paddingBottom: theme.spacing.md,
               borderBottomWidth: 1,
               borderBottomColor: theme.colors.divider
             }}
           >
-            <View className="min-w-0 flex-1">
-              <Text style={[theme.typography.label, { color: theme.colors.brand }]}>WORKOUT PLAN</Text>
-              <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>
-                {isEditing ? "Edit plan" : "Create a plan"}
-              </Text>
-              <Text
-                style={[
-                  theme.typography.caption,
-                  {
-                    color: draftSaveStatus === "error" ? theme.colors.danger : theme.colors.textSecondary,
-                    marginTop: theme.spacing.xs
-                  }
-                ]}
-              >
-                {draftStatusLabel}
-              </Text>
-            </View>
-            <IconButton icon={RotateCcw} onPress={discardDraft} accessibilityLabel="Discard draft" variant="ghost" />
-            <IconButton icon={X} onPress={handleClose} accessibilityLabel="Close plan editor" variant="standard" />
+            <ScreenHeader
+              eyebrow="WORKOUT PLAN"
+              title={isEditing ? "Edit plan" : "Create a plan"}
+              subtitle={draftStatusLabel}
+              action={
+                <View style={{ flexDirection: "row", gap: theme.spacing.xs, flexShrink: 0 }}>
+                  <IconButton icon={RotateCcw} onPress={discardDraft} accessibilityLabel="Discard draft" variant="ghost" />
+                  <IconButton icon={X} onPress={handleClose} accessibilityLabel="Close plan editor" variant="standard" />
+                </View>
+              }
+            />
           </View>
 
           <KeyboardAwareScrollView
@@ -1099,12 +1092,19 @@ export function PlanEditorModal({
             </Surface>
             </PlanScheduleSection>
 
-            <View className="mt-6 flex-row items-end" style={{ gap: theme.spacing.md }}>
-              <View className="min-w-0 flex-1">
+            <View
+              className="mt-6"
+              style={{
+                flexDirection: shouldStackControls ? "column" : "row",
+                alignItems: shouldStackControls ? "flex-start" : "flex-end",
+                gap: theme.spacing.md
+              }}
+            >
+              <View className="min-w-0 flex-1" style={{ minWidth: 0 }}>
                 <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>Sets</Text>
-                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>They run from top to bottom, including every loop and rest.</Text>
+                <Text numberOfLines={2} style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>They run from top to bottom, including every loop and rest.</Text>
               </View>
-              <View className="flex-row items-center" style={{ gap: theme.spacing.xs }}>
+              <View className="flex-row items-center" style={{ flexShrink: 0, gap: theme.spacing.sm }}>
                 <Layers3 accessible={false} color={theme.colors.brand} size={19} />
                 <Text style={[theme.typography.label, { color: theme.colors.brand }]}>{sections.length}</Text>
               </View>
@@ -1115,20 +1115,26 @@ export function PlanEditorModal({
                 key={section.localId}
               >
                 <Text style={[theme.typography.label, { color: theme.colors.brand }]}>SET {sectionIndex + 1}</Text>
-                <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{section.name}</Text>
-                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
+                <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{section.name}</Text>
+                <Text numberOfLines={1} style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
                   {section.loopsText} {section.loopsText === "1" ? "loop" : "loops"} · {section.restSecondsText}s set rest
                 </Text>
 
                 <View
-                  className="mt-3 flex-row items-center justify-between border-t pt-2"
-                  style={{ gap: theme.spacing.md, borderColor: theme.colors.divider }}
+                  className="mt-3 border-t pt-2"
+                  style={{
+                    flexDirection: shouldStackControls ? "column" : "row",
+                    alignItems: shouldStackControls ? "stretch" : "center",
+                    justifyContent: "space-between",
+                    gap: theme.spacing.md,
+                    borderColor: theme.colors.divider
+                  }}
                 >
-                  <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                  <View className="flex-row" style={{ gap: theme.spacing.xs, flexShrink: 0 }}>
                     <IconButton icon={ArrowUp} onPress={() => moveSection(sectionIndex, -1)} disabled={sectionIndex === 0} accessibilityLabel={`Move ${section.name} up`} variant="ghost" size="small" />
                     <IconButton icon={ArrowDown} onPress={() => moveSection(sectionIndex, 1)} disabled={sectionIndex === sections.length - 1} accessibilityLabel={`Move ${section.name} down`} variant="ghost" size="small" />
                   </View>
-                  <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                  <View className="flex-row flex-wrap" style={{ gap: theme.spacing.xs, flexShrink: 0 }}>
                     <IconButton icon={Copy} onPress={() => duplicateSection(sectionIndex)} accessibilityLabel={`Duplicate ${section.name}`} variant="ghost" size="small" />
                     <IconButton icon={Pencil} onPress={() => openSetModal(section)} accessibilityLabel={`Edit ${section.name}`} variant="ghost" size="small" />
                     <IconButton icon={Trash2} onPress={() => removeSection(section.localId)} disabled={sections.length <= 1} accessibilityLabel={`Delete ${section.name}`} variant="danger" size="small" />
@@ -1156,14 +1162,22 @@ export function PlanEditorModal({
                     style={{ marginTop: theme.spacing.md }}
                   >
                     <Text style={[theme.typography.caption, { color: theme.colors.brand }]}>EXERCISE {exerciseIndex + 1}</Text>
-                    <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{exercise.name || "Unnamed"}</Text>
-                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Work {exercise.workSecondsText}s · Rest {exercise.restSecondsText}s</Text>
-                    <View className="mt-2 flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
-                      <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                    <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs, minWidth: 0 }]}>{exercise.name || "Unnamed"}</Text>
+                    <Text numberOfLines={1} style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Work {exercise.workSecondsText}s · Rest {exercise.restSecondsText}s</Text>
+                    <View
+                      className="mt-2"
+                      style={{
+                        flexDirection: shouldStackControls ? "column" : "row",
+                        alignItems: shouldStackControls ? "stretch" : "center",
+                        justifyContent: "space-between",
+                        gap: theme.spacing.md
+                      }}
+                    >
+                      <View className="flex-row" style={{ gap: theme.spacing.xs, flexShrink: 0 }}>
                         <IconButton icon={ArrowUp} onPress={() => moveExercise(section.localId, exerciseIndex, -1)} disabled={exerciseIndex === 0} accessibilityLabel={`Move ${exercise.name} up`} variant="ghost" size="small" />
                         <IconButton icon={ArrowDown} onPress={() => moveExercise(section.localId, exerciseIndex, 1)} disabled={exerciseIndex === section.exercises.length - 1} accessibilityLabel={`Move ${exercise.name} down`} variant="ghost" size="small" />
                       </View>
-                      <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                      <View className="flex-row flex-wrap" style={{ gap: theme.spacing.xs, flexShrink: 0 }}>
                         <IconButton icon={Copy} onPress={() => duplicateExercise(section.localId, exerciseIndex)} accessibilityLabel={`Duplicate ${exercise.name}`} variant="ghost" size="small" />
                         <IconButton icon={Pencil} onPress={() => openExerciseModal(section.localId, exercise)} accessibilityLabel={`Edit ${exercise.name}`} variant="ghost" size="small" />
                         <IconButton icon={Trash2} onPress={() => removeExercise(section.localId, exercise.localId)} accessibilityLabel={`Delete ${exercise.name}`} variant="danger" size="small" />

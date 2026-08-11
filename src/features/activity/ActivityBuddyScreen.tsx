@@ -34,8 +34,10 @@ import {
   Button,
   Card,
   ChoiceRow,
+  EmptyState,
   IconButton,
   ScreenHeader,
+  SectionHeader,
   SheetDialog,
   SkeletonCard,
   StatusBanner,
@@ -217,7 +219,7 @@ function SourceCard({
         </View>
 
         <View className="min-w-0 flex-1">
-          <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
             {title}
           </Text>
           <View
@@ -246,6 +248,7 @@ function SourceCard({
       </View>
 
       <Text
+        numberOfLines={4}
         style={[
           theme.typography.body,
           { color: theme.colors.textSecondary, marginTop: theme.spacing.md }
@@ -255,6 +258,8 @@ function SourceCard({
       </Text>
       {detail ? (
         <Text
+          numberOfLines={3}
+          ellipsizeMode="tail"
           style={[
             theme.typography.caption,
             { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }
@@ -1007,40 +1012,18 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         </Card>
 
         <View style={{ marginTop: theme.spacing["2xl"] }}>
-          <View
-            style={{
-              flexDirection: shouldStackSummary ? "column" : "row",
-              alignItems: shouldStackSummary ? "stretch" : "flex-end",
-              justifyContent: "space-between",
-              gap: theme.spacing.lg
-            }}
+          <SectionHeader
+            title="Seven-day rhythm"
+            meta={`${activityWeekDays}/7 active days`}
+          />
+          <Text
+            style={[
+              theme.typography.body,
+              { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
+            ]}
           >
-            <View className="min-w-0 flex-1">
-              <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
-                Seven-day rhythm
-              </Text>
-              <Text
-                style={[
-                  theme.typography.body,
-                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
-                ]}
-              >
-                Daily steps compared with your current goal.
-              </Text>
-            </View>
-            <View
-              accessible
-              accessibilityLabel={`${activityWeekDays} active days in the last seven days`}
-              style={{ alignItems: shouldStackSummary ? "flex-start" : "flex-end" }}
-            >
-              <Text style={[theme.typography.titleSmall, { color: theme.colors.brand }]}>
-                {activityWeekDays}/7
-              </Text>
-              <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
-                active days
-              </Text>
-            </View>
-          </View>
+            Daily steps compared with your current goal.
+          </Text>
 
           <Card style={{ marginTop: theme.spacing.md }}>
             {hasRecentStepData ? (
@@ -1050,52 +1033,19 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                 dailyGoal={settings.dailyGoal}
               />
             ) : (
-              <View
-                accessible
-                accessibilityLabel="No step history yet. Enable a source below, then refresh after moving."
-                className="items-center"
+              <EmptyState
+                icon={Footprints}
+                title="No step history yet"
+                description="Enable a source below, then refresh after moving."
+                variant="inline"
                 style={{ paddingVertical: theme.spacing.xl }}
-              >
-                <View
-                  className="items-center justify-center"
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: theme.radii.lg,
-                    backgroundColor: theme.colors.brandSoft
-                  }}
-                >
-                  <Footprints accessible={false} color={theme.colors.brand} size={26} />
-                </View>
-                <Text
-                  style={[
-                    theme.typography.titleSmall,
-                    { color: theme.colors.textPrimary, marginTop: theme.spacing.md }
-                  ]}
-                >
-                  No step history yet
-                </Text>
-                <Text
-                  style={[
-                    theme.typography.body,
-                    {
-                      color: theme.colors.textSecondary,
-                      marginTop: theme.spacing.xs,
-                      textAlign: "center"
-                    }
-                  ]}
-                >
-                  Enable a source below, then refresh after moving.
-                </Text>
-              </View>
+              />
             )}
           </Card>
         </View>
 
         <View style={{ marginTop: theme.spacing["3xl"] }}>
-          <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
-            Data sources
-          </Text>
+          <SectionHeader title="Data sources" />
           <Text
             style={[
               theme.typography.body,

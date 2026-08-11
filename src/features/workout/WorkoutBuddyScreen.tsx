@@ -10,7 +10,7 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import { Share2, Star, Trash2 } from "lucide-react-native";
+import { ClipboardList, History, Share2, Star, Trash2 } from "lucide-react-native";
 
 import { PlanEditorModal } from "../../components/PlanEditorModal";
 import { ProgressBar } from "../../components/ProgressBar";
@@ -19,7 +19,7 @@ import { TimePickerField } from "../../components/TimePickerField";
 import { AppearanceControl } from "../../components/AppearanceControl";
 import { WorkoutTabBar, type WorkoutTab } from "../../components/WorkoutTabBar";
 import { useScreenBackgrounds } from "../../components/layout";
-import { AnimatedPressable, Button, ChoiceRow, DisclosureCard, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
+import { AnimatedPressable, Button, ChoiceRow, DisclosureCard, EmptyState, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
 import { formatDays, matchesDay } from "../../constants/schedule";
 import { useAnthraTheme } from "../../design-system";
 import type {
@@ -347,20 +347,29 @@ export function WorkoutBuddyScreen({
                       </Text>
                     </View>
                     <Text
-                      numberOfLines={shouldStackWorkoutHeaders ? undefined : 1}
-                      style={[theme.typography.eyebrow, { color: textMuted, flexShrink: 1, textAlign: shouldStackWorkoutHeaders ? "left" : "right" }]}
+                      numberOfLines={shouldStackWorkoutHeaders ? 2 : 1}
+                      style={[theme.typography.eyebrow, { color: textMuted, minWidth: 0, flexShrink: 1, textAlign: shouldStackWorkoutHeaders ? "left" : "right" }]}
                     >
                       {workoutDaysLabel}
                     </Text>
                   </View>
 
-                  <Text style={[theme.typography.headline, { color: textPrimary, marginTop: theme.spacing.lg }]}>
-                    {quickStartPlan
-                      ? `Start ${quickStartPlan.name}`
-                      : isWorkoutDayToday
-                        ? "Pick a plan for today"
-                        : "Today is for recovery"}
-                  </Text>
+                  {quickStartPlan ? (
+                    <View style={{ marginTop: theme.spacing.lg }}>
+                      <Text style={[theme.typography.headline, { color: textPrimary }]}>Start workout</Text>
+                      <Text
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                        style={[theme.typography.titleMedium, { color: textPrimary, marginTop: theme.spacing.xs }]}
+                      >
+                        {quickStartPlan.name}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[theme.typography.headline, { color: textPrimary, marginTop: theme.spacing.lg }]}>
+                      {isWorkoutDayToday ? "Pick a plan for today" : "Today is for recovery"}
+                    </Text>
+                  )}
 
                   <Text style={[theme.typography.bodyLarge, { color: textMuted, marginTop: theme.spacing.sm }]}>
                     {quickStartPlan
@@ -518,22 +527,20 @@ export function WorkoutBuddyScreen({
                 </View>
 
                 {displayedPlans.length === 0 && (
-                  <View className="mt-4 rounded-2xl border border-dashed p-5" style={workoutCardStyle}>
-                    <Text className="text-lg font-bold" style={{ color: textPrimary }}>
-                      {planListMode === "today" ? "No plan is assigned today" : "Build your first workout"}
-                    </Text>
-                    <Text className="mt-1 text-sm" style={{ color: textMuted }}>
-                      {planListMode === "today"
+                  <EmptyState
+                    icon={ClipboardList}
+                    title={planListMode === "today" ? "No plan is assigned today" : "Build your first workout"}
+                    description={
+                      planListMode === "today"
                         ? "View all plans to start an unscheduled workout, or edit a plan’s training days."
-                        : "Choose work, rest, rounds, and days. Anthra will guide the session from there."}
-                    </Text>
-                    <Button
-                      label={planListMode === "today" ? "View all plans" : "Create a plan"}
-                      onPress={() => planListMode === "today" ? onPlanListModeChange("all") : onCreatePlan()}
-                      variant={planListMode === "today" ? "outline" : "primary"}
-                      style={{ marginTop: 16 }}
-                    />
-                  </View>
+                        : "Choose work, rest, rounds, and days. Anthra will guide the session from there."
+                    }
+                    action={{
+                      label: planListMode === "today" ? "View all plans" : "Create a plan",
+                      onPress: () => (planListMode === "today" ? onPlanListModeChange("all") : onCreatePlan())
+                    }}
+                    style={{ marginTop: theme.spacing.lg }}
+                  />
                 )}
 
                 {displayedPlans.map((plan) => {
@@ -559,30 +566,33 @@ export function WorkoutBuddyScreen({
                       )}
                     >
                       <View className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
-                        <View className="min-w-0">
-                            <Text className="text-lg font-bold" style={{ color: textPrimary }}>{plan.name}</Text>
-                            <Text className="mt-1 text-sm" style={{ color: theme.colors.textTertiary }}>
+                        <View style={{ minWidth: 0 }}>
+                            <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleMedium, { color: textPrimary }]}>{plan.name}</Text>
+                            <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs }]}>
                               {setCount} {setCount === 1 ? "set" : "sets"} · {exerciseCount} {exerciseCount === 1 ? "exercise" : "exercises"}
                             </Text>
-                            <Text style={[theme.typography.eyebrow, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs }]}>
+                            <Text numberOfLines={2} style={[theme.typography.eyebrow, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs }]}>
                               {formatDays(plan.workoutDays)}
                             </Text>
                         </View>
-                        <View className="mt-4 flex-row" style={{ gap: theme.spacing.sm }}>
+                        <View
+                          className="mt-4"
+                          style={{ flexDirection: shouldStackWorkoutActions ? "column" : "row", gap: theme.spacing.sm }}
+                        >
                           <Button
                             label="Share"
                             icon={Share2}
                             onPress={() => onSharePlan(plan)}
                             variant="secondary"
                             size="small"
-                            style={{ flex: 1, alignSelf: "stretch" }}
+                            style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
                           />
                           <Button
                             label="Edit"
                             onPress={() => onEditPlan(plan)}
                             variant="outline"
                             size="small"
-                            style={{ flex: 1, alignSelf: "stretch" }}
+                            style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
                           />
                         </View>
                         <Button
@@ -613,31 +623,31 @@ export function WorkoutBuddyScreen({
                 </View>
 
                 {history.length === 0 && (
-                  <View className="mt-4 rounded-2xl border border-dashed p-5" style={workoutCardStyle}>
-                    <Text className="text-lg font-bold" style={{ color: textPrimary }}>Your history starts here</Text>
-                    <Text className="mt-1 text-sm" style={{ color: textMuted }}>Completed and partial sessions will appear with progress, time, and your notes.</Text>
-                    <Button
-                      label="Browse plans"
-                      onPress={() => {
+                  <EmptyState
+                    icon={History}
+                    title="Your history starts here"
+                    description="Completed and partial sessions will appear with progress, time, and your notes."
+                    action={{
+                      label: "Browse plans",
+                      onPress: () => {
                         onPlanListModeChange("all");
                         onTabChange("plans");
-                      }}
-                      variant="outline"
-                      style={{ marginTop: 16 }}
-                    />
-                  </View>
+                      }
+                    }}
+                    style={{ marginTop: theme.spacing.lg }}
+                  />
                 )}
 
                 {history.map((entry) => (
                   <View key={entry.id} className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
                     <View className="flex-row items-start justify-between">
-                      <View className="min-w-0 flex-1 pr-4">
-                        <Text className="text-base font-bold" style={{ color: textPrimary }}>{entry.planName}</Text>
-                        <Text style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.xs }]}>
+                      <View className="min-w-0 flex-1 pr-4" style={{ minWidth: 0 }}>
+                        <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: textPrimary }]}>{entry.planName}</Text>
+                        <Text numberOfLines={1} style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.xs }]}>
                           {formatHistoryDate(entry.startedAt)}
                         </Text>
                       </View>
-                      <View className="items-end gap-2">
+                      <View className="items-end gap-2" style={{ flexShrink: 0 }}>
                         <AnimatedPressable
                           onPress={() => onDeleteHistoryEntry(entry)}
                           accessibilityRole="button"

@@ -19,7 +19,7 @@ import {
 import { useAnthraTheme } from "../design-system";
 import type { VaultEntry } from "../types";
 import { ScreenLayout, useScreenBackgrounds } from "./layout";
-import { AnimatedPressable, Button, Card, ScreenHeader, StatusBanner, Surface, SwitchRow, TextField, ToastBanner } from "./ui";
+import { AnimatedPressable, Button, Card, EmptyState, ScreenHeader, SectionHeader, StatusBanner, Surface, SwitchRow, TextField, ToastBanner } from "./ui";
 
 type PasswordManagerScreenProps = {
   keyboardBottomPadding: number;
@@ -265,25 +265,11 @@ export function PasswordManagerScreen({
 
         {hasPin && unlocked && (
           <>
-            <View className="flex-row items-center" style={{ gap: anthraTheme.spacing.md }}>
-              <View className="min-w-0 flex-1">
-                <Text
-                  accessibilityRole="header"
-                  style={[anthraTheme.typography.titleLarge, { color: anthraTheme.colors.textPrimary }]}
-                >
-                  Saved credentials
-                </Text>
-                <Text
-                  style={[
-                    anthraTheme.typography.body,
-                    { color: anthraTheme.colors.textSecondary, marginTop: anthraTheme.spacing.xs }
-                  ]}
-                >
-                  {entries.length} {entries.length === 1 ? "account" : "accounts"} in your vault
-                </Text>
-              </View>
-              <Button label="Add" icon={Plus} onPress={onAddEntry} />
-            </View>
+            <SectionHeader
+              title="Saved credentials"
+              meta={`${entries.length} ${entries.length === 1 ? "account" : "accounts"} in your vault`}
+              action={<Button label="Add" icon={Plus} onPress={onAddEntry} />}
+            />
 
             <TextField
               label="Search vault"
@@ -319,65 +305,22 @@ export function PasswordManagerScreen({
             </View>
 
             {entries.length === 0 && (
-              <Card variant="subtle" padding="large" style={{ marginTop: anthraTheme.spacing.xl }}>
-                <View
-                  className="items-center justify-center self-center"
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: anthraTheme.radii.full,
-                    backgroundColor: anthraTheme.colors.brandSoft
-                  }}
-                >
-                  <KeyRound accessible={false} color={anthraTheme.colors.brand} size={25} />
-                </View>
-                <Text
-                  style={[
-                    anthraTheme.typography.titleMedium,
-                    { color: anthraTheme.colors.textPrimary, textAlign: "center", marginTop: anthraTheme.spacing.lg }
-                  ]}
-                >
-                  Your vault is ready
-                </Text>
-                <Text
-                  style={[
-                    anthraTheme.typography.body,
-                    { color: anthraTheme.colors.textSecondary, textAlign: "center", marginTop: anthraTheme.spacing.xs }
-                  ]}
-                >
-                  Add your first login to keep it close and protected.
-                </Text>
-                <Button
-                  label="Add first credential"
-                  icon={Plus}
-                  variant="secondary"
-                  onPress={onAddEntry}
-                  fullWidth
-                  style={{ marginTop: anthraTheme.spacing.xl }}
-                />
-              </Card>
+              <EmptyState
+                icon={KeyRound}
+                title="Your vault is ready"
+                description="Add your first login to keep it close and protected."
+                action={{ label: "Add first credential", onPress: onAddEntry, icon: Plus }}
+                style={{ marginTop: anthraTheme.spacing.xl }}
+              />
             )}
 
             {entries.length > 0 && filteredEntries.length === 0 && (
-              <Card variant="subtle" padding="large" style={{ marginTop: anthraTheme.spacing.xl }}>
-                <Search accessible={false} color={anthraTheme.colors.textTertiary} size={26} />
-                <Text
-                  style={[
-                    anthraTheme.typography.titleMedium,
-                    { color: anthraTheme.colors.textPrimary, marginTop: anthraTheme.spacing.md }
-                  ]}
-                >
-                  No matches
-                </Text>
-                <Text
-                  style={[
-                    anthraTheme.typography.body,
-                    { color: anthraTheme.colors.textSecondary, marginTop: anthraTheme.spacing.xs }
-                  ]}
-                >
-                  No credentials match “{searchText.trim()}”. Try a different app or username.
-                </Text>
-              </Card>
+              <EmptyState
+                icon={Search}
+                title="No matches"
+                description={`No credentials match “${searchText.trim().slice(0, 40)}${searchText.trim().length > 40 ? "…" : ""}”. Try a different app or username.`}
+                style={{ marginTop: anthraTheme.spacing.xl }}
+              />
             )}
 
             <View style={{ gap: anthraTheme.spacing.md, marginTop: filteredEntries.length > 0 ? anthraTheme.spacing.xl : 0 }}>
@@ -391,24 +334,26 @@ export function PasswordManagerScreen({
                         style={{
                           width: 44,
                           height: 44,
+                          flexShrink: 0,
                           borderRadius: anthraTheme.radii.md,
                           backgroundColor: anthraTheme.colors.brandSoft
                         }}
                       >
                         <KeyRound accessible={false} color={anthraTheme.colors.brand} size={21} />
                       </View>
-                      <View className="min-w-0 flex-1">
+                      <View className="min-w-0 flex-1" style={{ minWidth: 0 }}>
                         <Text
                           numberOfLines={2}
                           style={[anthraTheme.typography.titleMedium, { color: anthraTheme.colors.textPrimary }]}
                         >
                           {entry.appName}
                         </Text>
-                        <View className="flex-row items-center" style={{ gap: 5, marginTop: anthraTheme.spacing.xs }}>
+                        <View className="flex-row items-center" style={{ gap: 5, marginTop: anthraTheme.spacing.xs, minWidth: 0 }}>
                           <UserRound accessible={false} color={anthraTheme.colors.textTertiary} size={14} />
                           <Text
                             numberOfLines={1}
-                            style={[anthraTheme.typography.body, { color: anthraTheme.colors.textSecondary, flexShrink: 1 }]}
+                            ellipsizeMode="tail"
+                            style={[anthraTheme.typography.body, { color: anthraTheme.colors.textSecondary, flexShrink: 1, minWidth: 0 }]}
                           >
                             {entry.accountId}
                           </Text>

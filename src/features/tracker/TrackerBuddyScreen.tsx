@@ -43,7 +43,7 @@ import {
 
 import { formatDays } from "../../constants/schedule";
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
-import { AnimatedPressable, Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, SkeletonCard, StatusBanner, TextField, ToastBanner } from "../../components/ui";
+import { AnimatedPressable, Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, SectionHeader, SegmentedControl, SkeletonCard, StatusBanner, TextField, ToastBanner } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { getDeviceTimeZone } from "../../utils/timezone";
 import {
@@ -261,9 +261,11 @@ function TaskActivityCard({
   onSelectDay: (dateKey: string) => void;
 }) {
   const theme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const shouldStackRange = width < 360 || fontScale >= 1.3;
   const cellSize = 22;
   const columnWidth = 30;
-  const labelWidth = 84;
+  const labelWidth = width < 360 || fontScale >= 1.3 ? 72 : 84;
   const headerHeight = 42;
   const rowHeight = 62;
   const dates = items[0]?.days.map((day) => day.dateKey) ?? [];
@@ -284,36 +286,27 @@ function TaskActivityCard({
   };
   return (
     <Card padding="large">
-      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md }}>
+      <View
+        style={{
+          flexDirection: shouldStackRange ? "column" : "row",
+          alignItems: shouldStackRange ? "stretch" : "flex-start",
+          justifyContent: "space-between",
+          gap: theme.spacing.md
+        }}
+      >
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Task activity</Text>
-          <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{subtitle}</Text>
+          <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Task activity</Text>
+          <Text numberOfLines={2} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{subtitle}</Text>
         </View>
-        <View style={{ flexDirection: "row", padding: theme.spacing.xs, gap: theme.spacing.xs, borderRadius: theme.radii.md, backgroundColor: theme.colors.surfaceSubtle }}>
-          {(["week", "month"] as const).map((option) => {
-            const active = range === option;
-            return (
-              <AnimatedPressable
-                key={option}
-                onPress={() => onRangeChange(option)}
-                accessibilityRole="button"
-                accessibilityLabel={`Show ${option} task activity`}
-                accessibilityState={{ selected: active }}
-                style={{
-                  minHeight: 34,
-                  justifyContent: "center",
-                  paddingHorizontal: theme.spacing.md,
-                  borderRadius: theme.radii.sm,
-                  borderWidth: 1,
-                  borderColor: active ? theme.colors.brandBorder : "transparent",
-                  backgroundColor: active ? theme.colors.brandSoft : "transparent"
-                }}
-              >
-                <Text style={[theme.typography.label, { color: active ? theme.colors.brand : theme.colors.textSecondary, textTransform: "capitalize" }]}>{option}</Text>
-              </AnimatedPressable>
-            );
-          })}
-        </View>
+        <SegmentedControl
+          options={[
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month" }
+          ]}
+          value={range}
+          onChange={onRangeChange}
+          style={{ flexShrink: 0, alignSelf: shouldStackRange ? "stretch" : "flex-start", maxWidth: shouldStackRange ? "100%" : 200 }}
+        />
       </View>
       {items.length === 0 ? (
         <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }]}>No scheduled tasks in this period.</Text>
@@ -853,22 +846,37 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                 </Animated.View>
 
                 <View style={{ marginTop: theme.spacing["2xl"] }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
-                    <View>
-                      <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Today’s tasks</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{dayTasks.length} scheduled</Text>
-                    </View>
-                    <Button label="Add" icon={Plus} size="small" variant="secondary" onPress={() => {
-                      setEditingTask(null);
-                      setTaskEditorOpen(true);
-                    }} />
-                  </View>
+                  <SectionHeader
+                    title="Today’s tasks"
+                    meta={`${dayTasks.length} scheduled`}
+                    action={
+                      <Button
+                        label="Add"
+                        icon={Plus}
+                        size="small"
+                        variant="secondary"
+                        onPress={() => {
+                          setEditingTask(null);
+                          setTaskEditorOpen(true);
+                        }}
+                      />
+                    }
+                    style={{ marginBottom: theme.spacing.md }}
+                  />
                   {dayTasks.length === 0 ? (
-                    <Card variant="subtle" padding="large" style={{ alignItems: "center" }}>
-                      <Sparkles color={theme.colors.brand} size={28} />
-                      <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}>Nothing scheduled today</Text>
-                      <Text style={[theme.typography.body, { color: theme.colors.textSecondary, textAlign: "center", marginTop: theme.spacing.xs }]}>Enjoy the open space, or add a task for today.</Text>
-                    </Card>
+                    <EmptyState
+                      icon={Sparkles}
+                      title="Nothing scheduled today"
+                      description="Enjoy the open space, or add a task for today."
+                      action={{
+                        label: "Add task",
+                        onPress: () => {
+                          setEditingTask(null);
+                          setTaskEditorOpen(true);
+                        },
+                        icon: Plus
+                      }}
+                    />
                   ) : (
                     <View style={{ gap: theme.spacing.md }}>
                       {dayTasks.map((task) => (
@@ -1038,11 +1046,11 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                         const statusColor = task.done ? theme.colors.success : pending ? theme.colors.warning : theme.colors.danger;
                         return (
                           <View key={task.id} style={{ minHeight: 56, flexDirection: "row", alignItems: "center", gap: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radii.lg, backgroundColor: task.done ? theme.colors.successSoft : pending ? theme.colors.warningSoft : theme.colors.dangerSoft }}>
-                            <View style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: theme.radii.full, backgroundColor: theme.colors.surface }}>
+                            <View style={{ width: 30, height: 30, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: theme.radii.full, backgroundColor: theme.colors.surface }}>
                               {task.done ? <Check accessible={false} color={statusColor} size={18} strokeWidth={2.5} /> : pending ? <Clock3 accessible={false} color={statusColor} size={17} strokeWidth={2.4} /> : <X accessible={false} color={statusColor} size={18} strokeWidth={2.5} />}
                             </View>
-                            <Text numberOfLines={2} style={[theme.typography.bodyStrong, { flex: 1, color: theme.colors.textPrimary, textAlign: "left" }]}>{task.title}</Text>
-                            <Text style={[theme.typography.label, { color: statusColor }]}>{task.done ? "Done" : pending ? "Pending" : "Missed"}</Text>
+                            <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.bodyStrong, { flex: 1, minWidth: 0, color: theme.colors.textPrimary, textAlign: "left" }]}>{task.title}</Text>
+                            <Text numberOfLines={1} style={[theme.typography.label, { flexShrink: 0, color: statusColor }]}>{task.done ? "Done" : pending ? "Pending" : "Missed"}</Text>
                           </View>
                         );
                       })}
@@ -1057,31 +1065,56 @@ export function TrackerBuddyScreen({ onBack }: Props) {
               <View style={{ marginTop: theme.spacing["2xl"], gap: theme.spacing["2xl"] }}>
                 <Card variant="elevated" padding="large">
                   <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.md }]}>TRACKER SETTINGS</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>{selectedTracker?.name}</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 3 }]}>{currentTasks.length} active {currentTasks.length === 1 ? "task" : "tasks"}</Text>
+                  <View
+                    style={{
+                      flexDirection: windowWidth < 360 || fontScale >= 1.3 ? "column" : "row",
+                      alignItems: windowWidth < 360 || fontScale >= 1.3 ? "stretch" : "center",
+                      gap: theme.spacing.md
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>{selectedTracker?.name}</Text>
+                      <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 3 }]}>{currentTasks.length} active {currentTasks.length === 1 ? "task" : "tasks"}</Text>
                     </View>
-                    <IconButton icon={Pencil} accessibilityLabel="Rename tracker" onPress={openEditTracker} variant="standard" />
-                    <IconButton icon={Trash2} accessibilityLabel="Remove tracker" onPress={deleteSelectedTracker} variant="danger" />
+                    <View style={{ flexDirection: "row", flexShrink: 0, gap: theme.spacing.sm, alignSelf: windowWidth < 360 || fontScale >= 1.3 ? "flex-start" : "auto" }}>
+                      <IconButton icon={Pencil} accessibilityLabel="Rename tracker" onPress={openEditTracker} variant="standard" />
+                      <IconButton icon={Trash2} accessibilityLabel="Remove tracker" onPress={deleteSelectedTracker} variant="danger" />
+                    </View>
                   </View>
                 </Card>
 
                 <View>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
-                    <View>
-                      <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Tasks</Text>
-                      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Schedule and notification settings</Text>
-                    </View>
-                    <Button label="Add" icon={Plus} size="small" variant="secondary" onPress={() => {
-                      setEditingTask(null);
-                      setTaskEditorOpen(true);
-                    }} />
-                  </View>
+                  <SectionHeader
+                    title="Tasks"
+                    meta="Schedule and notification settings"
+                    action={
+                      <Button
+                        label="Add"
+                        icon={Plus}
+                        size="small"
+                        variant="secondary"
+                        onPress={() => {
+                          setEditingTask(null);
+                          setTaskEditorOpen(true);
+                        }}
+                      />
+                    }
+                    style={{ marginBottom: theme.spacing.md }}
+                  />
                   {currentTasks.length === 0 ? (
-                    <Card variant="subtle" padding="large">
-                      <Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>No tasks yet. Add one and choose exactly when it should appear.</Text>
-                    </Card>
+                    <EmptyState
+                      icon={Target}
+                      title="No tasks yet"
+                      description="Add one and choose exactly when it should appear."
+                      action={{
+                        label: "Add task",
+                        onPress: () => {
+                          setEditingTask(null);
+                          setTaskEditorOpen(true);
+                        },
+                        icon: Plus
+                      }}
+                    />
                   ) : (
                     <View style={{ gap: theme.spacing.md }}>
                       {currentTasks.map((task) => (
@@ -1116,16 +1149,18 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                             }}
                           >
                             <View style={{ flex: 1, minWidth: 0 }}>
-                              <Text numberOfLines={2} style={[theme.typography.titleSmall, { width: "100%", color: theme.colors.textPrimary, textAlign: "left" }]}>{task.title}</Text>
-                              <Text style={[theme.typography.caption, { width: "100%", color: theme.colors.textSecondary, marginTop: theme.spacing.sm, textAlign: "left" }]}>
+                              <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { width: "100%", color: theme.colors.textPrimary, textAlign: "left" }]}>{task.title}</Text>
+                              <Text numberOfLines={2} style={[theme.typography.caption, { width: "100%", color: theme.colors.textSecondary, marginTop: theme.spacing.sm, textAlign: "left" }]}>
                                 {taskScheduleLabel(task)}{task.notificationEnabled ? ` · Alert ${formatTime(task.notificationHour, task.notificationMinute)}` : " · No alert"}
                               </Text>
                             </View>
-                            <IconButton icon={Trash2} accessibilityLabel={`Remove ${task.title}`} onPress={(event) => {
-                              event.stopPropagation();
-                              deleteTask(task);
-                            }} variant="ghost" />
-                            <ChevronRight accessible={false} color={theme.colors.textTertiary} size={20} />
+                            <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs }}>
+                              <IconButton icon={Trash2} accessibilityLabel={`Remove ${task.title}`} onPress={(event) => {
+                                event.stopPropagation();
+                                deleteTask(task);
+                              }} variant="ghost" />
+                              <ChevronRight accessible={false} color={theme.colors.textTertiary} size={20} />
+                            </View>
                           </AnimatedPressable>
                         </View>
                       ))}

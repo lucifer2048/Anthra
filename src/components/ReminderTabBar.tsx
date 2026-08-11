@@ -19,6 +19,7 @@ export function ReminderTabBar({ activeTab, onChange }: Props) {
       tabs={TABS}
       activeTab={activeTab}
       onChange={onChange}
+      safeArea
       accessibilityHintPrefix="Opens reminder"
     />
   );

@@ -1,26 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   BackHandler,
   Keyboard,
-  KeyboardAvoidingView,
   Linking,
-  Modal,
   Platform,
   ScrollView,
   Text,
   useWindowDimensions,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BellRing,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  CircleAlert,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   History as HistoryIcon,
   Search,
@@ -38,8 +33,8 @@ import {
   DisclosureCard,
   EmptyState,
   IconButton,
-  KeyboardAwareScrollView,
   ScreenHeader,
+  SectionHeader,
   StatusBanner,
   SwitchRow,
   TextField,
@@ -572,7 +567,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
 
   return (
     <>
-      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
+      <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "left", "right"]}>
         <View
           className="border-b px-5"
           onLayout={(event) => setReminderHeaderBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
@@ -594,8 +589,8 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
             width: "100%",
             maxWidth: theme.layout.contentMaxWidth,
             alignSelf: "center",
-            padding: 20,
-            paddingTop: 20,
+            paddingHorizontal: theme.layout.screenPadding,
+            paddingTop: theme.spacing.xl,
             paddingBottom: keyboardBottomPadding
           }}
           keyboardShouldPersistTaps="handled"
@@ -673,42 +668,33 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
               />
               {reminderItems.length === 0 && <EmptyState icon={BellRing} title="No reminders yet" description="Create a one-time or repeating reminder when you’re ready." style={{ marginTop: theme.spacing.lg }} />}
               {reminderItems.length > 0 && filteredReminderItems.length === 0 && (
-                <Card variant="subtle" padding="large" style={{ alignItems: "center", marginTop: theme.spacing.lg }}>
-                  <View
-                    className="items-center justify-center"
-                    style={{ width: 48, height: 48, borderRadius: theme.radii.full, backgroundColor: colors.brandSoft }}
-                  >
-                    <Search accessible={false} color={colors.brand} size={22} />
-                  </View>
-                  <Text className="mt-3 text-base font-bold" style={{ color: colors.textPrimary }}>
-                    No reminders found
-                  </Text>
-                  <Text className="mt-1 text-center text-sm" style={{ color: colors.textSecondary }}>
-                    Try a different title, note, or schedule.
-                  </Text>
-                  <Button
-                    label="Clear search"
-                    variant="ghost"
-                    size="small"
-                    onPress={() => setReminderSearchText("")}
-                    style={{ marginTop: theme.spacing.md }}
-                  />
-                </Card>
+                <EmptyState
+                  icon={Search}
+                  title="No reminders found"
+                  description="Try a different title, note, or schedule."
+                  action={{ label: "Clear search", onPress: () => setReminderSearchText("") }}
+                  variant="inline"
+                  style={{ marginTop: theme.spacing.lg }}
+                />
               )}
               {filteredReminderItems.map((item) => (
                 <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
                   <View className="flex-row items-start justify-between">
-                    <View className="min-w-0 flex-1 pr-3">
-                      <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{item.title}</Text>
-                      <Text style={[theme.typography.eyebrow, { color: colors.brand, marginTop: theme.spacing.xs }]}>
+                    <View className="min-w-0 flex-1 pr-3" style={{ minWidth: 0 }}>
+                      <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleMedium, { color: colors.textPrimary }]}>{item.title}</Text>
+                      <Text numberOfLines={1} style={[theme.typography.eyebrow, { color: colors.brand, marginTop: theme.spacing.xs }]}>
                         {formatReminderModeLabel(item.mode)}
                       </Text>
-                      <Text style={[theme.typography.label, { color: colors.textSecondary, marginTop: theme.spacing.xs }]}>
+                      <Text numberOfLines={2} style={[theme.typography.label, { color: colors.textSecondary, marginTop: theme.spacing.xs }]}>
                         {formatReminderSchedule(item)}
                       </Text>
-                      {item.note.trim().length > 0 && <Text className="mt-2 text-base" style={{ color: colors.textSecondary }}>{item.note}</Text>}
+                      {item.note.trim().length > 0 && (
+                        <Text numberOfLines={3} style={[theme.typography.body, { color: colors.textSecondary, marginTop: theme.spacing.sm }]}>
+                          {item.note}
+                        </Text>
+                      )}
                     </View>
-                    <View className="items-end" style={{ gap: theme.spacing.xs }}>
+                    <View className="items-end" style={{ flexShrink: 0, gap: theme.spacing.xs }}>
                       <IconButton
                         icon={Trash2}
                         onPress={() => handleDeleteReminder(item)}
@@ -741,28 +727,17 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
             <>
               {pendingReminderHistory.length === 0 &&
                 doneReminderHistory.length === 0 && (
-                  <Card variant="subtle" padding="large" style={{ alignItems: "center", marginTop: theme.spacing["2xl"] }}>
-                    <View style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center", borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}>
-                      <HistoryIcon accessible={false} color={theme.colors.brand} size={24} />
-                    </View>
-                    <Text style={[theme.typography.titleSmall, { color: colors.textPrimary, textAlign: "center", marginTop: theme.spacing.lg }]}>No reminder activity yet</Text>
-                    <Text style={[theme.typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: theme.spacing.xs }]}>Completed and pending reminder occurrences will appear here.</Text>
-                  </Card>
+                  <EmptyState
+                    icon={HistoryIcon}
+                    title="No reminder activity yet"
+                    description="Completed and pending reminder occurrences will appear here."
+                    style={{ marginTop: theme.spacing["2xl"] }}
+                  />
                 )}
 
               {pendingReminderHistory.length > 0 && (
                 <View style={{ marginTop: theme.spacing["2xl"] }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
-                      <View style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: theme.radii.full, backgroundColor: theme.colors.warningSoft }}>
-                        <Clock3 accessible={false} color={theme.colors.warning} size={18} />
-                      </View>
-                      <Text style={[theme.typography.titleSmall, { color: colors.textPrimary }]}>Pending</Text>
-                    </View>
-                    <View style={{ minWidth: 28, height: 28, alignItems: "center", justifyContent: "center", paddingHorizontal: theme.spacing.sm, borderRadius: theme.radii.full, backgroundColor: theme.colors.warningSoft }}>
-                      <Text style={[theme.typography.label, { color: theme.colors.warning }]}>{pendingReminderHistory.length}</Text>
-                    </View>
-                  </View>
+                  <SectionHeader title="Pending" meta={`${pendingReminderHistory.length}`} icon={Clock3} />
                   <View style={{ gap: theme.spacing.md, marginTop: theme.spacing.md }}>
                     {pendingReminderHistory.map((item) => (
                       <Card key={`pending-${item.reminderId}-${item.occurrenceTs}`} padding="large">
@@ -771,16 +746,16 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             <Clock3 accessible={false} color={theme.colors.warning} size={20} />
                           </View>
                           <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text numberOfLines={2} style={[theme.typography.titleSmall, { color: colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
-                            <Text style={[theme.typography.caption, { color: theme.colors.warning, marginTop: theme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
+                            <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                            <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.warning, marginTop: theme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
                           </View>
-                          <View style={{ paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.warningSoft }}>
+                          <View style={{ flexShrink: 0, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.warningSoft }}>
                             <Text style={[theme.typography.caption, { color: theme.colors.warning }]}>PENDING</Text>
                           </View>
                         </View>
                         {item.note.trim().length > 0 && (
                           <View style={{ marginTop: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radii.md, backgroundColor: theme.colors.surfaceSubtle }}>
-                            <Text style={[theme.typography.body, { color: colors.textSecondary }]}>{item.note}</Text>
+                            <Text numberOfLines={3} style={[theme.typography.body, { color: colors.textSecondary }]}>{item.note}</Text>
                           </View>
                         )}
                         <Button
@@ -799,17 +774,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
 
               {doneReminderHistory.length > 0 && (
                 <View style={{ marginTop: theme.spacing["2xl"] }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
-                      <View style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: theme.radii.full, backgroundColor: theme.colors.successSoft }}>
-                        <CheckCircle2 accessible={false} color={theme.colors.success} size={18} />
-                      </View>
-                      <Text style={[theme.typography.titleSmall, { color: colors.textPrimary }]}>Completed</Text>
-                    </View>
-                    <View style={{ minWidth: 28, height: 28, alignItems: "center", justifyContent: "center", paddingHorizontal: theme.spacing.sm, borderRadius: theme.radii.full, backgroundColor: theme.colors.successSoft }}>
-                      <Text style={[theme.typography.label, { color: theme.colors.success }]}>{doneReminderHistory.length}</Text>
-                    </View>
-                  </View>
+                  <SectionHeader title="Completed" meta={`${doneReminderHistory.length}`} icon={CheckCircle2} />
                   <View style={{ gap: theme.spacing.md, marginTop: theme.spacing.md }}>
                     {doneReminderHistory.map((item) => (
                       <Card key={`done-${item.reminderId}-${item.occurrenceTs}`} padding="large">
@@ -818,16 +783,16 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             <CheckCircle2 accessible={false} color={theme.colors.success} size={20} />
                           </View>
                           <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text numberOfLines={2} style={[theme.typography.titleSmall, { color: colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
-                            <Text style={[theme.typography.caption, { color: theme.colors.success, marginTop: theme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
+                            <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: colors.textPrimary, textAlign: "left" }]}>{item.title}</Text>
+                            <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.success, marginTop: theme.spacing.xs }]}>{formatReminderOccurrenceLabel(item.occurrenceTs, item.timezone)}</Text>
                           </View>
-                          <View style={{ paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.successSoft }}>
+                          <View style={{ flexShrink: 0, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.successSoft }}>
                             <Text style={[theme.typography.caption, { color: theme.colors.success }]}>DONE</Text>
                           </View>
                         </View>
                         {item.note.trim().length > 0 && (
                           <View style={{ marginTop: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radii.md, backgroundColor: theme.colors.surfaceSubtle }}>
-                            <Text style={[theme.typography.body, { color: colors.textSecondary }]}>{item.note}</Text>
+                            <Text numberOfLines={3} style={[theme.typography.body, { color: colors.textSecondary }]}>{item.note}</Text>
                           </View>
                         )}
                       </Card>
@@ -880,7 +845,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
               <ChoiceRow<ReminderMode>
                 label="Reminder type"
                 value={reminderForm.mode}
-                layout="equal"
+                layout={shouldStackActions ? "wrap" : "equal"}
                 variant="card"
                 options={[
                   { value: "time", label: "Recurring" },
@@ -944,14 +909,34 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                         className="rounded-2xl border p-3"
                         style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}
                       >
-                        <View className="flex-row items-center justify-between">
-                          <Button label="Previous" size="small" variant="outline" onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))} />
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: theme.spacing.sm
+                          }}
+                        >
+                          <IconButton
+                            icon={ChevronLeft}
+                            size="small"
+                            variant="standard"
+                            accessibilityLabel="Previous month"
+                            onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))}
+                          />
                           <Text
+                            numberOfLines={1}
                             style={[theme.typography.bodyStrong, { minWidth: 0, flex: 1, color: colors.textPrimary, textAlign: "center" }]}
                           >
                             {formatReminderCalendarMonth(reminderCalendarMonth)}
                           </Text>
-                          <Button label="Next" size="small" variant="outline" onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))} />
+                          <IconButton
+                            icon={ChevronRight}
+                            size="small"
+                            variant="standard"
+                            accessibilityLabel="Next month"
+                            onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))}
+                          />
                         </View>
                         <View className="mt-3 flex-row">
                           {WEEKDAY_OPTIONS.map((day) => (

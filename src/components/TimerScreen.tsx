@@ -242,7 +242,7 @@ export function TimerScreen({
   const textMutedColor = theme.colors.textSecondary;
   const timerValue = phase === "complete" ? "DONE" : String(remaining);
   const isCompactHeight = height <= 700;
-  const shouldStackActions = width < 350 || fontScale >= 1.35;
+  const shouldStackActions = width < 360 || fontScale >= 1.35;
   const timerFontSize = useMemo(() => {
     const lengthScale = timerValue.length <= 2 ? 1 : timerValue.length === 3 ? 0.76 : 0.56;
     const nextSize = Math.min(width * 0.68, height * (isCompactHeight ? 0.26 : 0.3)) * lengthScale;
@@ -680,10 +680,15 @@ export function TimerScreen({
             bordered
             className="mt-3 flex-row items-center"
           >
-            <Text style={[theme.typography.bodyStrong, { color: textPrimaryColor, flex: 1 }]}>
+            <Text
+              numberOfLines={2}
+              style={[theme.typography.bodyStrong, { color: textPrimaryColor, flex: 1, minWidth: 0 }]}
+            >
               Skipped {skippedState.phase === "rest" ? "rest" : "exercise"}
             </Text>
-            <Button label="Undo" icon={RotateCcw} onPress={undoSkip} variant="ghost" size="small" />
+            <View style={{ flexShrink: 0 }}>
+              <Button label="Undo" icon={RotateCcw} onPress={undoSkip} variant="ghost" size="small" />
+            </View>
           </Surface>
         )}
 
@@ -719,18 +724,21 @@ export function TimerScreen({
               padding="medium"
               radius="medium"
               bordered
-              className="flex-row"
+              style={{
+                flexDirection: shouldStackActions ? "column" : "row",
+                gap: shouldStackActions ? theme.spacing.md : 0
+              }}
             >
-              <View className="flex-1 items-center">
-                <Text style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>
+              <View className="flex-1 items-center" style={{ minWidth: 0 }}>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>
                   {formatWorkoutDuration(getRunSummary(true).elapsedSeconds)}
                 </Text>
-                <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Time invested</Text>
+                <Text numberOfLines={1} style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Time invested</Text>
               </View>
-              <View className="w-px" style={{ backgroundColor: theme.colors.divider }} />
-              <View className="flex-1 items-center">
-                <Text style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>{timeline.workSegmentCount}</Text>
-                <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Work rounds</Text>
+              {!shouldStackActions ? <View className="w-px" style={{ backgroundColor: theme.colors.divider }} /> : null}
+              <View className="flex-1 items-center" style={{ minWidth: 0 }}>
+                <Text numberOfLines={1} style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>{timeline.workSegmentCount}</Text>
+                <Text numberOfLines={1} style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Work rounds</Text>
               </View>
             </Surface>
             <Button

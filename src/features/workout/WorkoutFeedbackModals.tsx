@@ -59,7 +59,7 @@ export function WorkoutFeedbackModals({
           style={{ marginTop: theme.spacing.lg }}
         >
           <Text style={[theme.typography.label, { color: theme.colors.textSecondary }]}>Session note</Text>
-          <Text style={[theme.typography.body, { color: comment.trim() ? theme.colors.textPrimary : theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>{comment.trim() || "Tap to add how this session felt."}</Text>
+          <Text numberOfLines={3} style={[theme.typography.body, { color: comment.trim() ? theme.colors.textPrimary : theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>{comment.trim() || "Tap to add how this session felt."}</Text>
         </InteractiveCard>
       </FormDialog>
 

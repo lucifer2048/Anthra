@@ -123,17 +123,19 @@ export function FormDialog({
       style={[{ width: "100%", maxWidth, alignSelf: "center" }, contentStyle]}
     >
       <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
-        <View className="min-w-0 flex-1">
-          <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
+        <View className="min-w-0 flex-1" style={{ minWidth: 0 }}>
+          <Text accessibilityRole="header" numberOfLines={2} style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
             {title}
           </Text>
           {subtitle ? (
-            <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
+            <Text numberOfLines={3} style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
               {subtitle}
             </Text>
           ) : null}
         </View>
-        <IconButton icon={X} onPress={onClose} accessibilityLabel="Close" variant="ghost" />
+        <View style={{ flexShrink: 0 }}>
+          <IconButton icon={X} onPress={onClose} accessibilityLabel="Close" variant="ghost" />
+        </View>
       </View>
 
       {error ? (
@@ -248,17 +250,19 @@ export function SheetDialog({
         >
           {showDragHandle ? <View accessible={false} style={{ width: theme.spacing["4xl"], height: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.borderStrong, alignSelf: "center", marginBottom: theme.spacing.md }} /> : null}
           <View className="flex-row items-start" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
-            <View className="min-w-0 flex-1">
-              <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
+            <View className="min-w-0 flex-1" style={{ minWidth: 0 }}>
+              <Text accessibilityRole="header" numberOfLines={2} style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
                 {title}
               </Text>
               {subtitle ? (
-                <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
+                <Text numberOfLines={3} style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
                   {subtitle}
                 </Text>
               ) : null}
             </View>
-            <IconButton icon={X} onPress={onClose} accessibilityLabel="Close" variant="ghost" />
+            <View style={{ flexShrink: 0 }}>
+              <IconButton icon={X} onPress={onClose} accessibilityLabel="Close" variant="ghost" />
+            </View>
           </View>
 
           {error ? (

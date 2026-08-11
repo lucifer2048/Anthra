@@ -52,7 +52,7 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
         contentContainerStyle={{
           flexGrow: 1,
           width: "100%",
-          maxWidth: 440,
+          maxWidth: theme.layout.contentMaxWidth,
           alignSelf: "center",
           justifyContent: "center",
           paddingHorizontal: theme.layout.screenPadding,

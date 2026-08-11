@@ -12,7 +12,6 @@ import {
   TextInput,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AlarmClock,
   Camera,
@@ -595,11 +594,15 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
               <View className="flex-row items-start" style={{ gap: spacing.md }}>
                 <View className="min-w-0 flex-1">
                   <Text style={[typography.headline, { color: colors.textPrimary }]}>{alarmTimeLabel(alarm.hour, alarm.minute)}</Text>
-                  <Text style={[typography.bodyStrong, { color: colors.textPrimary, marginTop: spacing.xs }]}>{alarm.label}</Text>
-                  <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                  <Text numberOfLines={2} maxFontSizeMultiplier={1.4} style={[typography.bodyStrong, { color: colors.textPrimary, marginTop: spacing.xs }]}>
+                    {alarm.label}
+                  </Text>
+                  <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
                     {alarm.pushupTarget} push-ups · {formatDays(alarm.days)} · IST
                   </Text>
-                  <Text style={[typography.caption, { color: colors.textTertiary, marginTop: spacing.xs }]}>{alarm.soundName}</Text>
+                  <Text numberOfLines={1} style={[typography.caption, { color: colors.textTertiary, marginTop: spacing.xs }]}>
+                    {alarm.soundName}
+                  </Text>
                 </View>
                 <Switch
                   value={alarm.enabled}
@@ -610,6 +613,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                   trackColor={{ false: colors.borderStrong, true: colors.brandBorder }}
                   thumbColor={alarm.enabled ? colors.brandSolid : colors.textTertiary}
                   ios_backgroundColor={colors.borderStrong}
+                  style={{ flexShrink: 0 }}
                 />
               </View>
 
@@ -782,8 +786,12 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                       <Music2 accessible={false} color={colors.brand} size={21} />
                     </View>
                     <View className="min-w-0 flex-1">
-                      <Text style={[typography.bodyStrong, { color: colors.textPrimary }]}>{form.soundName}</Text>
-                      <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>{soundPicking ? "Opening device sounds…" : "Tap to choose a device alarm sound"}</Text>
+                      <Text numberOfLines={1} maxFontSizeMultiplier={1.4} style={[typography.bodyStrong, { color: colors.textPrimary }]}>
+                        {form.soundName}
+                      </Text>
+                      <Text numberOfLines={2} style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>
+                        {soundPicking ? "Opening device sounds…" : "Tap to choose a device alarm sound"}
+                      </Text>
                     </View>
                   </AnimatedPressable>
                 </View>

@@ -36,10 +36,24 @@ export function PersonRow({
         </View>
       ))}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[theme.typography.bodyStrong, { color: disabled ? theme.colors.disabledText : theme.colors.textPrimary }]}>{name}</Text>
-        {subtitle ? <Text style={[theme.typography.caption, { color: disabled ? theme.colors.disabledText : theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{subtitle}</Text> : null}
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={1.4}
+          style={[theme.typography.bodyStrong, { color: disabled ? theme.colors.disabledText : theme.colors.textPrimary }]}
+        >
+          {name}
+        </Text>
+        {subtitle ? (
+          <Text
+            numberOfLines={2}
+            maxFontSizeMultiplier={1.4}
+            style={[theme.typography.caption, { color: disabled ? theme.colors.disabledText : theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
-      {trailing}
+      {trailing ? <View style={{ flexShrink: 0 }}>{trailing}</View> : null}
     </View>
   );
   if (!onPress) return <View style={style}>{content}</View>;

@@ -613,7 +613,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                 placeholder="Add an item"
                 maxLength={MAX_LIST_ITEM_LENGTH}
                 accessibilityLabel={`New item for ${selectedCategory.name}`}
-                containerStyle={{ flex: 1 }}
+                containerStyle={{ flex: 1, minWidth: 0 }}
                 disabled={quickAdding}
               />
               <IconButton
@@ -623,6 +623,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                 size="large"
                 disabled={quickAdding || !quickItemText.trim()}
                 onPress={() => handleQuickAddItem().catch(() => undefined)}
+                style={{ flexShrink: 0 }}
               />
             </View>
 
@@ -693,7 +694,11 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
             {recentlyClearedItems.length > 0 && (
               <Card variant="brand" style={{ marginBottom: spacing.lg }}>
                 <View className="flex-row items-center" style={{ gap: spacing.md }}>
-                  <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>
+                  <Text
+                    numberOfLines={2}
+                    maxFontSizeMultiplier={1.4}
+                    style={[typography.body, { color: colors.textPrimary, flex: 1, minWidth: 0 }]}
+                  >
                     {recentlyClearedItems.length} completed {recentlyClearedItems.length === 1 ? "item" : "items"} cleared
                   </Text>
                   <Button
@@ -701,6 +706,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                     variant="ghost"
                     size="small"
                     onPress={() => handleUndoClear().catch(() => undefined)}
+                    style={{ flexShrink: 0 }}
                   />
                 </View>
               </Card>
@@ -708,12 +714,13 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
 
             <Card padding="none" style={{ overflow: "hidden" }}>
               {items.length === 0 ? (
-                <View style={{ alignItems: "center", padding: spacing["2xl"] }}>
-                  <Text style={[typography.titleSmall, { color: colors.textPrimary, textAlign: "center" }]}>This list is ready</Text>
-                  <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.sm }]}>
-                    Add the first item above or use the plus button.
-                  </Text>
-                </View>
+                <EmptyState
+                  variant="inline"
+                  icon={ListTodo}
+                  title="This list is ready"
+                  description="Add the first item above or use the plus button."
+                  style={{ margin: spacing.lg }}
+                />
               ) : (
                 items.map((item, index) => (
                   <View
@@ -756,10 +763,13 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                         {item.completed && <Check accessible={false} size={15} strokeWidth={3} color={colors.textOnBrandSolid} />}
                       </View>
                       <Text
+                        numberOfLines={3}
+                        maxFontSizeMultiplier={1.4}
                         style={[
                           typography.bodyLarge,
                           {
                             flex: 1,
+                            minWidth: 0,
                             color: item.completed ? colors.textTertiary : colors.textPrimary,
                             textDecorationLine: item.completed ? "line-through" : "none"
                           }
@@ -769,7 +779,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                       </Text>
                     </AnimatedPressable>
 
-                    <View className="flex-row" style={{ gap: spacing.xs }}>
+                    <View className="flex-row" style={{ gap: spacing.xs, flexShrink: 0 }}>
                       <IconButton
                         icon={Pencil}
                         size="small"

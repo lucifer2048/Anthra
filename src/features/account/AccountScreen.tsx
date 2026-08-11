@@ -154,9 +154,13 @@ export function AccountScreen({ onBack }: { onBack: () => void }) {
               <Card padding="large">
                 <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
                   <Cloud accessible={false} color={theme.colors.brand} size={24} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Cloud protection</Text>
-                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}> 
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Cloud protection</Text>
+                    <Text
+                      numberOfLines={4}
+                      maxFontSizeMultiplier={1.4}
+                      style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
+                    >
                       {account.legacyImportPrepared
                         ? "Existing records were uploaded and server-verified. Offline data remains on this phone."
                         : "Anthra is preparing and verifying your existing records."}

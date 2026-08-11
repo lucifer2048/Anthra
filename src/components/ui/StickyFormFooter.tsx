@@ -27,7 +27,7 @@ export function StickyFormFooter({
   const theme = useAnthraTheme();
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
-  const stack = width < 340 || fontScale >= 1.5;
+  const stack = width < 360 || fontScale >= 1.4;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[{ borderTopWidth: theme.borderWidths.standard, borderColor: theme.colors.divider, backgroundColor: theme.colors.surface, paddingHorizontal: theme.layout.screenPadding, paddingTop: theme.spacing.md, paddingBottom: theme.spacing.md + (ownsSafeArea ? insets.bottom : 0), flexDirection: stack ? "column-reverse" : "row", gap: theme.spacing.md }, theme.shadows.low, style]}>

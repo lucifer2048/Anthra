@@ -24,7 +24,11 @@ export function SegmentedControl<T extends string>({
   const theme = useAnthraTheme();
   const reduceMotion = useReducedMotion();
   const { width, fontScale } = useWindowDimensions();
-  const stacked = fontScale >= 1.6 || (width < 360 && options.length > 3);
+  const stacked =
+    fontScale >= 1.3 ||
+    options.length >= 4 ||
+    (width < 390 && options.length >= 3) ||
+    width < 360;
 
   return (
     <View accessibilityRole="tablist" accessibilityLabel={label} style={style}>
@@ -75,7 +79,13 @@ export function SegmentedControl<T extends string>({
                   <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(theme.motion.duration.fast)} exiting={reduceMotion ? undefined : FadeOut.duration(theme.motion.duration.fast)} style={[theme.shadows.low, { position: "absolute", inset: 0, borderRadius: theme.radii.md }]} />
                 ) : null}
                 {Icon ? <Icon accessible={false} size={theme.sizes.icon.sm} color={selected ? theme.colors.textOnBrandSolid : theme.colors.textSecondary} /> : null}
-                <Text style={[theme.typography.labelLarge, { flexShrink: 1, textAlign: "center", color: selected ? theme.colors.textOnBrandSolid : theme.colors.textSecondary }]}>
+                <Text
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={1.3}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={[theme.typography.labelLarge, { minWidth: 0, flexShrink: 1, textAlign: "center", color: selected ? theme.colors.textOnBrandSolid : theme.colors.textSecondary }]}
+                >
                   {option.label}
                 </Text>
               </View>

@@ -548,11 +548,15 @@ export function FriendsScreen({
                           <PersonIdentity person={person} />
                           <View style={{ minWidth: 0, maxWidth: compact ? 80 : 120, flexShrink: 1, alignItems: "flex-end" }}>
                             <Text
+                              numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.72}
+                              maxFontSizeMultiplier={1.2}
                               style={[theme.typography.titleMedium, { color: isFirst ? theme.colors.brand : theme.colors.textPrimary, textAlign: "right" }]}
                             >
                               {Number(value).toLocaleString()}
                             </Text>
-                            <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, }]}>
+                            <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
                               {metric === "steps" ? "steps" : metric === "workouts" ? "today" : "days"}
                             </Text>
                           </View>
@@ -632,11 +636,12 @@ export function FriendsScreen({
                   gap: theme.spacing.md
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.sm }}>
                   <View
                     style={{
                       width: 32,
                       height: 32,
+                      flexShrink: 0,
                       alignItems: "center",
                       justifyContent: "center",
                       borderRadius: theme.radii.md,
@@ -646,8 +651,10 @@ export function FriendsScreen({
                     <BellRing accessible={false} color={theme.colors.brand} size={16} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>Activity Alerts</Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>Choose what milestone updates you send and receive</Text>
+                    <Text numberOfLines={1} style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>Activity Alerts</Text>
+                    <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
+                      Choose what milestone updates you send and receive
+                    </Text>
                   </View>
                 </View>
 
@@ -680,11 +687,12 @@ export function FriendsScreen({
                   gap: theme.spacing.md
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.sm, flexWrap: "wrap" }}>
                   <View
                     style={{
                       width: 32,
                       height: 32,
+                      flexShrink: 0,
                       alignItems: "center",
                       justifyContent: "center",
                       borderRadius: theme.radii.md,
@@ -694,19 +702,22 @@ export function FriendsScreen({
                     <Trophy accessible={false} color={theme.colors.brand} size={16} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>Leaderboard Sharing</Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>One master control, then choose individual metrics</Text>
+                    <Text numberOfLines={1} style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>Leaderboard Sharing</Text>
+                    <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
+                      One master control, then choose individual metrics
+                    </Text>
                   </View>
                   {privacy.appearInLeaderboards && (
                     <View
                       style={{
+                        flexShrink: 0,
                         paddingHorizontal: theme.spacing.sm,
                         paddingVertical: 2,
                         borderRadius: theme.radii.full,
                         backgroundColor: theme.colors.brandSoft
                       }}
                     >
-                      <Text style={[theme.typography.caption, { color: theme.colors.brand, fontWeight: "600", }]}>
+                      <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.brand, fontWeight: "600" }]}>
                         {enabledLeaderboardMetricCount}/3 METRICS
                       </Text>
                     </View>

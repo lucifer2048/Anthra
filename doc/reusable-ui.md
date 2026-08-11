@@ -25,7 +25,7 @@ When building or editing screens **or adding any feature with UI**:
 | `IconButton` | Icon-only actions |
 | `AnimatedPressable` | Reduced-motion-aware spring press feedback with opt-in semantic haptics |
 | `TextField` | Labeled text inputs |
-| `ScreenHeader` | Back + title + optional action |
+| `ScreenHeader` | Back + title + optional action; stacks the action under the title on narrow widths / large Dynamic Type |
 | `Surface` / `Card` | Elevated / bordered panels |
 | `SwitchRow` | Settings-style labeled switch |
 | `StatusBanner` | Inline alert / feedback |
@@ -34,7 +34,7 @@ When building or editing screens **or adding any feature with UI**:
 | `ChoiceRow` / `ChoiceChip` | Single-select chip or card row (replaces ad-hoc chips + old `QuickChoiceRow`) |
 | `WeekdayPicker` | Multi-select weekday chips with an optional card treatment (`WEEKDAY_OPTIONS`) |
 | `EmptyState` | Icon + title + body + optional CTA |
-| `SectionHeader` | Section title + meta / action |
+| `SectionHeader` | Section title + meta / action; stacks meta/action under the title on narrow widths / large Dynamic Type |
 | `BottomTabBar` | Shared bottom tabs |
 | `ToastBanner` | Absolutely positioned status toast |
 | `FormDialog` | Centered modal shell + footer actions |
@@ -45,14 +45,14 @@ When building or editing screens **or adding any feature with UI**:
 | `DatePickerField` | Labeled native date picker with validation and disabled states |
 | `InteractiveCard` | Pressable semantic card for entity rows and navigation targets |
 | `MetricCard` | Responsive title/value/unit summary card with tabular numerals |
-| `SegmentedControl` | Accessible equal-width view/filter selector |
+| `SegmentedControl` | Accessible equal-width view/filter selector; stacks earlier on narrow widths, ≥3–4 options, or large Dynamic Type |
 | `DisclosureCard` | Animated expandable summary/detail surface |
 | `ResponsiveFieldRow` | Field group that stacks at narrow widths or large font scales |
-| `StickyFormFooter` | Safe-area-aware persistent form action region |
+| `StickyFormFooter` | Safe-area-aware persistent form action region; stacks primary/secondary below 360pt or large Dynamic Type |
 | `SkeletonBlock` / `SkeletonRow` / `SkeletonCard` | Shape-preserving loading placeholders |
 | `BlockingLoadingState` | Single blocking load/error/retry state for app or screen startup |
 | `RatingControl` | Accessible haptic rating selector |
-| `PersonRow` | Consistent avatar/identity/action row for social lists |
+| `PersonRow` | Consistent avatar/identity/action row for social lists; truncates name/subtitle and protects trailing actions |
 
 ## Leave feature-specific
 

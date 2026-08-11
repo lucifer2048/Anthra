@@ -67,9 +67,15 @@ function fromCatalogue(food: NutritionCatalogueFood): NutritionItemDraft {
 function Macro({ label, value, goal }: { label: string; value: number | null; goal: number | null }) {
   const theme = useAnthraTheme();
   return (
-    <View style={{ flex: 1, minWidth: 88 }}>
-      <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>{label}</Text>
-      <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}> 
+    <View style={{ flex: 1, minWidth: 88, maxWidth: "100%" }}>
+      <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>{label}</Text>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        maxFontSizeMultiplier={1.3}
+        style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}
+      >
         {Math.round(safeNutrient(value))}{goal ? ` / ${Math.round(goal)}g` : "g"}
       </Text>
       {goal ? <ProgressBar value={safeNutrient(value)} max={goal} style={{ marginTop: theme.spacing.sm }} /> : null}
@@ -231,15 +237,51 @@ export function NutritionBuddyScreen({ onBack }: { onBack: () => void }) {
     <ScreenShell header={{ title: "Nutrition", eyebrow: "OFFLINE FIRST", subtitle: displayDate, onBack,
       action: <Button label="Goals" icon={Settings2} variant="ghost" size="small" onPress={beginGoals} /> }}>
       {notice ? <StatusBanner title={notice} variant="warning" style={{ marginBottom: theme.spacing.md }} /> : null}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: theme.spacing.md }}>
-        <Button label="Previous" icon={ChevronLeft} variant="ghost" size="small" onPress={() => setSelectedDate(shiftDay(selectedDate, -1))} />
-        <Button label="Today" variant="outline" size="small" onPress={() => setSelectedDate(dateKey(new Date()))} />
-        <Button label="Next" icon={ChevronRight} iconPosition="end" variant="ghost" size="small" onPress={() => setSelectedDate(shiftDay(selectedDate, 1))} />
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: theme.spacing.sm,
+          marginBottom: theme.spacing.md
+        }}
+      >
+        <Button
+          label="Previous"
+          icon={ChevronLeft}
+          variant="ghost"
+          size="small"
+          onPress={() => setSelectedDate(shiftDay(selectedDate, -1))}
+          style={{ flexGrow: 1, flexBasis: 104, minWidth: 0 }}
+        />
+        <Button
+          label="Today"
+          variant="outline"
+          size="small"
+          onPress={() => setSelectedDate(dateKey(new Date()))}
+          style={{ flexGrow: 1, flexBasis: 88, minWidth: 0 }}
+        />
+        <Button
+          label="Next"
+          icon={ChevronRight}
+          iconPosition="end"
+          variant="ghost"
+          size="small"
+          onPress={() => setSelectedDate(shiftDay(selectedDate, 1))}
+          style={{ flexGrow: 1, flexBasis: 104, minWidth: 0 }}
+        />
       </View>
 
       <Card variant="brand" padding="large">
         <Text style={[theme.typography.label, { color: theme.colors.brand }]}>DAILY CALORIES · ESTIMATED</Text>
-        <Text style={[theme.typography.headline, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}>
+        <Text
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.78}
+          maxFontSizeMultiplier={1.25}
+          style={[theme.typography.headline, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}
+        >
           {Math.round(safeNutrient(totals.calories))} <Text style={theme.typography.body}>/ {Math.round(goals.calorieGoal)} kcal</Text>
         </Text>
         <ProgressBar value={progress.calories * 100} max={100} style={{ marginTop: theme.spacing.lg }} />
@@ -268,13 +310,15 @@ export function NutritionBuddyScreen({ onBack }: { onBack: () => void }) {
             const entryTotals = dailyTotals([entry]);
             return <InteractiveCard key={entry.id} onPress={() => editEntry(entry)} accessibilityRole="button" cardProps={{ padding: "small", style: { marginBottom: theme.spacing.sm } }}>
                 <View style={{ flexDirection: "row", gap: theme.spacing.md, alignItems: "center" }}>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]} numberOfLines={2}>{entry.items.map((item) => item.name).join(", ")}</Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}> 
+                    <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]} numberOfLines={2}> 
                       {entry.source} · {entry.confidence == null ? "confirmed by you" : `${Math.round(entry.confidence * 100)}% image confidence`}
                     </Text>
                   </View>
-                  <Text style={[theme.typography.labelLarge, { color: theme.colors.textPrimary }]}>{Math.round(safeNutrient(entryTotals.calories))} kcal</Text>
+                  <Text style={[theme.typography.labelLarge, { color: theme.colors.textPrimary, flexShrink: 0 }]} numberOfLines={1}>
+                    {Math.round(safeNutrient(entryTotals.calories))} kcal
+                  </Text>
                 </View>
             </InteractiveCard>;
           })}

@@ -35,8 +35,16 @@ export function AuthForm({ legacy = false }: { legacy?: boolean }) {
     <View style={{ gap: theme.spacing.md }}>
       {legacy && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
-          <ShieldCheck accessible={false} color={theme.colors.brand} size={17} />
-          <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>Your existing history stays protected.</Text>
+          <View style={{ flexShrink: 0 }}>
+            <ShieldCheck accessible={false} color={theme.colors.brand} size={17} />
+          </View>
+          <Text
+            numberOfLines={2}
+            maxFontSizeMultiplier={1.4}
+            style={[theme.typography.caption, { color: theme.colors.textSecondary, flex: 1, minWidth: 0 }]}
+          >
+            Your existing history stays protected.
+          </Text>
         </View>
       )}
 

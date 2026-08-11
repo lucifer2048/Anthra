@@ -402,7 +402,10 @@ export function AnthraHomeScreen({
     day: "numeric"
   }).format(new Date());
   const weeklyPercent = Math.min(100, (stats.weekCompleted / Math.max(1, stats.weekGoal)) * 100);
-  const wordmarkWidth = width;
+  const wordmarkWidth = Math.max(
+    0,
+    Math.min(width, theme.layout.contentMaxWidth) - theme.layout.screenPadding * 2
+  );
   const wordmarkFontSize = wordmarkWidth * 0.28;
 
   useEffect(() => {
@@ -457,7 +460,7 @@ export function AnthraHomeScreen({
           }}
         >
         <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.lg }}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[theme.typography.label, { color: theme.colors.brand }]}>ANTHRA</Text>
             <Text
               accessibilityRole="header"
@@ -465,7 +468,13 @@ export function AnthraHomeScreen({
             >
               Today
             </Text>
-            <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>{dateLabel}</Text>
+            <Text
+              numberOfLines={2}
+              maxFontSizeMultiplier={1.4}
+              style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
+            >
+              {dateLabel}
+            </Text>
           </View>
           <AnimatedPressable
             accessibilityRole="button"
@@ -477,6 +486,7 @@ export function AnthraHomeScreen({
               borderRadius: 24,
               alignItems: "center",
               justifyContent: "center",
+              flexShrink: 0,
               overflow: "hidden",
               borderWidth: 2,
               borderColor: account.user ? theme.colors.brandBorder : theme.colors.borderStrong,

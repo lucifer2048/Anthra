@@ -9,5 +9,6 @@ alwaysApply: false
 Follow `doc/app-providers.md`.
 
 - Wrap the app in `AppProviders` from `src/providers`.
-- Add new app-wide providers inside that file (QueryClient only if remote data is introduced).
+- Keep provider order: Gesture → SafeArea → Account → Social → Theme; pass `localDataReady`.
+- Add new app-wide providers inside that file (prefer documenting in `doc/app-providers.md`).
 - Do not put `SafeAreaView` / screen backgrounds in `AppProviders` — use `ScreenLayout` per screen.

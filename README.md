@@ -1,6 +1,8 @@
 # Anthra (Expo / React Native)
 
-Offline personal-planning app with:
+Offline-first personal-planning app with local SQLite as the source of truth. Optional authenticated Supabase features (Account, Friends/Leaderboard, private Nutrition sync) work when env is configured; without it, Anthra runs fully as a guest on-device.
+
+## Modules
 
 - Circuit plans (work/rest + global loops)
 - 5-second ready lead-in
@@ -15,7 +17,10 @@ Offline personal-planning app with:
 - Tracker Buddy with flexible recurrence, per-task alerts, daily streaks, and weekly/monthly reports
 - Alarm Buddy with exact IST alarms and on-device push-up verification (Android)
 - Activity Buddy with phone steps, Health Connect, goals, history, and a separate Activity Streak (Android)
-- Versioned JSON backup/restore for non-vault app data
+- Nutrition Buddy with local meal logging, goals, custom foods, and optional private cloud sync / photo analysis
+- Account (optional): Google OAuth or email OTP, profile, legacy verified import
+- Friends & Leaderboard (optional): requests, privacy toggles, opt-in shared stats
+- Versioned JSON backup/restore (current export **v6**; vault credentials excluded)
 
 ## Stack
 
@@ -28,10 +33,13 @@ Offline personal-planning app with:
 - expo-notifications + expo-task-manager
 - expo-local-authentication + expo-secure-store
 - react-native-view-shot + expo-sharing
+- Optional: `@supabase/supabase-js` via `src/services/supabaseClient.ts` (null client when env unset)
 
 ## Project docs & Cursor rules
 
 Engineering standards live under [`doc/`](./doc/README.md) (source of truth). Short binding Cursor rules in [`.cursor/rules/`](./.cursor/rules/) point at those docs — especially reusable UI in [`doc/reusable-ui.md`](./doc/reusable-ui.md) and the kit in `src/components/ui/`.
+
+Domain docs for optional cloud: [`doc/account.md`](./doc/account.md), [`doc/social.md`](./doc/social.md), [`doc/nutrition.md`](./doc/nutrition.md), operator setup in [`supabase/README.md`](./supabase/README.md).
 
 ## Run
 
@@ -55,6 +63,18 @@ npm run android
 ```
 
 Notification actions, background processing, biometrics, and secure storage require a development build; Expo Go does not provide the complete native behavior.
+
+### Optional cloud env
+
+Copy public Supabase values into the mobile env when you want Account / Friends / Nutrition sync:
+
+```text
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+EXPO_PUBLIC_EAS_PROJECT_ID=   # friend-activity push tokens only
+```
+
+Omit them for a local-only guest build. Never put service-role keys or OAuth client secrets in the app env.
 
 ## Alarm Buddy
 
@@ -94,16 +114,16 @@ does not request background health access, location, distance, calories, or
 write access in this milestone.
 
 Activity settings, summaries, source metadata, imported workouts, sync state,
-and step checkpoints remain in dedicated local SQLite tables. This health and
-activity information is deliberately excluded from Anthra JSON backups.
-Existing backup versions 1 and 2 remain supported. The share card is generated
-locally and is handed directly to the operating system share sheet only after
-the user previews and confirms it.
+and step checkpoints remain in dedicated local SQLite tables. Current JSON
+backups (v5+) include those tables; older backups restore without touching them.
+Password Buddy credentials remain excluded from backups. Opt-in friend sharing
+of steps uses the social privacy flags — not the backup file.
 
 Workout plans can also be shared from the Plans tab as portable Anthra JSON files.
 Recipients use Plans → Import to choose the file, preview it, and confirm before a
 new local copy is added. Plans → Import can also read a legacy `anthra://plan/import`
-link copied from a message. No plan data is uploaded.
+link copied from a message. Plan share files are local hand-off only unless the
+user separately uses Account cloud features.
 
 Activity Buddy requires a native Android build and is not available in Expo Go:
 
@@ -124,10 +144,13 @@ cd android && ./gradlew :app:assembleDebug
 
 - `plans`
 - `exercises` (per plan)
-- `workout_logs` (completed sessions)
+- `workout_logs` / `workout_sessions`
 - `alarms` and `alarm_logs` (IST push-up alarms and completion results)
-- `activity_*` and `step_sensor_checkpoints` (local Activity Buddy data; never exported)
+- `activity_*` and `step_sensor_checkpoints` (Activity Buddy)
 - `tracker_buddy_*` (versioned tasks, schedules, and completion history)
+- `nutrition_*` (+ sync queue) — see [`doc/nutrition.md`](./doc/nutrition.md)
+- Account / social cache tables as created by feature migrations
 - `meta` (streak marker + current streak)
+- Vault tables + Secure Store secrets (device-bound)
 
-All data stays on-device. Vault secrets use the operating system's secure storage when available. JSON backups intentionally exclude Password Buddy credentials and all Activity Buddy health information. No network APIs, analytics, or trackers are used.
+Local SQLite remains authoritative. Optional Supabase sync is additive for account-linked domains. JSON backups intentionally exclude Password Buddy credentials. No analytics SDKs or PII trackers are used.

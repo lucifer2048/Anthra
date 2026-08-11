@@ -97,6 +97,15 @@ in `nutritionCatalogue.ts`, supplement name templates with blank label values, c
 foods, and barcode storage. Production must load attributable data before enabling automatic
 nutrient resolution:
 
+### Known gap (catalogue stub)
+
+**Milestone status:** the mobile app ships `CompositeNutritionDataProvider` and types only — **no
+bundled IFCT/NIN or USDA food rows**. On-device catalogue search therefore has nothing to resolve
+unless a deployment wires real providers or the Edge Function resolves via
+`NUTRITION_CATALOGUE_URL` / `USDA_FDC_API_KEY`. Manual entry, custom foods, recent foods, barcode
+labels, and supplements remain usable. Do **not** invent or commit guessed nutrient datasets to
+close this gap; import attributable data under the licence rules below.
+
 - Import IFCT data only after confirming the current NIN/ICMR licence permits the intended copying,
   redistribution, attribution, and commercial use. Preserve the edition, food code, edible portion,
   cooking state, per-100-g basis, and source URL/version for every row.
@@ -116,3 +125,16 @@ When `NUTRITION_CATALOGUE_URL` is not set and `USDA_FDC_API_KEY` is available, t
 searches USDA FoodData Central Foundation/SR Legacy foods directly. It sends only the model-produced
 food name, never the meal image, and scales the attributable per-100 g values to the model-estimated
 weight. Users must still confirm the selected food and portion before saving.
+
+## Known gap — on-device catalogue datasets (milestone)
+
+**Current shipping status:** the mobile catalogue layer is a **composition stub**.
+`CompositeNutritionDataProvider` in `nutritionCatalogue.ts` can fan out to providers, but this
+repository does **not** ship licensed IFCT/NIN or USDA bulk tables. Supplement templates may expose
+blank label fields; custom foods, recent foods, barcode storage, and manual entry work without a
+full offline nutrient database.
+
+Until attributable IFCT (licence-cleared) and/or USDA datasets are imported — or
+`NUTRITION_CATALOGUE_URL` / USDA Edge Function resolution is configured in the deployment —
+automatic nutrient resolution remains limited. Do **not** invent guessed nutrient rows to fill the
+gap. Treat full offline catalogue import as a dedicated milestone, not a drive-by fix.

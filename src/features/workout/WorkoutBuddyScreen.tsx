@@ -983,7 +983,7 @@ export function WorkoutBuddyScreen({
                 <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
                   <SectionHeader title="Anthra backup & restore" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
-                    Save workouts, history, alarms, reminders, lists, body details, and settings as a JSON file. Password Buddy stays in secure device storage and is never exported.
+                    Save workouts, history, alarms, reminders, lists, tracker, activity, nutrition, body details, and settings as a JSON file. Password Buddy credentials stay in secure device storage and are never exported.
                   </Text>
                   <View
                     className="mt-4"

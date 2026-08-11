@@ -8,17 +8,22 @@ Source of truth for how this app is built. Cursor rules in `.cursor/rules/` are 
 
 | Doc | Covers |
 |-----|--------|
-| [app-shell-extraction.md](./app-shell-extraction.md) | Phased App.tsx extraction tracker (Vault, helpers, …) |
-| [app-providers.md](./app-providers.md) | Root provider tree (`AppProviders`) |
+| [app-shell-extraction.md](./app-shell-extraction.md) | Phased App.tsx extraction tracker (Vault, Alarm, cloud modules, …) |
+| [app-providers.md](./app-providers.md) | Root provider tree (`AppProviders`: Account → Social → Theme) |
 | [change-checklist.md](./change-checklist.md) | **Mandatory gate** — docs + kit search before every UI/feature change |
-| [principles.md](./principles.md) | Ethics, offline-first, type safety, when docs override the user |
-| [architecture.md](./architecture.md) | Modules, data layer, native bridges, navigation model |
+| [principles.md](./principles.md) | Offline-first local SoT, optional cloud, privacy, type safety |
+| [architecture.md](./architecture.md) | Modules, data layer, optional Supabase, native bridges |
+| [account.md](./account.md) | Optional auth, onboarding gate, profile, legacy import |
+| [social.md](./social.md) | Friends, privacy, leaderboards, activity push |
+| [nutrition.md](./nutrition.md) | Local nutrition DB, sync queue, analysis Edge Function, catalogue gap |
 | [screen-layout-system.md](./screen-layout-system.md) | ScreenLayout, safe areas, edge-to-edge backgrounds |
 | [reusable-ui.md](./reusable-ui.md) | UI kit inventory, when to reuse vs invent, migration plan |
 | [design-tokens.md](./design-tokens.md) | Colors, spacing, radius, typography, layout tokens |
 | [hooks.md](./hooks.md) | Rules of Hooks, where hooks live |
-| [feature-constants.md](./feature-constants.md) | Feature knobs in `src/constants/` |
+| [feature-constants.md](./feature-constants.md) | Feature knobs in `src/constants/` (+ documented exceptions) |
 | [performance.md](./performance.md) | Lists, JS thread, deferred work |
 | [ui-data-separation.md](./ui-data-separation.md) | Presentational UI vs repositories / DB |
+
+Operator cloud setup: [`../supabase/README.md`](../supabase/README.md).
 
 Start with [principles.md](./principles.md) and [reusable-ui.md](./reusable-ui.md) before UI work.

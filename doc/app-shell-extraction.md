@@ -4,7 +4,7 @@ Track phased extraction of logic out of `App.tsx` into feature screens and share
 
 **Pattern:** docs first → extract → `npx tsc --noEmit` → mark phase ✅ in this file.
 
-**Target end state:** `App.tsx` is a thin shell — providers, bootstrap, module switch, timer session, notification/deep-link orchestration. Feature UIs live under `src/features/<domain>/` or `src/components/` with screen-owned state.
+**Target end state:** `App.tsx` is a thin shell — providers, bootstrap, module switch, timer session, notification/deep-link orchestration, account onboarding gate. Feature UIs live under `src/features/<domain>/` or `src/components/` with screen-owned state.
 
 ---
 
@@ -19,7 +19,9 @@ Track phased extraction of logic out of `App.tsx` into feature screens and share
 | 4 — Shared helpers | ✅ | `src/utils/format.ts`; workout/reminder helpers re-export |
 | 5 — Session feedback modals | ✅ | `src/features/workout/WorkoutFeedbackModals.tsx`; App keeps feedback state |
 | 6 — List Buddy home | ✅ | `src/features/list/ListBuddyScreen.tsx` (+ deprecated re-export stub) |
-| 7 — Shell polish | ✅ | Dead imports trimmed; architecture updated; App.tsx ~1565 |
+| 7 — Shell polish | ✅ | Dead imports trimmed; architecture updated |
+| 8 — Cloud modules (account / social / nutrition) | ✅ | Features under `src/features/{account,social,nutrition}`; providers in `AppProviders`; App routes modules |
+| 9 — Alarm Buddy home | ✅ | `src/features/alarm/AlarmBuddyScreen.tsx`; native bridge remains `src/utils/alarmNative.ts`; compat re-export stub under `src/components/` |
 
 **App.tsx line counts**
 
@@ -29,7 +31,10 @@ Track phased extraction of logic out of `App.tsx` into feature screens and share
 | After Reminder | ~3278 |
 | After Workout | ~2388 |
 | After Vault + format utils | ~1702 |
-| After feedback + list + polish | **~1565** |
+| After feedback + list + polish | ~1565 |
+| After cloud modules + routing | **~1638** |
+
+Line count can rise slightly when new module routes (nutrition, account, friends) land in the shell; ownership of those UIs remains outside `App.tsx`.
 
 ---
 
@@ -67,12 +72,27 @@ Optional leftover: local copies inside `PlanEditorModal`.
 
 ---
 
+## Phase 8 — Cloud modules ✅
+
+- Account + Social providers; local installation schema; Friends/Account/Nutrition screens
+- App owns module switch + `AccountOnboardingGate` + `localDataReady` wiring
+- Docs: [account.md](./account.md), [social.md](./social.md), [nutrition.md](./nutrition.md)
+
+---
+
+## Phase 9 — Alarm Buddy ✅
+
+- Screen under `src/features/alarm/`; **do not** move `alarmNative.ts` / Android alarm module without a dedicated native migration
+- Deprecated stub: `src/components/AlarmBuddyScreen.tsx`
+
+---
+
 ## Intentionally stays in App (long term)
 
 | Concern | Why |
 |---------|-----|
 | `AppProviders` + splash | Entry |
-| DB bootstrap / theme load | Once at startup |
+| DB bootstrap / theme load | Once at startup; feeds `localDataReady` |
 | Module switch (`activeModule`) | Router |
 | Shared `plans` / `stats` / `settings` for hub + workout | Hub needs them |
 | `TimerScreen` when `activePlan` set | Session overlay across modules |
@@ -80,6 +100,7 @@ Optional leftover: local copies inside `PlanEditorModal`.
 | Notification response listener + plan deep links | App-level |
 | `syncAllNotifications` / AppState refresh | Cross-feature |
 | Backup export/import orchestration | Touches many domains (UI in Workout settings) |
+| `AccountOnboardingGate` mount | Must wrap module tree after providers |
 
 ---
 

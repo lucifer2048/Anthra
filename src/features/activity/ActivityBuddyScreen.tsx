@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   CircleCheck,
   Clock3,
@@ -1142,8 +1141,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                     { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }
                   ]}
                 >
-                  Health records stay on this device and are excluded from normal Anthra JSON backups.
-                  Step counts are estimates, not medical measurements.
+                  Health records stay on this device. Step and workout activity tables are included in Anthra JSON backups (v5+); they are not uploaded to friends or cloud social features unless you opt in to share specific stats. Step counts are estimates, not medical measurements.
                 </Text>
               </View>
             </View>

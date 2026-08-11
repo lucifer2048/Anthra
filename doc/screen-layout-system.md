@@ -30,7 +30,7 @@ Modals / dialogs use `FormDialog` / `SheetDialog` (or a modal-local shell), not 
 ## Typical usage
 
 ```tsx
-import { ScreenLayout, useScreenBackgrounds } from "../components/layout";
+import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 
 export function AlarmBuddyScreen({ onBack }: Props) {
   const backgrounds = useScreenBackgrounds();

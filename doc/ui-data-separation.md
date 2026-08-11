@@ -24,6 +24,8 @@ Own:
 - Domain validation (or call validators in `src/utils` / feature folders)
 - Composing UI kit components
 
+**Allowed tech debt:** some extracted buddy screens (List, Reminder, Workout, Alarm) still call `src/db` directly from the screen file instead of a dedicated `*Repository.ts`. That is acceptable for containers. Do not push those imports into `src/components/ui/*`. Prefer repositories when adding new cloud-synced domains (see Account / Nutrition / Social).
+
 ## Repositories
 
-Live next to the feature (`src/features/<domain>/*Repository.ts`) or in `src/db/`. Keep SQL and migrations out of `.tsx` files.
+Live next to the feature (`src/features/<domain>/*Repository.ts`) or in `src/db/`. Keep SQL and migrations out of presentational `.tsx` files when practical; container screens may still orchestrate queries until further extraction.

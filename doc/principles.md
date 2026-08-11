@@ -1,8 +1,22 @@
 # Core principles
 
-## Offline-first privacy
+## Offline-first, local source of truth
 
-Anthra stores all user data on-device (SQLite + Secure Store). Do not add network APIs, analytics SDKs, crash reporters that upload PII, or cloud sync unless the product owner explicitly requests it and docs are updated first.
+Anthra keeps **local SQLite (`anthra.db`) as the source of truth** for app data on the device. Guest / local-only use must keep working when cloud env vars are unset.
+
+Optional authenticated cloud (Supabase) may exist for account, friends/leaderboards, and private nutrition sync. Cloud is additive:
+
+- Writes land locally first; sync queues and retries are idempotent where implemented.
+- Builds without `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` stay fully local (guest).
+- Do not require a network round-trip for core buddy flows (plans, reminders, lists, vault unlock, alarms, activity sensors).
+
+## Privacy defaults
+
+- Do **not** add analytics SDKs, advertising IDs, or crash reporters that upload PII.
+- Password Buddy (vault) secrets stay in Secure Store / local vault tables and are **excluded from JSON backups** and from legacy cloud import until a password-encrypted export exists.
+- Alarm camera frames are processed on-device and are never saved or uploaded.
+- Nutrition meal details and photos are private to the account; they are never published to friends, leaderboards, or social stats.
+- Friend/leaderboard stats are opt-in privacy flags owned by the signed-in user.
 
 ## Docs override assumptions
 
@@ -29,8 +43,9 @@ Group by feature under `src/features/<domain>/` when extracting from `App.tsx` o
 | Semantic theme | `src/design-system/` |
 | Shared UI | `src/components/ui/` |
 | Screen chrome | `src/components/layout/` (`ScreenLayout`) |
-| Feature limits / knobs | `src/constants/<domain>.ts` |
+| Feature limits / knobs | Prefer `src/constants/<domain>.ts`; see [feature-constants.md](./feature-constants.md) for feature-local exceptions |
 | Persistence | `src/db/` + feature repositories |
+| Optional cloud client | `src/services/supabaseClient.ts` (null when unconfigured) |
 | Native bridges | `src/utils/*Native.ts` / `src/features/*/…Native.ts` |
 
 Before any UI or feature change: follow `doc/change-checklist.md` (search kit → reuse or extract → implement).

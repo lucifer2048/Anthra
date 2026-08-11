@@ -23,7 +23,7 @@ import Reanimated, { FadeIn, useReducedMotion } from "react-native-reanimated";
 import "./global.css";
 import "./src/utils/reminderNotificationTask";
 import { TimerScreen } from "./src/components/TimerScreen";
-import { AlarmBuddyScreen } from "./src/components/AlarmBuddyScreen";
+import { AlarmBuddyScreen } from "./src/features/alarm";
 import { LaunchOverlay } from "./src/components/LaunchOverlay";
 import { type WorkoutTab } from "./src/components/WorkoutTabBar";
 import type { ReminderTab } from "./src/components/ReminderTabBar";
@@ -1177,7 +1177,7 @@ export default function App() {
 
       Alert.alert(
         "Restore this backup?",
-        "Workouts, alarms, reminders, lists, nutrition history, body details, and settings on this device will be replaced. Password Buddy stays unchanged.",
+        "Workouts, alarms, reminders, lists, tracker, activity, nutrition history, body details, and settings on this device will be replaced. Password Buddy stays unchanged.",
         [
           { text: "Cancel", style: "cancel" },
           {

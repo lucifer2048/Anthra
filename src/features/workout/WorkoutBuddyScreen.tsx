@@ -19,7 +19,7 @@ import { TimePickerField } from "../../components/TimePickerField";
 import { AppearanceControl } from "../../components/AppearanceControl";
 import { WorkoutTabBar, type WorkoutTab } from "../../components/WorkoutTabBar";
 import { useScreenBackgrounds } from "../../components/layout";
-import { AnimatedPressable, Button, ChoiceRow, DisclosureCard, EmptyState, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
+import { AnimatedPressable, Button, Card, ChoiceRow, DisclosureCard, EmptyState, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
 import { formatDays, matchesDay } from "../../constants/schedule";
 import { useAnthraTheme } from "../../design-system";
 import type {
@@ -162,10 +162,8 @@ export function WorkoutBuddyScreen({
   const profileWeightInputRef = useRef<TextInput>(null);
   const profileGoalInputRef = useRef<TextInput>(null);
 
-  const borderColor = theme.colors.border;
   const textPrimary = theme.colors.textPrimary;
   const textMuted = theme.colors.textSecondary;
-  const cardBackground = theme.colors.surfaceElevated;
   const inputBackground = theme.colors.surfaceSubtle;
   const shouldStackWorkoutActions = windowWidth < 360 || fontScale >= 1.35;
   const shouldStackWorkoutHeaders = windowWidth < 390 || fontScale >= 1.25;
@@ -179,7 +177,6 @@ export function WorkoutBuddyScreen({
     }),
     [theme.colors.brand, theme.colors.brandBorder, theme.colors.brandSoft]
   );
-  const workoutCardStyle = { borderColor, backgroundColor: cardBackground };
   const workoutTimeZoneOptions = useMemo(
     () => Array.from(new Set([deviceTimeZone, "Asia/Kolkata"])),
     [deviceTimeZone]
@@ -332,7 +329,7 @@ export function WorkoutBuddyScreen({
       >
             {activeSection === "home" && (
               <WorkoutOverview>
-                <View className="rounded-3xl border p-5" style={{ borderColor: workoutTheme.accentBorder, backgroundColor: workoutTheme.accentSoft }}>
+                <Card variant="brand">
                   <View
                     style={{
                       flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
@@ -411,7 +408,7 @@ export function WorkoutBuddyScreen({
                       style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
                     />
                   </View>
-                </View>
+                </Card>
 
                 <View
                   className="mt-5"
@@ -421,7 +418,7 @@ export function WorkoutBuddyScreen({
                   <MetricCard title="Sessions" value={qualifyingSessionCount} unit="logged" style={{ flex: shouldStackWorkoutStats ? undefined : 1 }} />
                 </View>
 
-                <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card style={{ marginTop: theme.spacing.xl }}>
                   <View
                     style={{
                       flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
@@ -467,7 +464,7 @@ export function WorkoutBuddyScreen({
                       ? `Streak running for ${stats.streakWeeks} week${stats.streakWeeks === 1 ? "" : "s"}`
                       : "Finish this week strong to start your streak"}
                   </Text>
-                </View>
+                </Card>
 
               </WorkoutOverview>
             )}
@@ -565,7 +562,7 @@ export function WorkoutBuddyScreen({
                         </AnimatedPressable>
                       )}
                     >
-                      <View className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
+                      <Card treatment="interactive" style={{ marginTop: theme.spacing.md }}>
                         <View style={{ minWidth: 0 }}>
                             <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleMedium, { color: textPrimary }]}>{plan.name}</Text>
                             <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textTertiary, marginTop: theme.spacing.xs }]}>
@@ -601,7 +598,7 @@ export function WorkoutBuddyScreen({
                           fullWidth
                           style={{ marginTop: 16 }}
                         />
-                      </View>
+                      </Card>
                     </Swipeable>
                   );
                 })}
@@ -639,7 +636,7 @@ export function WorkoutBuddyScreen({
                 )}
 
                 {history.map((entry) => (
-                  <View key={entry.id} className="mt-4 rounded-2xl border p-4" style={workoutCardStyle}>
+                  <Card key={entry.id} style={{ marginTop: theme.spacing.md }}>
                     <View className="flex-row items-start justify-between">
                       <View className="min-w-0 flex-1 pr-4" style={{ minWidth: 0 }}>
                         <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleSmall, { color: textPrimary }]}>{entry.planName}</Text>
@@ -713,14 +710,14 @@ export function WorkoutBuddyScreen({
                         <Text style={[theme.typography.body, { color: textMuted }]}>{entry.comment}</Text>
                       </DisclosureCard>
                     )}
-                  </View>
+                  </Card>
                 ))}
               </WorkoutHistoryView>
             )}
 
             {activeSection === "profile" && (
               <BodyProfileView>
-                <View className="rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card>
                   <SectionHeader title="Body metrics" />
                   <View
                     className="mt-4"
@@ -754,9 +751,9 @@ export function WorkoutBuddyScreen({
                       />
                     </View>
                   </View>
-                </View>
+                </Card>
 
-                <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card style={{ marginTop: theme.spacing.md }}>
                   <View
                     style={{
                       flexDirection: shouldStackWorkoutHeaders ? "column" : "row",
@@ -776,9 +773,9 @@ export function WorkoutBuddyScreen({
                     {roundedBmi != null ? roundedBmi : "--"}
                   </Text>
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>{bmiSummary.note}</Text>
-                </View>
+                </Card>
 
-                <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card style={{ marginTop: theme.spacing.md }}>
                   <TextField
                     ref={profileGoalInputRef}
                     label="Goals"
@@ -789,7 +786,7 @@ export function WorkoutBuddyScreen({
                     placeholder="Example: Reach 68kg and train 4 days/week."
                     helperText="Keep this specific and achievable; it stays on this device."
                   />
-                </View>
+                </Card>
 
                 <Button
                   label="Save body details"
@@ -813,7 +810,7 @@ export function WorkoutBuddyScreen({
 
             {activeSection === "settings" && (
               <WorkoutSettingsView>
-                <View className="rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card>
                   <SectionHeader title="Workout plan defaults" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                     New plans start with {formatDays(settings.workoutDays)}. Existing plan days control Today and workout reminders.
@@ -845,9 +842,9 @@ export function WorkoutBuddyScreen({
                       helperText="Choose 1–7 completed workout days per week."
                     />
                   </View>
-                </View>
+                </Card>
 
-                <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card style={{ marginTop: theme.spacing.md }}>
                   <SectionHeader title="Workout reminders" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                     Choose workout time and set up to 3 reminder intervals.
@@ -960,7 +957,7 @@ export function WorkoutBuddyScreen({
                   <Text style={[theme.typography.eyebrow, { color: textMuted, marginTop: theme.spacing.md }]}>
                     {reminderPreview}
                   </Text>
-                </View>
+                </Card>
 
                 <Button
                   label="Save workout settings"
@@ -980,7 +977,7 @@ export function WorkoutBuddyScreen({
                   />
                 )}
 
-                <View className="mt-5 rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card style={{ marginTop: theme.spacing.xl }}>
                   <SectionHeader title="Anthra backup & restore" />
                   <Text className="mt-2 text-sm" style={{ color: textMuted }}>
                     Save workouts, history, alarms, reminders, lists, tracker, activity, nutrition, body details, and settings as a JSON file. Password Buddy credentials stay in secure device storage and are never exported.
@@ -1005,11 +1002,11 @@ export function WorkoutBuddyScreen({
                       style={{ flex: shouldStackWorkoutActions ? undefined : 1, alignSelf: "stretch" }}
                     />
                   </View>
-                </View>
+                </Card>
 
-                <View className="mt-4 rounded-3xl border p-5" style={workoutCardStyle}>
+                <Card style={{ marginTop: theme.spacing.md }}>
                   <AppearanceControl />
-                </View>
+                </Card>
               </WorkoutSettingsView>
             )}
       </ScreenShell>

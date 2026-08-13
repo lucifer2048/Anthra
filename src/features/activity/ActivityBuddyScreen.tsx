@@ -39,8 +39,7 @@ import {
   SectionHeader,
   SheetDialog,
   SkeletonCard,
-  StatusBanner,
-  Surface
+  StatusBanner
 } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { getDayPartsInTimeZone, zonedDateTimeToTimestamp } from "../../utils/timezone";
@@ -949,13 +948,12 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               </Text>
             </View>
 
-            <Surface
+            <Card
               accessible
               accessibilityLabel={`${activityStreak} day activity streak`}
+              treatment="stat"
               variant="brand"
               padding="small"
-              radius="large"
-              bordered
               className="items-end"
               style={{ minWidth: 92, alignSelf: shouldStackSummary ? "stretch" : "auto" }}
             >
@@ -965,7 +963,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>
                 day streak
               </Text>
-            </Surface>
+            </Card>
           </View>
 
           <ProgressBar
@@ -1123,10 +1121,8 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             style={{ marginTop: theme.spacing.md }}
           />
 
-          <Surface
-            variant="subtle"
-            padding="medium"
-            radius="large"
+          <Card
+            treatment="inset"
             style={{ marginTop: theme.spacing.md }}
           >
             <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
@@ -1145,12 +1141,12 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                 </Text>
               </View>
             </View>
-          </Surface>
+          </Card>
         </View>
 
         <Card
           variant="brand"
-          style={{ marginTop: theme.spacing["3xl"], borderColor: theme.colors.brandBorder }}
+          style={{ marginTop: theme.spacing["3xl"] }}
         >
           <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
             <View

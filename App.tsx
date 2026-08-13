@@ -1332,6 +1332,7 @@ export default function App() {
           <Card
             accessibilityRole="alert"
             variant="elevated"
+            elevation="overlay"
             padding="large"
             style={{ width: "100%", maxWidth: 440 }}
           >

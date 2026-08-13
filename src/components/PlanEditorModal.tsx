@@ -33,7 +33,7 @@ import {
 } from "../features/workout/workoutTimeline";
 import type { Exercise, WorkoutPlan, WorkoutPlanInput, WorkoutSection } from "../types";
 import { ScreenLayout, useScreenBackgrounds } from "./layout";
-import { AnimatedPressable, Button, ChoiceRow, IconButton, KeyboardAwareScrollView, ResponsiveFieldRow, ScreenHeader, SheetDialog, StickyFormFooter, Surface, TextField, WeekdayPicker } from "./ui";
+import { AnimatedPressable, Button, Card, ChoiceRow, IconButton, KeyboardAwareScrollView, ResponsiveFieldRow, ScreenHeader, SheetDialog, StickyFormFooter, TextField, WeekdayPicker } from "./ui";
 import { ExerciseEditorSheet, PlanBasicsSection, PlanScheduleSection, SetEditorSheet, WorkoutSetCard } from "./PlanEditorSections";
 
 type EditableExercise = {
@@ -977,11 +977,9 @@ export function PlanEditorModal({
             showsVerticalScrollIndicator={false}
           >
             {draftSaveError && (
-              <Surface
+              <Card
                 variant="danger"
-                padding="medium"
-                radius="medium"
-                bordered
+                treatment="inset"
                 accessibilityRole="alert"
                 accessibilityLiveRegion="assertive"
                 style={{ marginTop: theme.spacing.lg }}
@@ -999,7 +997,7 @@ export function PlanEditorModal({
                   size="small"
                   style={{ marginTop: theme.spacing.md }}
                 />
-              </Surface>
+              </Card>
             )}
 
             <PlanBasicsSection>
@@ -1014,13 +1012,7 @@ export function PlanEditorModal({
             />
 
             {!isEditing && (
-              <Surface
-                variant="subtle"
-                padding="medium"
-                radius="large"
-                bordered
-                style={{ marginTop: theme.spacing.lg }}
-              >
+              <Card treatment="inset" style={{ marginTop: theme.spacing.lg }}>
                 <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Start from a proven structure</Text>
                 <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Choose a starter, then adjust every interval to fit your training.</Text>
                 <View className="mt-3 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
@@ -1041,16 +1033,13 @@ export function PlanEditorModal({
                     </AnimatedPressable>
                   ))}
                 </View>
-              </Surface>
+              </Card>
             )}
             </PlanBasicsSection>
 
             <PlanScheduleSection>
-            <Surface
+            <Card
               variant="brand"
-              padding="medium"
-              radius="large"
-              bordered
               className="flex-row items-center"
               style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md }}
             >
@@ -1068,15 +1057,9 @@ export function PlanEditorModal({
                 <Text style={[theme.typography.titleMedium, { color: theme.colors.brand }]}>{exerciseCount}</Text>
                 <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>exercises</Text>
               </View>
-            </Surface>
+            </Card>
 
-            <Surface
-              variant="default"
-              padding="medium"
-              radius="large"
-              bordered
-              style={{ marginTop: theme.spacing.lg }}
-            >
+            <Card style={{ marginTop: theme.spacing.lg }}>
               <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
                 <CalendarDays accessible={false} color={theme.colors.brand} size={20} />
                 <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Training days</Text>
@@ -1089,7 +1072,7 @@ export function PlanEditorModal({
                 onChange={setWorkoutDays}
                 style={{ marginTop: theme.spacing.md }}
               />
-            </Surface>
+            </Card>
             </PlanScheduleSection>
 
             <View
@@ -1153,12 +1136,10 @@ export function PlanEditorModal({
                 )}
 
                 {section.exercises.map((exercise, exerciseIndex) => (
-                  <Surface
+                  <Card
                     key={exercise.localId}
-                    variant="subtle"
+                    treatment="inset"
                     padding="small"
-                    radius="medium"
-                    bordered
                     style={{ marginTop: theme.spacing.md }}
                   >
                     <Text style={[theme.typography.caption, { color: theme.colors.brand }]}>EXERCISE {exerciseIndex + 1}</Text>
@@ -1183,7 +1164,7 @@ export function PlanEditorModal({
                         <IconButton icon={Trash2} onPress={() => removeExercise(section.localId, exercise.localId)} accessibilityLabel={`Delete ${exercise.name}`} variant="danger" size="small" />
                       </View>
                     </View>
-                  </Surface>
+                  </Card>
                 ))}
 
                 <View

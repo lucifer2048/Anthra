@@ -11,8 +11,12 @@ export type InteractiveCardProps = Omit<AnimatedPressableProps, "children" | "st
 
 export function InteractiveCard({ children, cardProps, style, ...props }: InteractiveCardProps) {
   return (
-    <AnimatedPressable {...props} style={style} pressScale={props.pressScale ?? "subtle"}>
-      <Card {...cardProps}>{children}</Card>
+    <AnimatedPressable
+      {...props}
+      style={[{ minWidth: 0 }, style]}
+      pressScale={props.pressScale ?? "subtle"}
+    >
+      <Card treatment="interactive" {...cardProps}>{children}</Card>
     </AnimatedPressable>
   );
 }

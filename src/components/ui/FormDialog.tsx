@@ -119,6 +119,7 @@ export function FormDialog({
     <Card
       variant="elevated"
       padding="large"
+      elevation="overlay"
       accessibilityViewIsModal
       style={[{ width: "100%", maxWidth, alignSelf: "center" }, contentStyle]}
     >

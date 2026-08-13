@@ -43,7 +43,7 @@ import {
 
 import { formatDays } from "../../constants/schedule";
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
-import { AnimatedPressable, Button, Card, EmptyState, FormDialog, IconButton, ScreenHeader, SectionHeader, SegmentedControl, SkeletonCard, StatusBanner, TextField, ToastBanner } from "../../components/ui";
+import { AnimatedPressable, Button, Card, EmptyState, FormDialog, IconButton, InteractiveCard, ScreenHeader, SectionHeader, SegmentedControl, SkeletonCard, StatusBanner, TextField, ToastBanner } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { getDeviceTimeZone } from "../../utils/timezone";
 import {
@@ -151,37 +151,29 @@ function TrackerTaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: ()
     if (task.done && !reduceMotion) scale.value = withSequence(withSpring(1.035), withSpring(1));
   }, [reduceMotion, scale, task.done]);
   return (
-    <Animated.View
-      style={[
-        {
-          width: "100%",
-          alignSelf: "stretch",
-          borderRadius: theme.radii.xl,
-          borderWidth: 1,
+    <Animated.View style={[{ width: "100%", alignSelf: "stretch" }, style]}>
+    <InteractiveCard
+      onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: task.done }}
+      accessibilityLabel={`${task.title}, ${task.done ? "done" : "not done"}`}
+      cardProps={{
+        padding: "none",
+        style: {
           borderColor: task.done ? theme.colors.success : theme.colors.borderStrong,
-          backgroundColor: task.done ? theme.colors.successSoft : theme.colors.surfaceElevated,
-          ...(task.done ? theme.shadows.low : theme.shadows.medium)
-        },
-        style
-      ]}
+          backgroundColor: task.done ? theme.colors.successSoft : theme.colors.surfaceElevated
+        }
+      }}
     >
-      <AnimatedPressable
-        onPress={onToggle}
-        android_ripple={{ color: theme.colors.surfacePressed }}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: task.done }}
-        accessibilityLabel={`${task.title}, ${task.done ? "done" : "not done"}`}
+      <View
         style={{
           minHeight: 84,
           width: "100%",
-          alignSelf: "stretch",
           flexDirection: "row",
           alignItems: "center",
           gap: theme.spacing.lg,
           paddingVertical: theme.spacing.lg,
-          paddingHorizontal: theme.spacing.lg,
-          borderRadius: theme.radii.xl,
-          backgroundColor: "transparent"
+          paddingHorizontal: theme.spacing.lg
         }}
       >
         <View style={{
@@ -212,7 +204,8 @@ function TrackerTaskRow({ task, onToggle }: { task: TrackerDayTask; onToggle: ()
             )}
           </View>
         </View>
-      </AnimatedPressable>
+      </View>
+    </InteractiveCard>
     </Animated.View>
   );
 }
@@ -230,7 +223,7 @@ function CalendarCell({ dateKey, done, due, percentage, selected, onPress }: { d
 function SummaryCard({ label, summary, icon: Icon }: { label: string; summary: TrackerPeriodSummary; icon: typeof CalendarDays }) {
   const theme = useAnthraTheme();
   return (
-    <Card variant="elevated" padding="large" style={{ flex: 1, minWidth: 150 }}>
+    <Card treatment="stat" variant="elevated" style={{ flex: 1, minWidth: 150 }}>
       <View style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: theme.radii.md, backgroundColor: theme.colors.brandSoft }}>
         <Icon accessible={false} color={theme.colors.brand} size={19} />
       </View>
@@ -890,7 +883,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
 
             {view === "reports" && (
               <View style={{ marginTop: theme.spacing["2xl"], gap: theme.spacing.lg }}>
-                <Card variant="subtle" padding="none" radius="large">
+                <Card treatment="grouped" variant="subtle">
                   <AnimatedPressable
                     onPress={() => setReportInfoExpanded((expanded) => !expanded)}
                     android_ripple={{ color: theme.colors.surfacePressed }}
@@ -1118,25 +1111,17 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                   ) : (
                     <View style={{ gap: theme.spacing.md }}>
                       {currentTasks.map((task) => (
-                        <View
+                        <InteractiveCard
                           key={task.id}
-                          style={{
-                            width: "100%",
-                            borderWidth: 1,
-                            borderColor: theme.colors.borderStrong,
-                            backgroundColor: theme.colors.surfaceElevated,
-                            ...theme.shadows.medium,
-                            borderRadius: theme.radii.xl
+                          onPress={() => {
+                            setEditingTask(task);
+                            setTaskEditorOpen(true);
                           }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit ${task.title}`}
+                          cardProps={{ padding: "none" }}
                         >
-                          <AnimatedPressable
-                            onPress={() => {
-                              setEditingTask(task);
-                              setTaskEditorOpen(true);
-                            }}
-                            android_ripple={{ color: theme.colors.surfacePressed }}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Edit ${task.title}`}
+                          <View
                             style={{
                               width: "100%",
                               minHeight: 84,
@@ -1144,8 +1129,7 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                               alignItems: "center",
                               gap: theme.spacing.md,
                               paddingVertical: theme.spacing.lg,
-                              paddingHorizontal: theme.spacing.lg,
-                              borderRadius: theme.radii.xl
+                              paddingHorizontal: theme.spacing.lg
                             }}
                           >
                             <View style={{ flex: 1, minWidth: 0 }}>
@@ -1161,8 +1145,8 @@ export function TrackerBuddyScreen({ onBack }: Props) {
                               }} variant="ghost" />
                               <ChevronRight accessible={false} color={theme.colors.textTertiary} size={20} />
                             </View>
-                          </AnimatedPressable>
-                        </View>
+                          </View>
+                        </InteractiveCard>
                       ))}
                     </View>
                   )}

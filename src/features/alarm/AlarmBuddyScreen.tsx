@@ -459,13 +459,10 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
           paddingBottom: spacing["5xl"]
         }}
       >
-        <View
+        <Card
+          treatment="grouped"
           style={{
-            overflow: "hidden",
-            borderRadius: radii.xl,
-            borderWidth: 1,
-            borderColor: setupNeedsAttention ? colors.brandBorder : colors.border,
-            backgroundColor: colors.surfaceElevated
+            borderColor: setupNeedsAttention ? colors.brandBorder : colors.border
           }}
         >
           <AnimatedPressable
@@ -561,7 +558,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
               />
             </View>
           )}
-        </View>
+        </Card>
 
         {notice && (
           <StatusBanner
@@ -640,7 +637,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
         {history.length > 0 && (
           <View style={{ marginTop: spacing["2xl"] }}>
             <Text style={[typography.titleSmall, { color: colors.textPrimary, marginBottom: spacing.sm }]}>Recent results</Text>
-            <Card padding="none" style={{ overflow: "hidden" }}>
+            <Card treatment="grouped">
               {history.slice(0, 8).map((entry, index) => (
                 <View
                   key={entry.eventId}

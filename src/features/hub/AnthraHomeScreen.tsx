@@ -83,60 +83,52 @@ function ActionCard({ action, index, animateCards }: { action: HomeAction; index
       entering={reduceMotion || !animateCards ? undefined : FadeInDown.delay(90 + index * 55).springify().damping(18).stiffness(210)}
       style={{ flex: 1, minWidth: 0 }}
     >
-      <Animated.View style={{ flex: 1, width: "100%" }}>
-        <AnimatedPressable
-          onPress={action.onPress}
-          haptic="selection"
-          pressScale="subtle"
-          accessibilityRole="button"
-          accessibilityLabel={action.label}
-          accessibilityHint={action.accessibilityHint ?? action.description}
-          style={{
-            flex: 1,
-            minHeight: 132,
-            padding: compact ? theme.spacing.md : theme.spacing.lg,
-            borderRadius: theme.radii.xl,
-            borderWidth: 1,
-            borderColor: theme.colors.borderStrong,
-            backgroundColor: theme.colors.surfaceElevated,
-            ...theme.shadows.medium
-          }}
-        >
-          <View className="flex-row items-start justify-between">
-            <View
-              className="items-center justify-center"
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: theme.radii.md,
-                borderWidth: 1,
-                borderColor: theme.colors.brandBorder,
-                backgroundColor: theme.colors.brandSoft
-              }}
-            >
-              <Icon accessible={false} color={theme.colors.brand} size={21} strokeWidth={2.2} />
-            </View>
-            <ArrowUpRight accessible={false} color={theme.colors.textTertiary} size={18} />
+      <InteractiveCard
+        onPress={action.onPress}
+        haptic="selection"
+        accessibilityRole="button"
+        accessibilityLabel={action.label}
+        accessibilityHint={action.accessibilityHint ?? action.description}
+        style={{ flex: 1 }}
+        cardProps={{
+          padding: compact ? "small" : "medium",
+          style: { flex: 1, minHeight: 132 }
+        }}
+      >
+        <View className="flex-row items-start justify-between">
+          <View
+            className="items-center justify-center"
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: theme.radii.md,
+              borderWidth: 1,
+              borderColor: theme.colors.brandBorder,
+              backgroundColor: theme.colors.brandSoft
+            }}
+          >
+            <Icon accessible={false} color={theme.colors.brand} size={21} strokeWidth={2.2} />
           </View>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.78}
-            maxFontSizeMultiplier={1.3}
-            style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}
-          >
-            {action.label}
-          </Text>
-          <Text
-            numberOfLines={3}
-            ellipsizeMode="tail"
-            maxFontSizeMultiplier={1.3}
-            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
-          >
-            {action.description}
-          </Text>
-        </AnimatedPressable>
-      </Animated.View>
+          <ArrowUpRight accessible={false} color={theme.colors.textTertiary} size={18} />
+        </View>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.78}
+          maxFontSizeMultiplier={1.3}
+          style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}
+        >
+          {action.label}
+        </Text>
+        <Text
+          numberOfLines={3}
+          ellipsizeMode="tail"
+          maxFontSizeMultiplier={1.3}
+          style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
+        >
+          {action.description}
+        </Text>
+      </InteractiveCard>
     </Animated.View>
   );
 }
@@ -205,16 +197,7 @@ function FriendsLeaderboardCard({
   }));
 
   return (
-    <Card
-      padding="large"
-      radius="xlarge"
-      style={{
-        marginTop: theme.spacing.md,
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surfaceElevated,
-        ...theme.shadows.medium
-      }}
-    >
+    <Card style={{ marginTop: theme.spacing.md }}>
       <View
         style={{
           flexDirection: "row",
@@ -507,15 +490,7 @@ export function AnthraHomeScreen({
           entering={reduceMotion || !animateCards ? undefined : FadeInDown.delay(30).springify().damping(19).stiffness(190)}
           style={{ marginTop: theme.spacing["2xl"] }}
         >
-        <Card
-          variant="brand"
-          padding="large"
-          style={{
-            borderBottomWidth: 3,
-            borderBottomColor: theme.colors.brandBorder,
-            ...theme.shadows.medium
-          }}
-        >
+        <Card variant="brand">
           <Text style={[theme.typography.label, { color: theme.colors.brand }]}>TODAY’S FOCUS</Text>
           <Text
             accessibilityRole="header"
@@ -549,7 +524,7 @@ export function AnthraHomeScreen({
         </Animated.View>
 
         {recoverableWorkout && (
-          <Card padding="large" style={{ marginTop: theme.spacing.md, borderColor: theme.colors.brand }}>
+          <Card variant="brand" style={{ marginTop: theme.spacing.md }}>
             <Text style={[theme.typography.label, { color: theme.colors.brand }]}>READY TO CONTINUE</Text>
             <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, marginTop: theme.spacing.sm }]}>
               {recoverableWorkout.plan.name}

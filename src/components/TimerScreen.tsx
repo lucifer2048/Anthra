@@ -42,7 +42,7 @@ import {
   getWorkoutTimelineProgress
 } from "../features/workout/workoutTimeline";
 import { useAudioCues } from "../hooks/useAudioCues";
-import { Button, IconButton, ProgressBar, Surface } from "./ui";
+import { Button, Card, IconButton, ProgressBar } from "./ui";
 import { TimerPreferenceToggle } from "./TimerPreferenceToggle";
 
 type TimerScreenProps = {
@@ -673,11 +673,10 @@ export function TimerScreen({
         </View>
 
         {skippedState && phase !== "complete" && (
-          <Surface
+          <Card
             variant="brand"
+            treatment="inset"
             padding="small"
-            radius="medium"
-            bordered
             className="mt-3 flex-row items-center"
           >
             <Text
@@ -689,7 +688,7 @@ export function TimerScreen({
             <View style={{ flexShrink: 0 }}>
               <Button label="Undo" icon={RotateCcw} onPress={undoSkip} variant="ghost" size="small" />
             </View>
-          </Surface>
+          </Card>
         )}
 
         {phase !== "complete" && !focusMode && (
@@ -719,11 +718,9 @@ export function TimerScreen({
                 You showed up. That counts.
               </Text>
             </View>
-            <Surface
+            <Card
               variant="brand"
-              padding="medium"
-              radius="medium"
-              bordered
+              treatment="stat"
               style={{
                 flexDirection: shouldStackActions ? "column" : "row",
                 gap: shouldStackActions ? theme.spacing.md : 0
@@ -740,7 +737,7 @@ export function TimerScreen({
                 <Text numberOfLines={1} style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>{timeline.workSegmentCount}</Text>
                 <Text numberOfLines={1} style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Work rounds</Text>
               </View>
-            </Surface>
+            </Card>
             <Button
               label="Back to workouts"
               onPress={requestExit}

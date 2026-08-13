@@ -48,7 +48,7 @@ export function DisclosureCard({
 
   return (
     <Animated.View layout={reduceMotion ? undefined : LinearTransition.duration(theme.motion.duration.deliberate)} style={style}>
-      <Card padding="none">
+      <Card treatment="grouped">
         <AnimatedPressable
           onPress={toggle}
           haptic="selection"

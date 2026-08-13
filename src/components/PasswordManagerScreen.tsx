@@ -19,7 +19,7 @@ import {
 import { useAnthraTheme } from "../design-system";
 import type { VaultEntry } from "../types";
 import { ScreenLayout, useScreenBackgrounds } from "./layout";
-import { AnimatedPressable, Button, Card, EmptyState, ScreenHeader, SectionHeader, StatusBanner, Surface, SwitchRow, TextField, ToastBanner } from "./ui";
+import { AnimatedPressable, Button, Card, EmptyState, ScreenHeader, SectionHeader, StatusBanner, SwitchRow, TextField, ToastBanner } from "./ui";
 
 type PasswordManagerScreenProps = {
   keyboardBottomPadding: number;
@@ -361,10 +361,9 @@ export function PasswordManagerScreen({
                       </View>
                     </View>
 
-                    <Surface
-                      variant="subtle"
+                    <Card
+                      treatment="inset"
                       padding="small"
-                      radius="medium"
                       style={{ marginTop: anthraTheme.spacing.lg }}
                     >
                       <Text style={[anthraTheme.typography.caption, { color: anthraTheme.colors.textSecondary }]}>PASSWORD</Text>
@@ -381,7 +380,7 @@ export function PasswordManagerScreen({
                       >
                         {visible ? entry.secret : "••••••••••••"}
                       </Text>
-                    </Surface>
+                    </Card>
 
                     <View
                       style={{

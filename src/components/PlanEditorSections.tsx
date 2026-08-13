@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { SheetDialog, Surface } from "./ui";
+import { Card, SheetDialog } from "./ui";
 import { useAnthraTheme } from "../design-system";
 
 export function PlanBasicsSection({ children }: { children: ReactNode }) { return <Fragment>{children}</Fragment>; }
@@ -7,7 +7,7 @@ export function PlanScheduleSection({ children }: { children: ReactNode }) { ret
 
 export function WorkoutSetCard({ children }: { children: ReactNode }) {
   const theme = useAnthraTheme();
-  return <Surface variant="default" padding="medium" radius="large" bordered style={{ marginTop: theme.spacing.lg }}>{children}</Surface>;
+  return <Card treatment="inset" style={{ marginTop: theme.spacing.lg }}>{children}</Card>;
 }
 
 type EditorSheetProps = { visible: boolean; title: string; subtitle: string; onClose: () => void; actionLabel: string; onSave: () => void; children: ReactNode };

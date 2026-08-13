@@ -15,7 +15,7 @@ export function BlockingLoadingState({
 }) {
   const theme = useAnthraTheme();
   const content = (
-    <Card variant="elevated" padding="large" style={{ width: "100%", maxWidth: 420 }}>
+    <Card variant="elevated" elevation="overlay" style={{ width: "100%", maxWidth: 420 }}>
       <View accessibilityLabel={`${title}. ${message}`} accessibilityState={{ busy: true }} style={{ alignItems: "center" }}>
         <ActivityIndicator size="large" color={theme.colors.brand} />
         <Text accessibilityRole="header" style={[theme.typography.titleMedium, { color: theme.colors.textPrimary, textAlign: "center", marginTop: theme.spacing.lg }]}>{title}</Text>

@@ -26,7 +26,7 @@ When building or editing screens **or adding any feature with UI**:
 | `AnimatedPressable` | Reduced-motion-aware spring press feedback with opt-in semantic haptics |
 | `TextField` | Labeled text inputs |
 | `ScreenHeader` | Back + title + optional action; stacks the action under the title on narrow widths / large Dynamic Type |
-| `Surface` / `Card` | Elevated / bordered panels |
+| `Surface` / `Card` | Elevated / bordered panels. `Card` is the CRED-like content surface (`treatment`: `default`, `inset`, `interactive`, `stat`, `grouped`) — generous padding, large radius, hairline border, low elevation from tokens. Prefer `Card` for content blocks; keep `Surface` for non-card chrome. |
 | `SwitchRow` | Settings-style labeled switch |
 | `StatusBanner` | Inline alert / feedback |
 | `KeyboardAwareScrollView` | Form scrolling with keyboard |
@@ -53,6 +53,20 @@ When building or editing screens **or adding any feature with UI**:
 | `BlockingLoadingState` | Single blocking load/error/retry state for app or screen startup |
 | `RatingControl` | Accessible haptic rating selector |
 | `PersonRow` | Consistent avatar/identity/action row for social lists; truncates name/subtitle and protects trailing actions |
+
+### Card treatments
+
+Use `treatment` instead of screen-local border/radius/shadow clusters:
+
+| Treatment | When |
+|-----------|------|
+| `default` | Primary content blocks, forms, summaries |
+| `inset` | Nested chips, inner fields, quieter secondary panels |
+| `interactive` | Pressable entity rows and navigation targets (`InteractiveCard` default) |
+| `stat` | Compact metrics (`MetricCard` default) |
+| `grouped` | Divider lists inside one clipped surface (no shadow, `overflow: hidden`) |
+
+Color still comes from `variant` (`default` / `elevated` / `subtle` / `brand` / `danger`). Explicit `padding`, `radius`, `bordered`, and `elevation` override the treatment preset.
 
 ## Leave feature-specific
 

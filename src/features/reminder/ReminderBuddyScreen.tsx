@@ -595,11 +595,11 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="rounded-2xl border p-4" style={{ borderColor: colors.brandBorder, backgroundColor: colors.brandSoft }}>
-            <Text className="text-base font-semibold" style={{ color: colors.textSecondary }}>
+          <Card variant="brand">
+            <Text style={[theme.typography.bodyStrong, { color: colors.textSecondary }]}>
               Build one-time events, repeating reminders, multiple daily times, or interval nudges in your device timezone.
             </Text>
-          </View>
+          </Card>
 
           {reminderTrackerView === "reminders" && (
             <DisclosureCard title="Notification status" summary={notificationHealthLoading ? "Checking device status…" : notificationStatusLabel} expanded={notificationPanelExpanded} onExpandedChange={setNotificationPanelExpanded} style={{ marginTop: theme.spacing.lg }}>
@@ -678,7 +678,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                 />
               )}
               {filteredReminderItems.map((item) => (
-                <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
+                <Card key={item.id} style={{ marginTop: theme.spacing.md }}>
                   <View className="flex-row items-start justify-between">
                     <View className="min-w-0 flex-1 pr-3" style={{ minWidth: 0 }}>
                       <Text numberOfLines={2} ellipsizeMode="tail" style={[theme.typography.titleMedium, { color: colors.textPrimary }]}>{item.title}</Text>
@@ -718,7 +718,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                     fullWidth
                     style={{ marginTop: theme.spacing.md }}
                   />
-                </View>
+                </Card>
               ))}
             </>
           )}
@@ -905,10 +905,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                   {reminderForm.mode === "once" && (
                     <View className="mt-3">
                       <Text className="mb-2 text-sm font-semibold" style={{ color: colors.textSecondary }}>Date</Text>
-                      <View
-                        className="rounded-2xl border p-3"
-                        style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}
-                      >
+                      <Card treatment="inset" style={{ borderColor: colors.brandBorder }}>
                         <View
                           style={{
                             flexDirection: "row",
@@ -999,7 +996,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                             );
                           })}
                         </View>
-                      </View>
+                      </Card>
                       <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
                         Selected: {reminderForm.dateLabel || getDeviceTodayLabel()} in {getDeviceTimeZone()}.
                       </Text>
@@ -1016,7 +1013,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                       if (!slot.trim()) return null;
                       const parsed = parseReminderTimeSlotInput(slot) ?? { hour: 8, minute: 0 };
                       return (
-                        <View key={`slot-${index}`} className="rounded-2xl border p-3" style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}>
+                        <Card key={`slot-${index}`} treatment="inset" style={{ borderColor: colors.brandBorder }}>
                           <TimePickerField
                             label={`Time ${index + 1}`}
                             hour={parsed.hour}
@@ -1048,7 +1045,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                               style={{ marginTop: theme.spacing.sm }}
                             />
                           )}
-                        </View>
+                        </Card>
                       );
                     })}
                   </View>

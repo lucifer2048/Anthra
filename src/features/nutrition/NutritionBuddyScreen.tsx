@@ -6,7 +6,7 @@ import {
 } from "lucide-react-native";
 
 import { useAnthraTheme } from "../../design-system";
-import { Button, Card, InteractiveCard, ProgressBar, ResponsiveFieldRow, ScreenShell, SectionHeader, SheetDialog, SkeletonCard, StatusBanner, TextField } from "../../components/ui";
+import { Button, Card, InteractiveCard, MetricCard, ProgressBar, ResponsiveFieldRow, ScreenShell, SectionHeader, SheetDialog, SkeletonCard, StatusBanner, TextField } from "../../components/ui";
 import { useAccount } from "../account/AccountProvider";
 import { dailyTotals, goalProgressForTotals, groupEntriesByMeal, safeNutrient, scaleNutrients } from "./nutritionCalculations";
 import {
@@ -65,21 +65,15 @@ function fromCatalogue(food: NutritionCatalogueFood): NutritionItemDraft {
 }
 
 function Macro({ label, value, goal }: { label: string; value: number | null; goal: number | null }) {
-  const theme = useAnthraTheme();
+  const amount = Math.round(safeNutrient(value));
   return (
-    <View style={{ flex: 1, minWidth: 88, maxWidth: "100%" }}>
-      <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>{label}</Text>
-      <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.75}
-        maxFontSizeMultiplier={1.3}
-        style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}
-      >
-        {Math.round(safeNutrient(value))}{goal ? ` / ${Math.round(goal)}g` : "g"}
-      </Text>
-      {goal ? <ProgressBar value={safeNutrient(value)} max={goal} style={{ marginTop: theme.spacing.sm }} /> : null}
-    </View>
+    <MetricCard
+      title={label}
+      value={amount}
+      unit={goal ? `/ ${Math.round(goal)}g` : "g"}
+      progress={goal ? Math.min(1, safeNutrient(value) / Math.max(1, goal)) : undefined}
+      style={{ flexGrow: 1, flexBasis: 140, minWidth: 140, minHeight: 88 }}
+    />
   );
 }
 
@@ -303,7 +297,7 @@ export function NutritionBuddyScreen({ onBack }: { onBack: () => void }) {
         <View key={meal.key} style={{ marginTop: theme.spacing["2xl"] }}>
           <SectionHeader title={meal.label} style={{ marginBottom: theme.spacing.sm }} />
           {grouped[meal.key].length === 0 ? (
-            <InteractiveCard onPress={() => { openManual(); setEditor((state) => state ? { ...state, draft: { ...state.draft, mealType: meal.key } } : null); }} cardProps={{ variant: "subtle", padding: "small" }}>
+            <InteractiveCard onPress={() => { openManual(); setEditor((state) => state ? { ...state, draft: { ...state.draft, mealType: meal.key } } : null); }} cardProps={{ treatment: "inset", padding: "small" }}>
               <Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>No food logged · tap to add</Text>
             </InteractiveCard>
           ) : grouped[meal.key].map((entry) => {
@@ -363,7 +357,7 @@ export function NutritionBuddyScreen({ onBack }: { onBack: () => void }) {
           </View>
           {editor.draft.confidence != null ? <StatusBanner variant={editor.draft.confidence < 0.55 ? "warning" : "info"} title={`${Math.round(editor.draft.confidence * 100)}% estimation confidence`} style={{ marginBottom: theme.spacing.md }} /> : null}
           {editor.rememberAs === "packaged" ? <TextField label="Barcode (optional)" keyboardType="number-pad" value={editor.barcode ?? ""} onChangeText={(barcode) => setEditor((state) => state ? { ...state, barcode } : null)} containerStyle={{ marginBottom: theme.spacing.md }} /> : null}
-          {editor.draft.items.map((item, index) => <Card key={item.id ?? index} padding="small" style={{ marginBottom: theme.spacing.md }}>
+          {editor.draft.items.map((item, index) => <Card key={item.id ?? index} treatment="inset" padding="small" style={{ marginBottom: theme.spacing.md }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <Text style={[theme.typography.label, { color: theme.colors.brand }]}>FOOD {index + 1}</Text>
               {editor.draft.items.length > 1 ? <Button label="Remove" variant="ghost" size="small" onPress={() => setEditor((state) => state ? { ...state, draft: { ...state.draft, items: state.draft.items.filter((_, itemIndex) => itemIndex !== index) } } : null)} /> : null}

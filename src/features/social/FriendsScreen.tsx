@@ -273,7 +273,7 @@ export function FriendsScreen({
   };
 
   const personRow = (person: SocialPerson, action: ReactNode) => (
-    <Card key={person.userId} padding="small" radius="large">
+    <Card key={person.userId} treatment="interactive" padding="small">
       <PersonRow name={person.displayName} subtitle={`@${person.handle}`} avatar={person.avatarUrl ? { uri: person.avatarUrl } : undefined} trailing={action} />
     </Card>
   );
@@ -423,16 +423,7 @@ export function FriendsScreen({
             </FriendsListView>
           ) : tab === "leaderboard" ? (
             <LeaderboardView>
-              <Card
-                padding="none"
-                radius="xlarge"
-                style={{
-                  overflow: "hidden",
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceElevated,
-                  ...theme.shadows.medium
-                }}
-              >
+              <Card treatment="grouped">
                 <View
                   style={{
                     flexDirection: "row",
@@ -505,13 +496,9 @@ export function FriendsScreen({
                     return (
                       <Card
                         key={entry.userId}
+                        treatment="interactive"
                         padding="small"
-                        radius="large"
-                        variant={isFirst ? "brand" : "default"}
-                        style={{
-                          borderColor: isFirst ? theme.colors.brandBorder : theme.colors.border,
-                          backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceElevated
-                        }}
+                        variant={isFirst ? "brand" : "elevated"}
                       >
                         <View
                           style={{
@@ -570,15 +557,7 @@ export function FriendsScreen({
           ) : (
             <SocialPrivacyView>
               {/* Privacy Overview Header Card */}
-              <Card
-                padding="large"
-                radius="xlarge"
-                style={{
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceElevated,
-                  ...theme.shadows.medium
-                }}
-              >
+              <Card>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
                   <View
                     style={{
@@ -627,15 +606,7 @@ export function FriendsScreen({
               </Card>
 
               {/* Permission Block Card 1: Activity Notifications */}
-              <Card
-                padding="large"
-                radius="xlarge"
-                style={{
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceElevated,
-                  gap: theme.spacing.md
-                }}
-              >
+              <Card style={{ gap: theme.spacing.md }}>
                 <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.sm }}>
                   <View
                     style={{
@@ -678,15 +649,7 @@ export function FriendsScreen({
               </Card>
 
               {/* Permission Block Card 2: Leaderboard Sharing */}
-              <Card
-                padding="large"
-                radius="xlarge"
-                style={{
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceElevated,
-                  gap: theme.spacing.md
-                }}
-              >
+              <Card style={{ gap: theme.spacing.md }}>
                 <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.sm, flexWrap: "wrap" }}>
                   <View
                     style={{
@@ -767,7 +730,7 @@ export function FriendsScreen({
               </Card>
 
               {/* Permission Save Action Card */}
-              <Card padding="medium" radius="xlarge" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceElevated }}>
+              <Card>
                 <Button
                   label="Save sharing choices"
                   icon={ShieldCheck}

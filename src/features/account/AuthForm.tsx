@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { KeyRound, Mail, ShieldCheck } from "lucide-react-native";
 
-import { Button, StatusBanner, TextField } from "../../components/ui";
+import { Button, Card, StatusBanner, TextField } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { useAccount } from "./AccountProvider";
 
@@ -32,7 +32,7 @@ export function AuthForm({ legacy = false }: { legacy?: boolean }) {
   };
 
   return (
-    <View style={{ gap: theme.spacing.md }}>
+    <Card style={{ gap: theme.spacing.md }}>
       {legacy && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
           <View style={{ flexShrink: 0 }}>
@@ -151,6 +151,6 @@ export function AuthForm({ legacy = false }: { legacy?: boolean }) {
           message={notice?.message ?? account.error ?? undefined}
         />
       )}
-    </View>
+    </Card>
   );
 }

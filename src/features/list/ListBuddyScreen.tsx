@@ -28,6 +28,7 @@ import {
   Button,
   Card,
   EmptyState,
+  InteractiveCard,
   FormDialog,
   IconButton,
   ProgressBar,
@@ -343,33 +344,20 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
       : 0;
 
     return (
-      <View
+      <InteractiveCard
         key={category.id}
-        style={{
-          marginBottom: spacing.md,
-          borderRadius: radii.lg,
-          borderWidth: 1,
-          borderColor: colors.brandBorder,
-          backgroundColor: colors.surfaceElevated,
-          ...anthraTheme.shadows.low
+        onPress={() => {
+          setSelectedCategoryId(category.id);
+          setRecentlyClearedItems([]);
+          setQuickItemText("");
+          setLoadError(null);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`${category.name}, ${category.completedItems} of ${category.totalItems} completed`}
+        accessibilityHint="Opens this list"
+        style={{ marginBottom: spacing.md }}
+        cardProps={{ padding: "none", style: { borderColor: colors.brandBorder } }}
       >
-        <AnimatedPressable
-          onPress={() => {
-            setSelectedCategoryId(category.id);
-            setRecentlyClearedItems([]);
-            setQuickItemText("");
-            setLoadError(null);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={`${category.name}, ${category.completedItems} of ${category.totalItems} completed`}
-          accessibilityHint="Opens this list"
-          style={({ pressed }) => ({
-            borderRadius: radii.lg,
-            backgroundColor: pressed ? colors.surfacePressed : "transparent",
-            opacity: pressed ? 0.94 : 1
-          })}
-        >
           <View style={{ minHeight: 132, padding: spacing.lg }}>
             <View className="flex-row items-start justify-between" style={{ gap: spacing.md }}>
               <View className="min-w-0 flex-1">
@@ -433,8 +421,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
               </View>
             )}
           </View>
-        </AnimatedPressable>
-      </View>
+      </InteractiveCard>
     );
   };
 
@@ -556,42 +543,12 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                 {filteredCategories.length > 0 ? (
                   filteredCategories.map(renderCategoryCard)
                 ) : (
-                  <Card variant="subtle" padding="large" style={{ alignItems: "center" }}>
-                    <View
-                      className="items-center justify-center"
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: radii.full,
-                        backgroundColor: colors.brandSoft
-                      }}
-                    >
-                      <Search accessible={false} size={22} color={colors.brand} />
-                    </View>
-                    <Text
-                      style={[
-                        typography.titleSmall,
-                        { color: colors.textPrimary, marginTop: spacing.md, textAlign: "center" }
-                      ]}
-                    >
-                      No lists found
-                    </Text>
-                    <Text
-                      style={[
-                        typography.body,
-                        { color: colors.textSecondary, marginTop: spacing.xs, textAlign: "center" }
-                      ]}
-                    >
-                      Try a different list name.
-                    </Text>
-                    <Button
-                      label="Clear search"
-                      variant="ghost"
-                      size="small"
-                      onPress={() => setListSearchText("")}
-                      style={{ marginTop: spacing.md }}
-                    />
-                  </Card>
+                  <EmptyState
+                    icon={Search}
+                    title="No lists found"
+                    description="Try a different list name."
+                    action={{ label: "Clear search", onPress: () => setListSearchText("") }}
+                  />
                 )}
               </View>
             )}
@@ -712,7 +669,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
               </Card>
             )}
 
-            <Card padding="none" style={{ overflow: "hidden" }}>
+            <Card treatment="grouped">
               {items.length === 0 ? (
                 <EmptyState
                   variant="inline"

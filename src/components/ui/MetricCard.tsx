@@ -16,12 +16,12 @@ export type MetricCardProps = {
 export function MetricCard({ title, value, unit, icon: Icon, progress, style }: MetricCardProps) {
   const theme = useAnthraTheme();
   return (
-    <Card style={[{ minHeight: 100, borderColor: theme.colors.brandBorder, backgroundColor: theme.colors.surface }, style]}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+    <Card treatment="stat" style={[{ minHeight: 100 }, style]}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md, minWidth: 0 }}>
         {Icon ? <Icon accessible={false} color={theme.colors.brand} size={theme.sizes.icon.lg} /> : null}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[theme.typography.eyebrow, { color: theme.colors.textSecondary, textTransform: "uppercase" }]}>{title}</Text>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: theme.spacing.xs, marginTop: theme.spacing.xs }}>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: theme.spacing.xs, marginTop: theme.spacing.xs, minWidth: 0 }}>
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} maxFontSizeMultiplier={1.2} style={[theme.typography.metric, { minWidth: 0, flexShrink: 1, color: theme.colors.textPrimary }]}>{value}</Text>
             {unit ? <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[theme.typography.caption, { flexShrink: 1, color: theme.colors.textSecondary }]}>{unit}</Text> : null}
           </View>

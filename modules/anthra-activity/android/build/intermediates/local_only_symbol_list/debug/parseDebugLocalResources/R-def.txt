@@ -1,0 +1,7 @@
+R_DEF: Internal format may change without notice
+local
+drawable notification_icon_anthra
+string step_tracking_channel_description
+string step_tracking_channel_name
+string step_tracking_notification_text
+string step_tracking_notification_title

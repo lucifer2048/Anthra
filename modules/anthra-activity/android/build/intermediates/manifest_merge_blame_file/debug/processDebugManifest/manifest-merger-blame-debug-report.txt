@@ -1,0 +1,94 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    xmlns:tools="http://schemas.android.com/tools"
+4    package="com.anthra.timer.activity" >
+5
+6    <uses-sdk
+6-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:2:3-70
+7        android:minSdkVersion="24"
+8        tools:overrideLibrary="androidx.health.connect.client" />
+8-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:2:13-67
+9
+10    <queries>
+10-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:4:3-6:13
+11        <package android:name="com.google.android.apps.healthdata" />
+11-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:5:5-66
+11-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:5:14-63
+12    </queries>
+13
+14    <application>
+14-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:8:3-42:17
+15        <service
+15-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:9:5-13:38
+16            android:name="com.anthra.timer.activity.StepTrackingService"
+16-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:10:7-67
+17            android:exported="false"
+17-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:11:7-31
+18            android:foregroundServiceType="health"
+18-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:12:7-45
+19            android:stopWithTask="false" />
+19-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:13:7-35
+20
+21        <activity
+21-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:14:5-20:16
+22            android:name="com.anthra.timer.activity.HealthPermissionsRationaleActivity"
+22-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:15:7-82
+23            android:exported="true" >
+23-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:16:7-30
+24            <intent-filter>
+24-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:17:7-19:23
+25                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+25-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:18:9-84
+25-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:18:17-81
+26            </intent-filter>
+27        </activity>
+28
+29        <activity-alias
+29-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:21:5-30:22
+30            android:name="com.anthra.timer.activity.ViewPermissionUsageActivity"
+30-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:22:7-75
+31            android:exported="true"
+31-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:23:7-30
+32            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+32-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:24:7-74
+33            android:targetActivity="com.anthra.timer.activity.HealthPermissionsRationaleActivity" >
+33-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:25:7-92
+34            <intent-filter>
+34-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:26:7-29:23
+35                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+35-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:27:9-78
+35-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:27:17-75
+36
+37                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+37-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:28:9-79
+37-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:28:19-76
+38            </intent-filter>
+39        </activity-alias>
+40
+41        <receiver
+41-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:31:5-41:16
+42            android:name="com.anthra.timer.activity.StepTrackingRestoreReceiver"
+42-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:32:7-75
+43            android:enabled="true"
+43-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:33:7-29
+44            android:exported="false" >
+44-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:34:7-31
+45            <intent-filter>
+45-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:35:7-40:23
+46                <action android:name="android.intent.action.BOOT_COMPLETED" />
+46-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:36:9-71
+46-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:36:17-68
+47                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+47-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:37:9-76
+47-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:37:17-73
+48                <action android:name="android.intent.action.TIME_SET" />
+48-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:38:9-65
+48-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:38:17-62
+49                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+49-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:39:9-73
+49-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-activity/android/src/main/AndroidManifest.xml:39:17-70
+50            </intent-filter>
+51        </receiver>
+52    </application>
+53
+54</manifest>

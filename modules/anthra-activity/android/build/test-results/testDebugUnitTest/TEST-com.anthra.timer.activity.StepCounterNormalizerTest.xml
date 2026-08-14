@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.anthra.timer.activity.StepCounterNormalizerTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-08-14T17:00:56.936Z" hostname="Sumukhas-Mac-mini.local" time="0.002">
+  <properties/>
+  <testcase name="stalePriorDayCallbackCannotRollTheCurrentDayBackwards" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="timezoneChangeDoesNotDropTheLatestDelta" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="sameBootAddsOnlyRawDelta" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="deniedOrRevokedPermissionDoesNotMutateCheckpoint" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="eachRawCounterIncrementAddsExactlyOneStep" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="duplicatePriorDayCallbackCannotRollTheCurrentDayBackwards" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="midnightAfterRebootRetainsPostBootSteps" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="midnightRollsPreviousDayAndKeepsFirstNewDaySteps" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="repeatedSensorCallbackAddsNoSteps" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="initialReadingCreatesZeroBaseline" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="staleSameBootReadingDoesNotMoveCheckpointBackwards" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <testcase name="staleReadingCannotCauseFollowingReadingToBeCountedTwice" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.001"/>
+  <testcase name="rebootAddsNewBootCounterToExistingDay" classname="com.anthra.timer.activity.StepCounterNormalizerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

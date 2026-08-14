@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.anthra.timer.activity" >
+
+    <uses-sdk
+        android:minSdkVersion="24"
+        tools:overrideLibrary="androidx.health.connect.client" />
+
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
+    <application>
+        <service
+            android:name="com.anthra.timer.activity.StepTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="health"
+            android:stopWithTask="false" />
+
+        <activity
+            android:name="com.anthra.timer.activity.HealthPermissionsRationaleActivity"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name="com.anthra.timer.activity.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity="com.anthra.timer.activity.HealthPermissionsRationaleActivity" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <receiver
+            android:name="com.anthra.timer.activity.StepTrackingRestoreReceiver"
+            android:enabled="true"
+            android:exported="false" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

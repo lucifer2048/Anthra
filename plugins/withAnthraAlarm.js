@@ -4,8 +4,6 @@ const {
   AndroidConfig,
 } = require("@expo/config-plugins");
 
-const TAG = "anthra-alarm";
-
 function ensurePermission(manifest, name) {
   if (!manifest.manifest["uses-permission"]) {
     manifest.manifest["uses-permission"] = [];

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.anthra.timer.alarm" >
+
+    <uses-sdk android:minSdkVersion="24" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <application>
+        <service
+            android:name="com.anthra.timer.alarm.AlarmRingingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="false" />
+
+        <activity
+            android:name="com.anthra.timer.alarm.AlarmChallengeActivity"
+            android:configChanges="orientation|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="sensorLandscape"
+            android:showWhenLocked="true"
+            android:theme="@style/AlarmChallengeTheme"
+            android:turnScreenOn="true" />
+        <activity
+            android:name="com.anthra.timer.alarm.RegularAlarmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:showWhenLocked="true"
+            android:theme="@style/AlarmChallengeTheme"
+            android:turnScreenOn="true" />
+
+        <receiver
+            android:name="com.anthra.timer.alarm.AlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.anthra.timer.alarm.AlarmRestoreReceiver"
+            android:enabled="true"
+            android:exported="false" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

@@ -1,0 +1,4 @@
+com.anthra.timer.alarm
+drawable notification_icon
+drawable notification_icon_anthra
+style AlarmChallengeTheme

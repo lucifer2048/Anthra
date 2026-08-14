@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.anthra.timer.alarm.AlarmSchedulerTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-08-14T17:00:56.929Z" hostname="Sumukhas-Mac-mini.local" time="0.008">
+  <properties/>
+  <testcase name="honorsTheAlarmSpecificTimezone" classname="com.anthra.timer.alarm.AlarmSchedulerTest" time="0.007"/>
+  <testcase name="mapsSundayToTheAppsZeroBasedWeekday" classname="com.anthra.timer.alarm.AlarmSchedulerTest" time="0.0"/>
+  <testcase name="schedulesSameDayUsingIstEvenWhenDeviceTimezoneDiffers" classname="com.anthra.timer.alarm.AlarmSchedulerTest" time="0.001"/>
+  <testcase name="movesPastAlarmToNextSelectedWeek" classname="com.anthra.timer.alarm.AlarmSchedulerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,101 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.anthra.timer.alarm" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+6
+7    <uses-feature
+7-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:2:3-83
+8        android:name="android.hardware.camera"
+8-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:2:17-55
+9        android:required="false" />
+9-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:2:56-80
+10
+11    <application>
+11-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:4:3-44:17
+12        <service
+12-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:5:5-9:38
+13            android:name="com.anthra.timer.alarm.AlarmRingingService"
+13-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:6:7-64
+14            android:exported="false"
+14-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:7:7-31
+15            android:foregroundServiceType="mediaPlayback"
+15-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:8:7-52
+16            android:stopWithTask="false" />
+16-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:9:7-35
+17
+18        <activity
+18-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:10:5-19:52
+19            android:name="com.anthra.timer.alarm.AlarmChallengeActivity"
+19-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:11:7-67
+20            android:configChanges="orientation|screenSize"
+20-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:12:7-53
+21            android:excludeFromRecents="true"
+21-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:13:7-40
+22            android:exported="false"
+22-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:14:7-31
+23            android:launchMode="singleTop"
+23-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:15:7-37
+24            android:screenOrientation="sensorLandscape"
+24-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:16:7-50
+25            android:showWhenLocked="true"
+25-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:17:7-36
+26            android:theme="@style/AlarmChallengeTheme"
+26-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:19:7-49
+27            android:turnScreenOn="true" />
+27-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:18:7-34
+28        <activity
+28-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:20:5-28:52
+29            android:name="com.anthra.timer.alarm.RegularAlarmActivity"
+29-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:21:7-65
+30            android:excludeFromRecents="true"
+30-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:22:7-40
+31            android:exported="false"
+31-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:23:7-31
+32            android:launchMode="singleTop"
+32-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:24:7-37
+33            android:screenOrientation="portrait"
+33-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:25:7-43
+34            android:showWhenLocked="true"
+34-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:26:7-36
+35            android:theme="@style/AlarmChallengeTheme"
+35-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:28:7-49
+36            android:turnScreenOn="true" />
+36-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:27:7-34
+37
+38        <receiver
+38-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:29:5-31:34
+39            android:name="com.anthra.timer.alarm.AlarmReceiver"
+39-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:30:7-58
+40            android:exported="false" />
+40-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:31:7-31
+41        <receiver
+41-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:32:5-43:16
+42            android:name="com.anthra.timer.alarm.AlarmRestoreReceiver"
+42-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:33:7-65
+43            android:enabled="true"
+43-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:34:7-29
+44            android:exported="false" >
+44-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:35:7-31
+45            <intent-filter>
+45-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:36:7-42:23
+46                <action android:name="android.intent.action.BOOT_COMPLETED" />
+46-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:37:9-71
+46-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:37:17-68
+47                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+47-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:38:9-76
+47-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:38:17-73
+48                <action android:name="android.intent.action.TIME_SET" />
+48-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:39:9-65
+48-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:39:17-62
+49                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+49-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:40:9-73
+49-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:40:17-70
+50                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+50-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:41:9-99
+50-->/Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:41:17-96
+51            </intent-filter>
+52        </receiver>
+53    </application>
+54
+55</manifest>

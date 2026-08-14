@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.anthra.timer.alarm.PushupRepCounterTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-08-14T17:00:56.941Z" hostname="Sumukhas-Mac-mini.local" time="0.007">
+  <properties/>
+  <testcase name="rejectsAFrontFacingOrVerticalBodyAxis" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.001"/>
+  <testcase name="rejectsShallowElbowBend" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="rejectsRaisedOrSaggingHips" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="rejectsElbowBendWithoutEnoughChestTravel" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="rejectsARepThatDoesNotReturnToFullArmExtension" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.002"/>
+  <testcase name="rejectsKneePushupsInFullBodyMode" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="countsOnlyAfterStableSideViewTopDownTopCycle" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.001"/>
+  <testcase name="resetsSideViewCalibrationAfterTrackingIsLost" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="requiresANewBottomPositionForEveryRep" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="requiresConsecutiveVisibleFramesForInitialCalibration" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.002"/>
+  <testcase name="countsAValidRepDespiteBriefLandmarkNoise" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="requiresAStraightArmBeforeCalibration" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="rejectsMovingThePlantedFoot" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="rejectsMovingThePlantedHand" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <testcase name="countsInCompactModeWhenFeetAreOutsideTheFrame" classname="com.anthra.timer.alarm.PushupRepCounterTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

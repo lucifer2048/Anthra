@@ -1,0 +1,5 @@
+int drawable notification_icon_anthra 0x0
+int string step_tracking_channel_description 0x0
+int string step_tracking_channel_name 0x0
+int string step_tracking_notification_text 0x0
+int string step_tracking_notification_title 0x0

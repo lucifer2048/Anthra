@@ -1,0 +1,108 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:1:1-45:12
+INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:1:1-45:12
+	package
+		INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:1:11-69
+uses-feature#android.hardware.camera
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:2:3-83
+	android:required
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:2:56-80
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:2:17-55
+application
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:4:3-44:17
+service#com.anthra.timer.alarm.AlarmRingingService
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:5:5-9:38
+	android:exported
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:7:7-31
+	android:stopWithTask
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:9:7-35
+	android:foregroundServiceType
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:8:7-52
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:6:7-64
+activity#com.anthra.timer.alarm.AlarmChallengeActivity
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:10:5-19:52
+	android:screenOrientation
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:16:7-50
+	android:turnScreenOn
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:18:7-34
+	android:excludeFromRecents
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:13:7-40
+	android:showWhenLocked
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:17:7-36
+	android:launchMode
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:15:7-37
+	android:exported
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:14:7-31
+	android:configChanges
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:12:7-53
+	android:theme
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:19:7-49
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:11:7-67
+activity#com.anthra.timer.alarm.RegularAlarmActivity
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:20:5-28:52
+	android:screenOrientation
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:25:7-43
+	android:turnScreenOn
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:27:7-34
+	android:excludeFromRecents
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:22:7-40
+	android:showWhenLocked
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:26:7-36
+	android:launchMode
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:24:7-37
+	android:exported
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:23:7-31
+	android:theme
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:28:7-49
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:21:7-65
+receiver#com.anthra.timer.alarm.AlarmReceiver
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:29:5-31:34
+	android:exported
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:31:7-31
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:30:7-58
+receiver#com.anthra.timer.alarm.AlarmRestoreReceiver
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:32:5-43:16
+	android:enabled
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:34:7-29
+	android:exported
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:35:7-31
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:33:7-65
+intent-filter#action:name:android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED+action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.MY_PACKAGE_REPLACED+action:name:android.intent.action.TIMEZONE_CHANGED+action:name:android.intent.action.TIME_SET
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:36:7-42:23
+action#android.intent.action.BOOT_COMPLETED
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:37:9-71
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:37:17-68
+action#android.intent.action.MY_PACKAGE_REPLACED
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:38:9-76
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:38:17-73
+action#android.intent.action.TIME_SET
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:39:9-65
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:39:17-62
+action#android.intent.action.TIMEZONE_CHANGED
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:40:9-73
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:40:17-70
+action#android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
+ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:41:9-99
+	android:name
+		ADDED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml:41:17-96
+uses-sdk
+INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml
+INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Volumes/Bhat_Dev/Projects/Personal/Anthra/modules/anthra-alarm/android/src/main/AndroidManifest.xml

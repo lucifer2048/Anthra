@@ -73,8 +73,8 @@ const withAnthraReleaseSigning = (config) =>
       tag: `${TAG}-vars`,
       src,
       newSrc: SIGNING_VARS,
-      anchor: /^def jscFlavor = /m,
-      offset: -1,
+      anchor: /^def jscFlavor = 'io\.github\.react-native-community:jsc-android/m,
+      offset: 0,
       comment: "//",
     });
 
@@ -89,7 +89,7 @@ const withAnthraReleaseSigning = (config) =>
 
     if (!src.includes("if (hasAnthraReleaseSigning) signingConfig signingConfigs.release")) {
       src = src.replace(
-        /(release \{\n\s+)(\/\/ Caution! In production[^\n]*\n\s+)?signingConfig signingConfigs\.debug/,
+        /(release \{\n(?:[ \t]*\/\/[^\n]*\n)+[ \t]*)signingConfig signingConfigs\.debug/,
         "$1if (hasAnthraReleaseSigning) signingConfig signingConfigs.release"
       );
     }

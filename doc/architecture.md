@@ -51,12 +51,14 @@ Guest builds without those env vars skip cloud providers’ network work and kee
 
 ## Native modules
 
-| Bridge | Native |
-|--------|--------|
-| `src/utils/alarmNative.ts` | `AnthraAlarmModule` + challenge UI |
-| `src/features/activity/activityNative.ts` | `AnthraActivityModule` + step / Health Connect |
+Local Expo modules under `modules/` (see [native-modules.md](./native-modules.md)). Config plugins in `plugins/` survive `expo prebuild --clean`.
 
-Native-only features require a development / EAS build — not Expo Go.
+| Bridge | Android | iOS |
+|--------|---------|-----|
+| `src/utils/alarmNative.ts` | `AnthraAlarm` — exact alarms, full-screen challenge (CameraX + ML Kit) | `AnthraAlarm` — local notifications + Vision push-up challenge |
+| `src/features/activity/activityNative.ts` | `AnthraActivity` — hardware step counter + Health Connect | `AnthraActivity` — CMPedometer + HealthKit |
+
+Alarm and Activity Buddy require a **development / EAS build** — not Expo Go.
 
 ## Data
 

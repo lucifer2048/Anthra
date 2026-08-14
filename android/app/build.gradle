@@ -78,6 +78,7 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
  * give correct results when using with locales other than en-US. Note that
  * this variant is about 6MiB larger per architecture than default.
+ */
 // @generated begin anthra-release-signing-vars - expo prebuild (DO NOT MODIFY) sync-cf371592583b889e10daae6761290a3d1a309d2d
 def anthraReleaseStoreFile = findProperty('ANTHRA_RELEASE_STORE_FILE') ?: System.getenv('ANTHRA_RELEASE_STORE_FILE')
 def anthraReleaseStorePassword = findProperty('ANTHRA_RELEASE_STORE_PASSWORD') ?: System.getenv('ANTHRA_RELEASE_STORE_PASSWORD')
@@ -90,7 +91,6 @@ def hasAnthraReleaseSigning = [
     anthraReleaseKeyPassword
 ].every { it != null && it.toString().trim() }
 // @generated end anthra-release-signing-vars
- */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
@@ -142,7 +142,7 @@ internal {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (hasAnthraReleaseSigning) signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

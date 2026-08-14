@@ -1,4 +1,8 @@
 PODS:
+  - AnthraActivity (1.0.0):
+    - ExpoModulesCore
+  - AnthraAlarm (1.0.0):
+    - ExpoModulesCore
   - EXApplication (7.0.8):
     - ExpoModulesCore
   - EXConstants (18.0.13):
@@ -2303,6 +2307,8 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - AnthraActivity (from `../modules/anthra-activity/ios`)
+  - AnthraAlarm (from `../modules/anthra-alarm/ios`)
   - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXImageLoader (from `../node_modules/expo-image-loader/ios`)
@@ -2422,6 +2428,10 @@ SPEC REPOS:
     - SDWebImageWebPCoder
 
 EXTERNAL SOURCES:
+  AnthraActivity:
+    :path: "../modules/anthra-activity/ios"
+  AnthraAlarm:
+    :path: "../modules/anthra-alarm/ios"
   EXApplication:
     :path: "../node_modules/expo-application/ios"
   EXConstants:
@@ -2645,6 +2655,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  AnthraActivity: d74f591d227e37b36b55a542cc6d64d96f78128b
+  AnthraAlarm: ce8ae2619930258c7dc69de1d3727b70c00741fb
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
   EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
   EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05

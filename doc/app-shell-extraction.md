@@ -23,6 +23,7 @@ Track phased extraction of logic out of the original monolithic `App.tsx` into f
 | 8 — Cloud modules (account / social / nutrition) | ✅ | Features under `src/features/{account,social,nutrition}`; providers in `AppProviders`; App routes modules |
 | 9 — Alarm Buddy home | ✅ | `src/features/alarm/AlarmBuddyScreen.tsx`; native bridge remains `src/utils/alarmNative.ts`; compat re-export stub under `src/components/` |
 | 10 — Expo Router + app-shell hooks | ✅ | `app/` file routes + `src/app-shell/` (`AppShellProvider`, hooks, `AppShellChrome`, `navigation.ts`); `App.tsx` legacy stub |
+| 11 — Native modules (Alarm + Activity) | ✅ | `modules/anthra-{alarm,activity}/` + `plugins/withAnthra*.js`; survives `expo prebuild --clean`; see [native-modules.md](./native-modules.md) |
 
 **Shell line counts (original `App.tsx` → current)**
 
@@ -84,7 +85,7 @@ Optional leftover: local copies inside `PlanEditorModal`.
 
 ## Phase 9 — Alarm Buddy ✅
 
-- Screen under `src/features/alarm/`; **do not** move `alarmNative.ts` / Android alarm module without a dedicated native migration
+- Screen under `src/features/alarm/`; native bridge `src/utils/alarmNative.ts` → local module `modules/anthra-alarm/` (see [native-modules.md](./native-modules.md))
 - Deprecated stub: `src/components/AlarmBuddyScreen.tsx`
 
 ---
@@ -103,6 +104,16 @@ Optional leftover: local copies inside `PlanEditorModal`.
   - `AppShellChrome.tsx` — timer push, Android back, feedback modals, splash overlay
   - `AppShellProvider.tsx` — composes hooks + `AppShellContext`
 - **`App.tsx`:** legacy re-export stub (not loaded at runtime)
+
+---
+
+## Phase 11 — Native modules (Alarm + Activity) ✅
+
+- **`modules/anthra-alarm/`** — Alarm Buddy Kotlin (+ iOS Swift), CameraX/ML Kit, manifest components
+- **`modules/anthra-activity/`** — Activity Buddy Kotlin (+ iOS Swift), Health Connect / HealthKit, step service
+- **`plugins/`** — `withAnthraAlarm`, `withAnthraActivity`, `withAnthraReleaseSigning` registered in `app.json`
+- **Do not** edit generated `android/` Kotlin for alarm/activity — change `modules/` and re-run prebuild
+- Docs: [native-modules.md](./native-modules.md)
 
 ---
 

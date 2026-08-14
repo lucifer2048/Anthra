@@ -2166,7 +2166,9 @@ export async function saveHubAppThemeColors(themeJson: string): Promise<void> {
 
 export async function getAppThemeMode(): Promise<"system" | "light" | "dark"> {
   const stored = await getMeta(META_APP_THEME_MODE);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+  if (stored === "light" || stored === "dark" || stored === "system") return stored;
+  // Keep the unset fallback aligned with ThemeProvider / App bootstrap defaults.
+  return __DEV__ ? "dark" : "system";
 }
 
 export async function saveAppThemeMode(mode: "system" | "light" | "dark"): Promise<void> {

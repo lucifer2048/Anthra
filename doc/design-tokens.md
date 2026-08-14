@@ -11,6 +11,11 @@
 4. Touch targets: prefer `theme.layout.minTouchTarget` (48) or `compactTouchTarget` (44).
 5. Content width: wrap scroll/body with `maxWidth: theme.layout.contentMaxWidth` and horizontal `theme.layout.screenPadding` unless a full-bleed surface (timer focus, share cards).
 
+## Theme mode
+
+- Production default preference is `system` (follow OS).
+- In `__DEV__`, default preference is `dark`, and Auto (`system`) also resolves to dark so a light OS setting does not force light UI while developing. Explicit Light/Dark choices still apply.
+
 ## Adding tokens
 
 Add new roles to both `lightColors` and `darkColors` in `tokens.ts`, then use them through the theme. Do not add one-off colors in a single screen.

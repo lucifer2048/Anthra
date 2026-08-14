@@ -44,7 +44,7 @@ import { WorkoutFeedbackModals } from "./src/features/workout/WorkoutFeedbackMod
 import { NutritionBuddyScreen } from "./src/features/nutrition/NutritionBuddyScreen";
 import { syncTrackerNotifications } from "./src/features/tracker/trackerNotifications";
 import { AppProviders } from "./src/providers";
-import { createScreenBackgrounds, resolveTheme, themes, type ThemeMode } from "./src/design-system";
+import { createScreenBackgrounds, DEFAULT_THEME_MODE, resolveTheme, themes, type ThemeMode } from "./src/design-system";
 import {
   clearActiveWorkoutSnapshot,
   createAnthraBackup,
@@ -166,7 +166,7 @@ export default function App() {
   const reduceMotion = useReducedMotion();
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), []);
   const [ready, setReady] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(DEFAULT_THEME_MODE);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);

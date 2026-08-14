@@ -27,6 +27,9 @@ import {
 export type ThemeMode = "system" | "light" | "dark";
 export type ResolvedThemeMode = Exclude<ThemeMode, "system">;
 
+/** Production follows the OS; development defaults to dark so a light system setting does not wash out UI work. */
+export const DEFAULT_THEME_MODE: ThemeMode = __DEV__ ? "dark" : "system";
+
 export type ResolvedTheme = Readonly<{
   mode: ResolvedThemeMode;
   isDark: boolean;
@@ -79,6 +82,8 @@ export function resolveThemeMode(
   systemMode: ResolvedThemeMode | null | undefined = "light"
 ): ResolvedThemeMode {
   if (mode !== "system") return mode;
+  // In __DEV__, Auto ignores a light OS appearance so local builds stay on dark by default.
+  if (__DEV__) return "dark";
   return systemMode === "dark" ? "dark" : "light";
 }
 
@@ -116,7 +121,7 @@ export type ThemeProviderProps = {
 export function ThemeProvider({
   children,
   mode: controlledMode,
-  defaultMode = "system",
+  defaultMode = DEFAULT_THEME_MODE,
   onModeChange
 }: ThemeProviderProps) {
   const [uncontrolledMode, setUncontrolledMode] = useState<ThemeMode>(defaultMode);
@@ -126,18 +131,20 @@ export function ThemeProvider({
   const theme = resolveTheme(activeMode, systemMode);
 
   useLayoutEffect(() => {
-    setColorScheme(activeMode);
-  }, [activeMode, setColorScheme]);
+    // Sync NativeWind to the resolved light/dark mode so `dark:` classes match tokens
+    // (including __DEV__ Auto → dark).
+    setColorScheme(theme.mode);
+  }, [setColorScheme, theme.mode]);
 
   const setMode = useCallback(
     (nextMode: ThemeMode) => {
-      // Reset/apply the native appearance override before the controlled mode
-      // changes so returning to Auto does not render against a stale override.
-      setColorScheme(nextMode);
+      // Apply the resolved appearance before the controlled mode changes so Auto
+      // does not briefly render against a stale NativeWind override.
+      setColorScheme(resolveThemeMode(nextMode, systemMode));
       if (controlledMode === undefined) setUncontrolledMode(nextMode);
       onModeChange?.(nextMode);
     },
-    [controlledMode, onModeChange, setColorScheme]
+    [controlledMode, onModeChange, setColorScheme, systemMode]
   );
 
   const value = useMemo<ThemeContextValue>(

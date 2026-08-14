@@ -38,8 +38,7 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
   }
 
   const installation = account.installation;
-  const canContinueOffline =
-    installation.installKind === "legacy" && !installation.linkedAuthUserId;
+  const canSkipLogin = !installation.linkedAuthUserId;
 
   const migrationFailed =
     decision === "migrate" && account.legacyImportProgress?.state === "failed";
@@ -68,7 +67,7 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
         <Text style={[theme.typography.bodyLarge, { color: theme.colors.textSecondary, marginTop: theme.spacing.md, marginBottom: theme.spacing.xl }]}> 
           {account.session
             ? "Anthra is creating and verifying your private cloud copy. Nothing is removed from this phone."
-            : "Sign in to continue."}
+            : "Sign in to sync, or skip login to use Anthra offline."}
         </Text>
 
         {migrationRunning ? (
@@ -107,9 +106,9 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
                 }
               }}
             />
-            {canContinueOffline && (
+            {canSkipLogin && (
               <Button
-                label="Cancel sign-in and continue offline"
+                label="Skip login"
                 variant="ghost"
                 fullWidth
                 loading={busy}
@@ -132,9 +131,9 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
           <AuthForm legacy={installation.installKind === "legacy"} />
         )}
 
-        {canContinueOffline && decision === "authenticate" && (
+        {canSkipLogin && decision === "authenticate" && (
           <Button
-            label="Continue offline for now"
+            label="Skip login"
             variant="ghost"
             fullWidth
             loading={busy}

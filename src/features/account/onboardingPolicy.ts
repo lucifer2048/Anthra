@@ -13,11 +13,10 @@ export function resolveAccountGateDecision(input: {
   if (!input.localDataReady) return "app";
   if (input.onboardingLoading || !input.installation) return "loading";
 
-  const canUseLegacyOffline =
-    input.installation.installKind === "legacy" &&
+  const canUseDeferredOffline =
     !input.installation.linkedAuthUserId &&
     input.installation.onboardingState === "deferred";
-  if (!input.hasSession && canUseLegacyOffline) return "app";
+  if (!input.hasSession && canUseDeferredOffline) return "app";
   const alreadyLinkedToSession =
     Boolean(input.sessionUserId) &&
     input.installation.linkedAuthUserId === input.sessionUserId;

@@ -320,10 +320,10 @@ export function AccountProvider({
   }, []);
 
   const continueOffline = useCallback(async () => {
-    if (installation?.installKind !== "legacy" || installation.linkedAuthUserId) return;
+    if (!installation || installation.linkedAuthUserId) return;
     await setAccountOnboardingState("deferred");
     await refreshInstallation();
-  }, [installation?.installKind, installation?.linkedAuthUserId, refreshInstallation]);
+  }, [installation, refreshInstallation]);
 
   const retryLegacyImport = useCallback(async () => {
     if (!supabase || !session?.user.id) throw new Error("Sign in before retrying cloud migration.");

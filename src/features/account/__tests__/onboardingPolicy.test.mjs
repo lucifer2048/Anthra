@@ -28,13 +28,17 @@ function decide(overrides = {}) {
   });
 }
 
-test("new installations must authenticate before entering the app", () => {
+test("new installations may skip login or authenticate", () => {
   assert.equal(decide(), "authenticate");
+  assert.equal(
+    decide({ installation: { ...fresh, onboardingState: "deferred" } }),
+    "app"
+  );
   assert.equal(decide({ hasSession: true }), "migrate");
   assert.equal(decide({ hasSession: true, legacyImportPrepared: true }), "app");
 });
 
-test("legacy installations may defer only before an account is linked", () => {
+test("installations may defer only before an account is linked", () => {
   assert.equal(decide({ installation: legacy }), "authenticate");
   assert.equal(
     decide({ installation: { ...legacy, onboardingState: "deferred" } }),
@@ -52,7 +56,7 @@ test("legacy installations may defer only before an account is linked", () => {
   );
 });
 
-test("signing in from deferred legacy mode blocks until migration verifies", () => {
+test("signing in from deferred mode blocks until migration verifies", () => {
   const deferred = { ...legacy, onboardingState: "deferred" };
   assert.equal(decide({ installation: deferred, hasSession: true }), "migrate");
   assert.equal(

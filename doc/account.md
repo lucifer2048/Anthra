@@ -19,7 +19,7 @@ Both must be set for `isSupabaseConfigured` / non-null `supabase`. Never ship se
 
 ## Provider surface (`AccountProvider`)
 
-Exposes session/user, profile, Google OAuth + email OTP, `continueOffline` for eligible legacy installs, legacy import progress, avatar upload, and sign-out. After auth it may trigger legacy verified import, nutrition sync, social stats publish, and friend-activity push registration.
+Exposes session/user, profile, Google OAuth + email OTP, `continueOffline` (Skip login) for any install not yet linked to an account, legacy import progress, avatar upload, and sign-out. After auth it may trigger legacy verified import, nutrition sync, social stats publish, and friend-activity push registration.
 
 `localDataReady` (from App bootstrap) gates cloud work so SQLite migrations finish first.
 
@@ -27,8 +27,8 @@ Exposes session/user, profile, Google OAuth + email OTP, `continueOffline` for e
 
 `resolveAccountGateDecision` chooses `app | loading | authenticate | migrate`:
 
-- New / unauthenticated installs with cloud configured → authenticate (Google or email OTP).
-- Legacy installs that deferred onboarding may continue offline without a session.
+- New / unauthenticated installs with cloud configured → authenticate (Google or email OTP), with an optional **Skip login** path that defers onboarding and opens the app as a guest.
+- Installs that deferred onboarding (new or legacy) may continue offline without a session until they sign in.
 - Signed-in users with prepared or already-linked legacy data → app; otherwise migrate (upload + verify private cloud copy without deleting local rows).
 
 ## Profile

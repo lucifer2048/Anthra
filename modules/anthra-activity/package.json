@@ -1,0 +1,13 @@
+{
+  "name": "anthra-activity",
+  "version": "1.0.0",
+  "description": "Anthra Activity Buddy native module (Android + iOS)",
+  "main": "src/index.ts",
+  "private": true,
+  "keywords": ["react-native", "expo", "anthra", "activity"],
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

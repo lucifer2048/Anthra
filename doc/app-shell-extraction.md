@@ -1,10 +1,10 @@
 # App shell extraction tracker
 
-Track phased extraction of logic out of `App.tsx` into feature screens and shared modules.
+Track phased extraction of logic out of the original monolithic `App.tsx` into feature screens, Expo Router routes, and `src/app-shell/`.
 
 **Pattern:** docs first → extract → `npx tsc --noEmit` → mark phase ✅ in this file.
 
-**Target end state:** `App.tsx` is a thin shell — providers, bootstrap, module switch, timer session, notification/deep-link orchestration, account onboarding gate. Feature UIs live under `src/features/<domain>/` or `src/components/` with screen-owned state.
+**Target end state:** Entry is `expo-router/entry` → `app/_layout.tsx`. `AppShellProvider` composes focused hooks under `src/app-shell/hooks/` and exposes shared state via `useAppShell()`. Route files under `app/` are thin wrappers. Feature UIs live under `src/features/<domain>/` or `src/components/`. `App.tsx` is a legacy re-export stub only.
 
 ---
 
@@ -22,8 +22,9 @@ Track phased extraction of logic out of `App.tsx` into feature screens and share
 | 7 — Shell polish | ✅ | Dead imports trimmed; architecture updated |
 | 8 — Cloud modules (account / social / nutrition) | ✅ | Features under `src/features/{account,social,nutrition}`; providers in `AppProviders`; App routes modules |
 | 9 — Alarm Buddy home | ✅ | `src/features/alarm/AlarmBuddyScreen.tsx`; native bridge remains `src/utils/alarmNative.ts`; compat re-export stub under `src/components/` |
+| 10 — Expo Router + app-shell hooks | ✅ | `app/` file routes + `src/app-shell/` (`AppShellProvider`, hooks, `AppShellChrome`, `navigation.ts`); `App.tsx` legacy stub |
 
-**App.tsx line counts**
+**Shell line counts (original `App.tsx` → current)**
 
 | Checkpoint | Lines |
 |------------|-------|
@@ -32,9 +33,11 @@ Track phased extraction of logic out of `App.tsx` into feature screens and share
 | After Workout | ~2388 |
 | After Vault + format utils | ~1702 |
 | After feedback + list + polish | ~1565 |
-| After cloud modules + routing | **~1638** |
+| After cloud modules + module switch | ~1638 |
+| After Expo Router migration (monolithic `AppShellProvider`) | ~1585 |
+| After hook split (`AppShellProvider` composition layer) | **~283** |
 
-Line count can rise slightly when new module routes (nutrition, account, friends) land in the shell; ownership of those UIs remains outside `App.tsx`.
+Feature UIs and route files stay outside the shell; shell growth after Phase 8 was orchestration, not buddy UI.
 
 ---
 
@@ -68,7 +71,6 @@ Optional leftover: local copies inside `PlanEditorModal`.
 
 - Removed unused feedback-only imports from App (`Star`, Modal cluster, etc.)
 - Architecture + this tracker updated
-- Further optional: `useAppBootstrap` / `useNotificationSync` hooks — not required for this pass
 
 ---
 
@@ -87,20 +89,36 @@ Optional leftover: local copies inside `PlanEditorModal`.
 
 ---
 
-## Intentionally stays in App (long term)
+## Phase 10 — Expo Router + app-shell hooks ✅
+
+- **Entry:** `package.json` `"main": "expo-router/entry"`; routes in `app/` (`index`, `workout`, `activity`, …)
+- **Navigation:** `src/app-shell/navigation.ts` (`router.push`, `goHub`); iOS swipe-back via stack options in `app/_layout.tsx` (disabled on hub + timer)
+- **Shell split** under `src/app-shell/`:
+  - `constants.ts` — `INITIAL_STATS`, `INITIAL_SETTINGS`, `resolveModuleTheme`
+  - `hooks/useAppBootstrap.ts` — DB init, refresh fns, theme, splash, plans/stats/history
+  - `hooks/useNotificationSync.ts` — `syncAllNotifications`, notification listener, AppState refresh
+  - `hooks/useWorkoutShell.ts` — plans, timer/session, profile, settings, backup, feedback, deep links
+  - `hooks/useAppShellUi.ts` — keyboard, hub scroll/animation refs
+  - `hooks/useAppNavigationHandlers.ts` — `onOpen*` callbacks
+  - `AppShellChrome.tsx` — timer push, Android back, feedback modals, splash overlay
+  - `AppShellProvider.tsx` — composes hooks + `AppShellContext`
+- **`App.tsx`:** legacy re-export stub (not loaded at runtime)
+
+---
+
+## Intentionally stays in app shell (long term)
 
 | Concern | Why |
 |---------|-----|
-| `AppProviders` + splash | Entry |
-| DB bootstrap / theme load | Once at startup; feeds `localDataReady` |
-| Module switch (`activeModule`) | Router |
+| `AppProviders` tree | Wraps routes after shell bootstrap |
+| `useAppBootstrap` | DB init, theme, splash; feeds `localDataReady` |
+| Expo Router stack (`app/_layout.tsx`) | File-based navigation + iOS gestures |
 | Shared `plans` / `stats` / `settings` for hub + workout | Hub needs them |
-| `TimerScreen` when `activePlan` set | Session overlay across modules |
-| Feedback *state* + `WorkoutFeedbackModals` mount | Must outlive workout screen remount |
-| Notification response listener + plan deep links | App-level |
-| `syncAllNotifications` / AppState refresh | Cross-feature |
+| `TimerScreen` push when `activePlan` set | Session overlay across routes |
+| Feedback *state* + `WorkoutFeedbackModals` in `AppShellChrome` | Must outlive workout screen remount |
+| `useNotificationSync` + plan deep links | Cross-feature |
 | Backup export/import orchestration | Touches many domains (UI in Workout settings) |
-| `AccountOnboardingGate` mount | Must wrap module tree after providers |
+| `AccountOnboardingGate` in `app/_layout.tsx` | Must wrap stack after providers |
 
 ---
 

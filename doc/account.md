@@ -2,7 +2,7 @@
 
 **Code:** `src/features/account/`  
 **Client:** `src/services/supabaseClient.ts`  
-**Gate:** `AccountOnboardingGate` wraps the live app tree in `App.tsx`
+**Gate:** `AccountOnboardingGate` wraps the live app tree in `app/_layout.tsx` (after `AppShellProvider` + `AppProviders`)
 
 ## Role
 

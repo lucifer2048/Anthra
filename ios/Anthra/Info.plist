@@ -57,6 +57,10 @@
     <string>Allow Anthra to use Face ID to unlock Password Buddy.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Allow Anthra to choose profile and meal photos.</string>
+    <key>NSUserActivityTypes</key>
+    <array>
+      <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
+    </array>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UIBackgroundModes</key>

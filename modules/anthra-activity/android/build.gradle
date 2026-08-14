@@ -1,0 +1,30 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.anthra.timer'
+version = '1.0.0'
+
+android {
+  namespace "com.anthra.timer.activity"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+  sourceSets {
+    main {
+      java.srcDirs = ['src/main/java']
+    }
+    test {
+      java.srcDirs = ['src/test/java']
+    }
+  }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+  implementation 'androidx.health.connect:connect-client:1.1.0'
+
+  testImplementation 'junit:junit:4.13.2'
+}

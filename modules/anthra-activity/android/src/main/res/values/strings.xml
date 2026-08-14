@@ -1,0 +1,6 @@
+<resources>
+  <string name="step_tracking_channel_name">Step tracking</string>
+  <string name="step_tracking_channel_description">Keeps Anthra counting steps when the app is closed.</string>
+  <string name="step_tracking_notification_title">Anthra is counting your steps</string>
+  <string name="step_tracking_notification_text">Background step tracking is active</string>
+</resources>

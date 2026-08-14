@@ -12,6 +12,8 @@ import {
   TextInput,
   View
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as Notifications from "expo-notifications";
 import {
   AlarmClock,
   Camera,
@@ -182,15 +184,27 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
   const [editorError, setEditorError] = useState<string | null>(null);
 
   const refreshPermissionStatus = useCallback(async (): Promise<AlarmSetupStatus> => {
-    const [nativeStatus, hasCamera, hasNotifications] = await Promise.all([
-      getAlarmPermissionStatus(),
-      Platform.OS === "android"
-        ? PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA)
-        : Promise.resolve(false),
-      Platform.OS === "android" && Number(Platform.Version) >= 33
-        ? PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
-        : Promise.resolve(Platform.OS === "android")
-    ]);
+    const nativeStatus = await getAlarmPermissionStatus();
+    let hasCamera = false;
+    let hasNotifications = false;
+
+    if (Platform.OS === "android") {
+      [hasCamera, hasNotifications] = await Promise.all([
+        PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA),
+        Number(Platform.Version) >= 33
+          ? PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
+          : Promise.resolve(true)
+      ]);
+    } else if (Platform.OS === "ios") {
+      const [camera, notifications] = await Promise.all([
+        ImagePicker.getCameraPermissionsAsync(),
+        Notifications.getPermissionsAsync()
+      ]);
+      hasCamera = camera.granted;
+      hasNotifications = notifications.granted
+        || notifications.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+    }
+
     setPermissionStatus(nativeStatus);
     setCameraGranted(hasCamera);
     setNotificationsGranted(hasNotifications);
@@ -262,12 +276,18 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
   };
 
   const requestRuntimePermissions = async () => {
-    if (Platform.OS !== "android") return;
-    const requested = [PermissionsAndroid.PERMISSIONS.CAMERA];
-    if (Number(Platform.Version) >= 33) {
-      requested.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    if (Platform.OS === "android") {
+      const requested = [PermissionsAndroid.PERMISSIONS.CAMERA];
+      if (Number(Platform.Version) >= 33) {
+        requested.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
+      await PermissionsAndroid.requestMultiple(requested);
+    } else if (Platform.OS === "ios") {
+      await ImagePicker.requestCameraPermissionsAsync();
+      await Notifications.requestPermissionsAsync();
+    } else {
+      return;
     }
-    await PermissionsAndroid.requestMultiple(requested);
     const [status, items] = await Promise.all([refreshPermissionStatus(), getAlarmItems()]);
     await retryEnabledAlarms(items, status);
   };
@@ -378,15 +398,18 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
     try {
       if (!cameraGranted) {
         await requestRuntimePermissions();
-        const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
-        if (!granted) {
+        const status = await refreshPermissionStatus();
+        if (!status.cameraGranted) {
           Alert.alert("Camera required", "Allow camera access so Anthra can count push-ups on your device.");
           return;
         }
       }
       await startPushupTrackingTest(target);
     } catch (error) {
-      Alert.alert("Tracker unavailable", error instanceof Error ? error.message : "Use an Android development build.");
+      Alert.alert(
+        "Tracker unavailable",
+        error instanceof Error ? error.message : "Alarm Buddy requires a development build."
+      );
     }
   };
 
@@ -508,8 +531,10 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                   <StatusBanner
                     title="Alarm setup needs attention"
                     message={!permissionStatus.nativeSupported
-                      ? "Install an Android development build; Expo Go cannot run exact alarms or pose tracking."
-                      : "Complete the permissions below before relying on an alarm."}
+                      ? "Install a development build; Expo Go cannot run native alarms or pose tracking."
+                      : Platform.OS === "ios"
+                        ? "Allow notifications and camera access before relying on an alarm."
+                        : "Complete the permissions below before relying on an alarm."}
                     variant="danger"
                   />
                   <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
@@ -523,13 +548,13 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                     )}
                     {!permissionStatus.exactAlarm && permissionStatus.nativeSupported && (
                       <Button
-                        label="Allow exact alarms"
+                        label={Platform.OS === "ios" ? "Open notification settings" : "Allow exact alarms"}
                         variant="outline"
                         fullWidth
                         onPress={() => openExactAlarmSettings().catch(() => undefined)}
                       />
                     )}
-                    {!permissionStatus.fullScreenIntent && permissionStatus.nativeSupported && (
+                    {!permissionStatus.fullScreenIntent && permissionStatus.nativeSupported && Platform.OS === "android" && (
                       <Button
                         label="Allow full-screen alarms"
                         variant="outline"

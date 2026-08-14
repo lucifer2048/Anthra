@@ -9,7 +9,7 @@ export type ActivityTheme = {
 };
 
 export type ActivityCapabilities = {
-  platform: "android" | "unsupported";
+  platform: "android" | "ios" | "unsupported";
   apiLevel: number;
   stepCounterAvailable: boolean;
   activityRecognitionRequired: boolean;

@@ -32,11 +32,15 @@ type AnthraAlarmNativeModule = {
 
 const nativeAlarm = NativeModules.AnthraAlarm as AnthraAlarmNativeModule | undefined;
 
+function isNativeModuleAvailable(): boolean {
+  return (Platform.OS === "android" || Platform.OS === "ios") && Boolean(nativeAlarm);
+}
+
 function requireNativeAlarm(): AnthraAlarmNativeModule {
-  if (Platform.OS !== "android" || !nativeAlarm) {
-    throw new Error("Alarm Buddy requires an Android development build. It is not available in Expo Go.");
+  if (!isNativeModuleAvailable()) {
+    throw new Error("Alarm Buddy requires a development build. It is not available in Expo Go.");
   }
-  return nativeAlarm;
+  return nativeAlarm!;
 }
 
 type NativeAlarmConfig = Pick<
@@ -71,7 +75,7 @@ function toNativeAlarm(alarm: NativeAlarmPayload): Record<string, unknown> {
 }
 
 export function isNativeAlarmSupported(): boolean {
-  return Platform.OS === "android" && Boolean(nativeAlarm);
+  return isNativeModuleAvailable();
 }
 
 export async function scheduleNativeAlarm(alarm: AlarmItem): Promise<NativeScheduleResult> {
@@ -97,7 +101,7 @@ export async function syncWorkoutAlarmReminders(
     return {
       supported: false,
       scheduledCount: 0,
-      message: "Workout alarms require an Android development build."
+      message: "Workout alarms require a development build."
     };
   }
 

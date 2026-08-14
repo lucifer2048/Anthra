@@ -6,6 +6,7 @@ Follow React Rules of Hooks. No conditional hook calls.
 
 ## Where hooks live
 
+- App shell orchestration: `src/app-shell/hooks/` (`useAppBootstrap`, `useNotificationSync`, `useWorkoutShell`, …) — composed by `AppShellProvider`; not for feature screens to import directly
 - Shared reusable hooks: `src/hooks/`
 - Feature-only hooks: `src/features/<domain>/hooks/` (create when a second consumer appears; otherwise keep logic in the screen until then)
 

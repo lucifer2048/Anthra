@@ -78,9 +78,7 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
  * give correct results when using with locales other than en-US. Note that
  * this variant is about 6MiB larger per architecture than default.
- */
-def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
-
+// @generated begin anthra-release-signing-vars - expo prebuild (DO NOT MODIFY) sync-cf371592583b889e10daae6761290a3d1a309d2d
 def anthraReleaseStoreFile = findProperty('ANTHRA_RELEASE_STORE_FILE') ?: System.getenv('ANTHRA_RELEASE_STORE_FILE')
 def anthraReleaseStorePassword = findProperty('ANTHRA_RELEASE_STORE_PASSWORD') ?: System.getenv('ANTHRA_RELEASE_STORE_PASSWORD')
 def anthraReleaseKeyAlias = findProperty('ANTHRA_RELEASE_KEY_ALIAS') ?: System.getenv('ANTHRA_RELEASE_KEY_ALIAS')
@@ -91,6 +89,9 @@ def hasAnthraReleaseSigning = [
     anthraReleaseKeyAlias,
     anthraReleaseKeyPassword
 ].every { it != null && it.toString().trim() }
+// @generated end anthra-release-signing-vars
+ */
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -109,13 +110,8 @@ android {
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     signingConfigs {
-        debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
-        }
-        if (hasAnthraReleaseSigning) {
+// @generated begin anthra-release-signing-release-config - expo prebuild (DO NOT MODIFY) sync-d0461bc72d2e48b5ad1777d167f03f5f876e1548
+if (hasAnthraReleaseSigning) {
             release {
                 storeFile rootProject.file(anthraReleaseStoreFile)
                 storePassword anthraReleaseStorePassword
@@ -123,25 +119,36 @@ android {
                 keyPassword anthraReleaseKeyPassword
             }
         }
+// @generated end anthra-release-signing-release-config
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
     }
     buildTypes {
+// @generated begin anthra-release-signing-internal-build-type - expo prebuild (DO NOT MODIFY) sync-5197a0860aa4d6ae2352abb4e4f1843fdb32771f
+internal {
+            initWith release
+            signingConfig signingConfigs.debug
+            versionNameSuffix "-internal"
+            matchingFallbacks = ['release']
+        }
+// @generated end anthra-release-signing-internal-build-type
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            if (hasAnthraReleaseSigning) signingConfig signingConfigs.release
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
-        }
-        internal {
-            initWith release
-            signingConfig signingConfigs.debug
-            versionNameSuffix "-internal"
-            matchingFallbacks = ['release']
         }
     }
     packagingOptions {
@@ -152,26 +159,6 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
-    }
-}
-
-gradle.taskGraph.whenReady { graph ->
-    def productionSigningTasks = [
-        'assembleRelease',
-        'bundleRelease',
-        'installRelease',
-        'packageRelease',
-        'publishReleaseBundle'
-    ]
-    def productionTaskRequested = graph.allTasks.any { task ->
-        task.project == project && task.name in productionSigningTasks
-    }
-    if (productionTaskRequested && !hasAnthraReleaseSigning) {
-        throw new GradleException(
-            'Production signing is not configured. Set ANTHRA_RELEASE_STORE_FILE, ' +
-            'ANTHRA_RELEASE_STORE_PASSWORD, ANTHRA_RELEASE_KEY_ALIAS, and ' +
-            'ANTHRA_RELEASE_KEY_PASSWORD. Use :app:assembleInternal for a debug-signed test APK.'
-        )
     }
 }
 
@@ -194,23 +181,31 @@ gradle.taskGraph.whenReady { graph ->
         }
     }
 }
+// @generated begin anthra-release-signing-guard - expo prebuild (DO NOT MODIFY) sync-835e119025af9736442a28d9b4925014036608e5
+gradle.taskGraph.whenReady { graph ->
+    def productionSigningTasks = [
+        'assembleRelease',
+        'bundleRelease',
+        'installRelease',
+        'packageRelease',
+        'publishReleaseBundle'
+    ]
+    def productionTaskRequested = graph.allTasks.any { task ->
+        task.project == project && task.name in productionSigningTasks
+    }
+    if (productionTaskRequested && !hasAnthraReleaseSigning) {
+        throw new GradleException(
+            'Production signing is not configured. Set ANTHRA_RELEASE_STORE_FILE, ' +
+            'ANTHRA_RELEASE_STORE_PASSWORD, ANTHRA_RELEASE_KEY_ALIAS, and ' +
+            'ANTHRA_RELEASE_KEY_PASSWORD. Use :app:assembleInternal for a debug-signed test APK.'
+        )
+    }
+}
+// @generated end anthra-release-signing-guard
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-
-    // Activity Buddy reads user-approved, on-device Health Connect records.
-    implementation("androidx.health.connect:connect-client:1.1.0")
-
-    // Alarm Buddy: CameraX feeds on-device ML Kit pose detection. Camera frames
-    // never leave the device and are closed immediately after each inference.
-    def cameraxVersion = "1.4.2"
-    implementation("androidx.camera:camera-camera2:${cameraxVersion}")
-    implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
-    implementation("androidx.camera:camera-view:${cameraxVersion}")
-    implementation("com.google.guava:guava:33.3.1-android")
-    implementation("com.google.mlkit:pose-detection-accurate:18.0.0-beta5")
-    testImplementation("junit:junit:4.13.2")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

@@ -108,4 +108,4 @@ Add new tokens in `createScreenBackgrounds()` — do not hardcode fills in scree
 
 ## App shell
 
-Anthra switches modules in `App.tsx` (no Expo Router stack). Module roots still use `ScreenLayout`. Keep any parent wrapper background transparent so the layout background can go edge-to-edge.
+Anthra navigates with Expo Router file routes under `app/` (stack in `app/_layout.tsx`). Each route renders a feature screen that still uses `ScreenLayout`. Shared chrome (splash, feedback modals, timer push) lives in `AppShellChrome`; keep route-level wrapper backgrounds transparent so `ScreenLayout` fills can go edge-to-edge.

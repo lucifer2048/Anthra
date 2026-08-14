@@ -45,7 +45,10 @@
           "microphonePermission": false
         }
       ],
-      "expo-router"
+      "expo-router",
+      "./plugins/withAnthraAlarm",
+      "./plugins/withAnthraActivity",
+      "./plugins/withAnthraReleaseSigning"
     ],
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -66,6 +69,7 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_HEALTH",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.health.READ_STEPS",
@@ -88,7 +92,16 @@
     },
     "owner": "psy-holdings",
     "ios": {
-      "bundleIdentifier": "com.anthra.timer"
+      "bundleIdentifier": "com.anthra.timer",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Allow Anthra to read steps and workouts from Apple Health for Activity Buddy.",
+        "NSMotionUsageDescription": "Allow Anthra to count daily steps from this iPhone for Activity Buddy.",
+        "NSUserNotificationsUsageDescription": "Allow Anthra to ring push-up alarms and workout reminders.",
+        "UIBackgroundModes": ["fetch", "processing"]
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
     }
   }
 }

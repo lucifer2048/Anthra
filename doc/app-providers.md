@@ -2,9 +2,9 @@
 
 **Source:** `src/providers/AppProviders.tsx`
 
-Root entry (`App.tsx`) wraps the tree in `AppProviders`. Screens still use `ScreenLayout` for safe-area content padding.
+Entry (`expo-router/entry`) wraps the tree in `AppShellProvider` → `AppProviders` → `AccountOnboardingGate` → `Stack` (`app/_layout.tsx`). Screens still use `ScreenLayout` for safe-area content padding.
 
-`App.tsx` passes `localDataReady={ready}` after local SQLite bootstrap completes so account/social work does not race DB init.
+`AppShellProvider` passes `localDataReady={ready}` after local SQLite bootstrap completes so account/social work does not race DB init.
 
 ## Tree (outer → inner)
 

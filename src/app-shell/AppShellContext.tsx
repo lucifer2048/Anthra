@@ -1,4 +1,4 @@
-import { createContext, useContext, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { createContext, useContext, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type { Animated } from "react-native";
 
 import type { WorkoutTab } from "../components/WorkoutTabBar";
@@ -103,7 +103,7 @@ export type AppShellContextValue = {
   keyboardHeight: number;
   keyboardSafeBottomPadding: number;
 
-  hubScrollOffsetRef: RefObject<number>;
+  hubScrollOffsetRef: MutableRefObject<number>;
   handleHubCardsAnimated: () => void;
   hasAnimatedHubCards: boolean;
 

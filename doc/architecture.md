@@ -2,13 +2,9 @@
 
 ## Product shape
 
-Entry: Expo → `App.tsx` → `AppProviders` (`src/providers/AppProviders.tsx`) → module screens.
+Entry: Expo Router (`expo-router/entry`) → `app/_layout.tsx` → `AppShellProvider` (`src/app-shell/AppShellProvider.tsx`) → `AppProviders` → file routes under `app/`.
 
-Module switch (`activeModule`):
-
-`hub | workout | profile | settings | reminder | password | list | alarm | activity | nutrition | tracker | account | friends`
-
-There is no Expo Router / React Navigation stack for module routing. Buddy screens own their own tab bars where needed. See [app-providers.md](./app-providers.md), [account.md](./account.md), and [social.md](./social.md).
+Module navigation uses Expo Router file routes (`app/index.tsx`, `app/workout.tsx`, `app/activity.tsx`, …) with helpers in `src/app-shell/navigation.ts`. Shared app state and handlers live in `AppShellContext` / `useAppShell()`. Overlays (`WorkoutFeedbackModals`, `LaunchOverlay`, timer push) render from `AppShellChrome`. Buddy screens own their own tab bars where needed. See [app-providers.md](./app-providers.md), [account.md](./account.md), and [social.md](./social.md).
 
 ### Extracted feature screens
 
@@ -26,12 +22,12 @@ There is no Expo Router / React Navigation stack for module routing. Buddy scree
 | Account | `src/features/account/AccountScreen.tsx` |
 | Friends / leaderboard | `src/features/social/FriendsScreen.tsx` |
 
-Timer session UI stays in `App.tsx` via `TimerScreen` while a plan is active; session feedback is `WorkoutFeedbackModals` at App root. Extraction tracker: [app-shell-extraction.md](./app-shell-extraction.md).
+Timer session UI is `app/timer.tsx` (`TimerScreen`) while a plan is active; session feedback is `WorkoutFeedbackModals` in `AppShellChrome`. Extraction tracker: [app-shell-extraction.md](./app-shell-extraction.md).
 
 ## Layers
 
 ```
-App.tsx / feature screens
+app/ routes / feature screens
         ↓
 src/components/ui  (presentational)
 src/features/<domain>  (screens, repos, domain logic)

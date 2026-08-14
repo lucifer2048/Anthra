@@ -8,11 +8,12 @@ Source of truth for how this app is built. Cursor rules in `.cursor/rules/` are 
 
 | Doc | Covers |
 |-----|--------|
-| [app-shell-extraction.md](./app-shell-extraction.md) | Phased App.tsx extraction tracker (Vault, Alarm, cloud modules, …) |
+| [app-shell-extraction.md](./app-shell-extraction.md) | Phased app-shell extraction tracker (Expo Router, hooks, Vault, Alarm, …) |
 | [app-providers.md](./app-providers.md) | Root provider tree (`AppProviders`: Account → Social → Theme) |
 | [change-checklist.md](./change-checklist.md) | **Mandatory gate** — docs + kit search before every UI/feature change |
 | [principles.md](./principles.md) | Offline-first local SoT, optional cloud, privacy, type safety |
 | [architecture.md](./architecture.md) | Modules, data layer, optional Supabase, native bridges |
+| [native-modules.md](./native-modules.md) | Alarm Buddy / Activity Buddy local Expo modules (Android + iOS) |
 | [account.md](./account.md) | Optional auth, onboarding gate, profile, legacy import |
 | [social.md](./social.md) | Friends, privacy, leaderboards, activity push |
 | [nutrition.md](./nutrition.md) | Local nutrition DB, sync queue, analysis Edge Function, catalogue gap |

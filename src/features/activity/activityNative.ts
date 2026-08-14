@@ -1,8 +1,4 @@
-import {
-  NativeModules,
-  PermissionsAndroid,
-  Platform
-} from "react-native";
+import { NativeModules, PermissionsAndroid, Platform } from "react-native";
 
 import type {
   ActivityCapabilities,
@@ -43,15 +39,19 @@ const nativeActivity = NativeModules.AnthraActivity as
   | AnthraActivityNativeModule
   | undefined;
 
-function requireAndroidActivity(): AnthraActivityNativeModule {
-  if (Platform.OS !== "android" || !nativeActivity) {
-    throw new Error("Activity Buddy step and health connections are available on Android.");
+function isNativeActivityAvailable(): boolean {
+  return (Platform.OS === "android" || Platform.OS === "ios") && Boolean(nativeActivity);
+}
+
+function requireNativeActivity(): AnthraActivityNativeModule {
+  if (!isNativeActivityAvailable()) {
+    throw new Error("Activity Buddy step and health connections require a development build.");
   }
-  return nativeActivity;
+  return nativeActivity!;
 }
 
 export async function getActivityCapabilities(): Promise<ActivityCapabilities> {
-  if (Platform.OS !== "android" || !nativeActivity) {
+  if (!isNativeActivityAvailable()) {
     return {
       platform: "unsupported",
       apiLevel: 0,
@@ -60,18 +60,19 @@ export async function getActivityCapabilities(): Promise<ActivityCapabilities> {
       healthConnectAvailability: "unsupported_os"
     };
   }
-  return nativeActivity.getCapabilities();
+  return nativeActivity!.getCapabilities();
 }
 
 export async function getPhoneStepStatus(): Promise<PhoneStepStatus> {
-  return requireAndroidActivity().getPhoneStepStatus();
+  return requireNativeActivity().getPhoneStepStatus();
 }
 
 export async function enablePhoneStepTracking(): Promise<boolean> {
-  const bridge = requireAndroidActivity();
+  const bridge = requireNativeActivity();
   const capabilities = await bridge.getCapabilities();
   if (!capabilities.stepCounterAvailable) return false;
   if (
+    Platform.OS === "android" &&
     capabilities.activityRecognitionRequired &&
     !(await PermissionsAndroid.check(
       PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION
@@ -94,13 +95,13 @@ export async function enablePhoneStepTracking(): Promise<boolean> {
 }
 
 export async function disablePhoneStepTracking(): Promise<void> {
-  await requireAndroidActivity().setPhoneStepTrackingEnabled(false);
+  await requireNativeActivity().setPhoneStepTrackingEnabled(false);
 }
 
 export async function getCurrentPhoneStepReading(
   timezone: string
 ): Promise<PhoneStepReading> {
-  return requireAndroidActivity().getCurrentRawStepReading(timezone);
+  return requireNativeActivity().getCurrentRawStepReading(timezone);
 }
 
 export function cancelCurrentPhoneStepReading(): void {
@@ -108,18 +109,18 @@ export function cancelCurrentPhoneStepReading(): void {
 }
 
 export async function getPendingPhoneStepDays(): Promise<PhoneStepDaySnapshot[]> {
-  return requireAndroidActivity().getPendingPhoneStepDays();
+  return requireNativeActivity().getPendingPhoneStepDays();
 }
 
 export async function acknowledgePendingPhoneStepDays(
   dateKeys: string[]
 ): Promise<void> {
   if (dateKeys.length === 0) return;
-  await requireAndroidActivity().acknowledgePendingPhoneStepDays(dateKeys);
+  await requireNativeActivity().acknowledgePendingPhoneStepDays(dateKeys);
 }
 
 export async function getHealthConnectStatus(): Promise<HealthConnectStatus> {
-  if (Platform.OS !== "android" || !nativeActivity) {
+  if (!isNativeActivityAvailable()) {
     return {
       availability: "unsupported_os",
       stepsPermission: false,
@@ -127,11 +128,11 @@ export async function getHealthConnectStatus(): Promise<HealthConnectStatus> {
       connected: false
     };
   }
-  return nativeActivity.getHealthConnectStatus();
+  return nativeActivity!.getHealthConnectStatus();
 }
 
 export async function requestHealthConnectPermissions() {
-  return requireAndroidActivity().requestHealthConnectPermissions();
+  return requireNativeActivity().requestHealthConnectPermissions();
 }
 
 export async function readHealthConnectDailyTotals(
@@ -139,7 +140,7 @@ export async function readHealthConnectDailyTotals(
   endTime: number,
   timezone: string
 ): Promise<HealthDailyTotal[]> {
-  return requireAndroidActivity().readHealthConnectDailyTotals(
+  return requireNativeActivity().readHealthConnectDailyTotals(
     startTime,
     endTime,
     timezone
@@ -150,9 +151,9 @@ export async function readHealthConnectWorkouts(
   startTime: number,
   endTime: number
 ): Promise<HealthWorkout[]> {
-  return requireAndroidActivity().readHealthConnectWorkouts(startTime, endTime);
+  return requireNativeActivity().readHealthConnectWorkouts(startTime, endTime);
 }
 
 export async function openHealthConnectSettings(): Promise<void> {
-  return requireAndroidActivity().openHealthConnectSettings();
+  return requireNativeActivity().openHealthConnectSettings();
 }

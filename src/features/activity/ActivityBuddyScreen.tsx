@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   AppState,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -595,9 +596,13 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
   const isStale =
     syncState.lastSuccessAt != null &&
     Date.now() - syncState.lastSuccessAt > 12 * 60 * 60 * 1000;
+  const isIos = Platform.OS === "ios";
+  const healthPlatformLabel = isIos ? "Apple Health" : "Health Connect";
   const sourceLabel =
     todaySummary?.authoritativeSource === "health_connect"
-      ? "Health Connect aggregated steps"
+      ? isIos
+        ? "Apple Health aggregated steps"
+        : "Health Connect aggregated steps"
       : todaySummary?.authoritativeSource === "phone_sensor"
         ? "This phone’s step sensor"
         : "No step source yet";
@@ -623,11 +628,17 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
     ? "This phone does not expose a compatible hardware step counter."
     : phoneStatus?.permissionGranted
       ? settings.phoneTrackingEnabled
-        ? "Anthra keeps the low-power step sensor active in the background, including when the app is closed. Android shows a quiet ongoing notification while tracking."
+        ? isIos
+          ? "Anthra reads this iPhone’s motion data while the app is open and periodically refreshes in the background when iOS allows."
+          : "Anthra keeps the low-power step sensor active in the background, including when the app is closed. Android shows a quiet ongoing notification while tracking."
         : "Available on this device. Access is requested only when you choose to enable it."
       : settings.phoneTrackingEnabled
-        ? "Physical activity access was removed. Enable it again to resume phone steps."
-        : "Off. Anthra has not requested physical activity access."
+        ? isIos
+          ? "Motion access was removed. Enable it again in Settings to resume phone steps."
+          : "Physical activity access was removed. Enable it again to resume phone steps."
+        : isIos
+          ? "Off. Anthra has not requested motion access."
+          : "Off. Anthra has not requested physical activity access.";
   const healthUnavailable =
     healthStatus?.availability === "unavailable" ||
     healthStatus?.availability === "unsupported_os";
@@ -638,16 +649,24 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
     : healthStatus?.availability === "update_required"
       ? "Install or update Health Connect to bring in watches and fitness apps."
       : healthUnavailable
-        ? "Health Connect is not available on this Android device."
+        ? isIos
+          ? "Apple Health is not available on this device."
+          : "Health Connect is not available on this Android device."
         : healthHasPermission
           ? "Some activity access is enabled. Manage access to include every visible source."
-          : "Connect compatible watches and fitness apps while keeping their records on this device.";
+          : isIos
+            ? "Connect Apple Health to bring in watches and fitness apps while keeping records on this device."
+            : "Connect compatible watches and fitness apps while keeping their records on this device.";
   const healthActionLabel =
     healthStatus?.availability === "update_required"
       ? "Update Health Connect"
       : healthHasPermission
-        ? "Manage Health Data"
-        : "Connect Health Data";
+        ? isIos
+          ? "Manage Apple Health"
+          : "Manage Health Data"
+        : isIos
+          ? "Connect Apple Health"
+          : "Connect Health Data";
 
   const updateSettings = useCallback(async (
     createNext: (current: ActivitySettings) => ActivitySettings
@@ -1081,7 +1100,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
 
             <SourceCard
               icon={HeartPulse}
-              title="Health Connect"
+              title={healthPlatformLabel}
               status={
                 healthStatus?.connected
                   ? "Connected"
@@ -1103,7 +1122,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               description={healthDescription}
               detail={connectedPackages.length > 0 ? `Sources · ${connectedPackages.join(", ")}` : undefined}
               actionLabel={healthActionLabel}
-              actionHint="Opens Android Health Connect permission controls"
+              actionHint={isIos ? "Opens Apple Health access controls" : "Opens Android Health Connect permission controls"}
               actionVariant={healthHasPermission ? "outline" : "primary"}
               actionDisabled={healthUnavailable || sourceAction === "phone"}
               actionLoading={sourceAction === "health"}

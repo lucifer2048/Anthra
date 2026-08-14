@@ -1,9 +1,1 @@
-<resources>
-  <color name="splashscreen_background">#070707</color>
-  <color name="app_canvas">#070707</color>
-  <color name="colorPrimary">#FF3B4D</color>
-  <color name="colorPrimaryDark">#070707</color>
-  <color name="notification_icon_color">#FF3B4D</color>
-  <color name="iconBackground">#070707</color>
-  <color name="anthra_launcher_background">#070707</color>
-</resources>
+<resources/>

@@ -1,0 +1,13 @@
+{
+  "name": "anthra-alarm",
+  "version": "1.0.0",
+  "description": "Anthra Alarm Buddy native module (Android + iOS)",
+  "main": "src/index.ts",
+  "private": true,
+  "keywords": ["react-native", "expo", "anthra", "alarm"],
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

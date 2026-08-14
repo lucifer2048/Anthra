@@ -1,7 +1,7 @@
 # Friends & leaderboards
 
 **Code:** `src/features/social/`  
-**Screen:** `FriendsScreen` (`activeModule === "friends"`, optional initial tab `friends | leaderboard`)  
+**Screen:** `FriendsScreen` (`app/friends.tsx`, optional initial tab `friends | leaderboard`)  
 **Provider:** `SocialProvider` (inside `AccountProvider`)
 
 ## Role

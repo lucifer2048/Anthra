@@ -6,7 +6,7 @@ import { createScreenBackgrounds, resolveTheme, themes } from "../design-system"
 import { useAppShell } from "./AppShellContext";
 
 export function BootstrapScreen() {
-  const { bootstrapError, bootstrapAttempt, setBootstrapAttempt, themeMode, systemColorScheme } = useAppShell();
+  const { bootstrapError, setBootstrapAttempt, themeMode, systemColorScheme } = useAppShell();
   const semanticTheme = resolveTheme(themeMode, systemColorScheme);
   const screenBackgrounds = createScreenBackgrounds(semanticTheme.colors);
   const workoutTheme = {

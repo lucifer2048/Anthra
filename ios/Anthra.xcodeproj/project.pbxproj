@@ -8,28 +8,28 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		1FC5D827DBAD64EB3A9C2AEC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 18944A11D95ED5EB9EF5DE9B /* PrivacyInfo.xcprivacy */; };
+		1F85F65DBDCB9B796AF7D732 /* libPods-Anthra.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EFF3ACE97960BB681BB117CE /* libPods-Anthra.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		48FB1686E83CFF8CFD0ED224 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49780AA8E681DFFC523DC249 /* ExpoModulesProvider.swift */; };
-		A0926373A8BC790340B353B5 /* libPods-Anthra.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BE6091A1B2960DCB3CEF95E /* libPods-Anthra.a */; };
+		A3ED84A6E64546915C1225A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6C645004A8BB371591C4CC94 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F316236636BE243C68688FD9 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD93E46E515FD374B4CA9C4B /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* Anthra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anthra.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Anthra/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Anthra/Info.plist; sourceTree = "<group>"; };
-		18944A11D95ED5EB9EF5DE9B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Anthra/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		3BE6091A1B2960DCB3CEF95E /* libPods-Anthra.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Anthra.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		49780AA8E681DFFC523DC249 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Anthra/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		90AE9AA65D30F9E015E382CD /* Pods-Anthra.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Anthra.debug.xcconfig"; path = "Target Support Files/Pods-Anthra/Pods-Anthra.debug.xcconfig"; sourceTree = "<group>"; };
+		4A51E7EFDD4419F214A5E970 /* Pods-Anthra.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Anthra.release.xcconfig"; path = "Target Support Files/Pods-Anthra/Pods-Anthra.release.xcconfig"; sourceTree = "<group>"; };
+		6C645004A8BB371591C4CC94 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Anthra/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7FCA76F93729C634E0952317 /* Pods-Anthra.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Anthra.debug.xcconfig"; path = "Target Support Files/Pods-Anthra/Pods-Anthra.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Anthra/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		CD93E46E515FD374B4CA9C4B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Anthra/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EFF3ACE97960BB681BB117CE /* libPods-Anthra.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Anthra.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Anthra/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Anthra-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Anthra-Bridging-Header.h"; path = "Anthra/Anthra-Bridging-Header.h"; sourceTree = "<group>"; };
-		FE811175E9D1254050C2DB7E /* Pods-Anthra.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Anthra.release.xcconfig"; path = "Target Support Files/Pods-Anthra/Pods-Anthra.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A0926373A8BC790340B353B5 /* libPods-Anthra.a in Frameworks */,
+				1F85F65DBDCB9B796AF7D732 /* libPods-Anthra.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				18944A11D95ED5EB9EF5DE9B /* PrivacyInfo.xcprivacy */,
+				6C645004A8BB371591C4CC94 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Anthra;
 			sourceTree = "<group>";
@@ -62,35 +62,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				3BE6091A1B2960DCB3CEF95E /* libPods-Anthra.a */,
+				EFF3ACE97960BB681BB117CE /* libPods-Anthra.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		451777D1FB370AF92CD2EBEB /* Anthra */ = {
-			isa = PBXGroup;
-			children = (
-				49780AA8E681DFFC523DC249 /* ExpoModulesProvider.swift */,
-			);
-			name = Anthra;
-			sourceTree = "<group>";
-		};
-		4646FCB6FB9C84A2303EAB96 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				451777D1FB370AF92CD2EBEB /* Anthra */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		6A3B93D80B4F69583838B29B /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				90AE9AA65D30F9E015E382CD /* Pods-Anthra.debug.xcconfig */,
-				FE811175E9D1254050C2DB7E /* Pods-Anthra.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -107,8 +81,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				6A3B93D80B4F69583838B29B /* Pods */,
-				4646FCB6FB9C84A2303EAB96 /* ExpoModulesProviders */,
+				A2E7B11248D27E40AC52CF75 /* Pods */,
+				E10EF20E7CC1B822CF5E7E3D /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -123,6 +97,24 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		96F728CA2A4AB473B6E30D64 /* Anthra */ = {
+			isa = PBXGroup;
+			children = (
+				CD93E46E515FD374B4CA9C4B /* ExpoModulesProvider.swift */,
+			);
+			name = Anthra;
+			sourceTree = "<group>";
+		};
+		A2E7B11248D27E40AC52CF75 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				7FCA76F93729C634E0952317 /* Pods-Anthra.debug.xcconfig */,
+				4A51E7EFDD4419F214A5E970 /* Pods-Anthra.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -130,6 +122,14 @@
 			);
 			name = Supporting;
 			path = Anthra/Supporting;
+			sourceTree = "<group>";
+		};
+		E10EF20E7CC1B822CF5E7E3D /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				96F728CA2A4AB473B6E30D64 /* Anthra */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Anthra" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				DF1CDD7731D38E4151A0DE13 /* [Expo] Configure project */,
+				ED830C421C1674C13C7B5203 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				B9C5C94BDA51B6D9863C5677 /* [CP] Embed Pods Frameworks */,
+				D7C6557604739E2228F542D0 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				1FC5D827DBAD64EB3A9C2AEC /* PrivacyInfo.xcprivacy in Resources */,
+				A3ED84A6E64546915C1225A0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,7 +284,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Anthra/Pods-Anthra-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		B9C5C94BDA51B6D9863C5677 /* [CP] Embed Pods Frameworks */ = {
+		D7C6557604739E2228F542D0 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -306,7 +306,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Anthra/Pods-Anthra-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		DF1CDD7731D38E4151A0DE13 /* [Expo] Configure project */ = {
+		ED830C421C1674C13C7B5203 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -338,7 +338,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				48FB1686E83CFF8CFD0ED224 /* ExpoModulesProvider.swift in Sources */,
+				F316236636BE243C68688FD9 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,7 +347,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 90AE9AA65D30F9E015E382CD /* Pods-Anthra.debug.xcconfig */;
+			baseConfigurationReference = 7FCA76F93729C634E0952317 /* Pods-Anthra.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -383,7 +383,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FE811175E9D1254050C2DB7E /* Pods-Anthra.release.xcconfig */;
+			baseConfigurationReference = 4A51E7EFDD4419F214A5E970 /* Pods-Anthra.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

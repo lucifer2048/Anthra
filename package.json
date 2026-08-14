@@ -7,6 +7,9 @@
   },
   "main": "expo-router/entry",
   "scripts": {
+    "prestart": "node scripts/check-node.mjs",
+    "preandroid": "node scripts/check-node.mjs",
+    "preios": "node scripts/check-node.mjs",
     "start": "expo start --lan",
     "start:localhost": "expo start --localhost",
     "start:tunnel": "expo start --tunnel",

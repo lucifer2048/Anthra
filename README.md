@@ -43,9 +43,13 @@ Domain docs for optional cloud: [`doc/account.md`](./doc/account.md), [`doc/soci
 
 ## Run
 
-Use Node 20 LTS or Node 22. The project intentionally rejects Node 23+.
+Use Node 20 LTS or Node 22 (`package.json` `engines`: `>=20 <23`). Metro and Expo require Node 20+ (e.g. `Array.prototype.toReversed`). The project intentionally rejects Node 23+.
+
+From the repo root, activate the version in [`.nvmrc`](./.nvmrc) before installing or starting Metro:
 
 ```bash
+nvm use    # or: fnm use
+node -v    # should print v20.x or v22.x
 npm install
 npm run start
 ```

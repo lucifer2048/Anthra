@@ -85,6 +85,9 @@
         "projectId": "2fae3e07-1038-4e38-8b2c-6d790cd33cc1"
       }
     },
-    "owner": "psy-holdings"
+    "owner": "psy-holdings",
+    "ios": {
+      "bundleIdentifier": "com.anthra.timer"
+    }
   }
 }

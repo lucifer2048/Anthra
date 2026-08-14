@@ -44,7 +44,8 @@
           "cameraPermission": "Allow Anthra to photograph meals for nutrition analysis.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-router"
     ],
     "android": {
       "googleServicesFile": "./google-services.json",

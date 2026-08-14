@@ -32,6 +32,7 @@ import {
   AnimatedPressable,
   Button,
   Card,
+  CardActionFooter,
   ChoiceRow,
   EmptyState,
   IconButton,
@@ -267,15 +268,16 @@ function SourceCard({
         </Text>
       ) : null}
 
-      <Button
-        label={actionLabel}
-        accessibilityHint={actionHint}
-        variant={actionVariant}
-        disabled={actionDisabled}
-        loading={actionLoading}
-        fullWidth
-        onPress={onAction}
-        style={{ marginTop: theme.spacing.lg }}
+      <CardActionFooter
+        insetTop="lg"
+        action={{
+          label: actionLabel,
+          accessibilityHint: actionHint,
+          variant: actionVariant,
+          disabled: actionDisabled,
+          loading: actionLoading,
+          onPress: onAction
+        }}
       />
     </Card>
   );
@@ -1189,13 +1191,14 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             style={{ marginTop: theme.spacing.lg }}
           />
 
-          <Button
-            label="Preview Share Card"
-            icon={Share2}
-            accessibilityHint="Opens a private preview before the system share sheet"
-            fullWidth
-            onPress={openSharePreview}
-            style={{ marginTop: theme.spacing.md }}
+          <CardActionFooter
+            insetTop="lg"
+            action={{
+              label: "Preview Share Card",
+              icon: Share2,
+              accessibilityHint: "Opens a private preview before the system share sheet",
+              onPress: openSharePreview
+            }}
           />
         </Card>
       </ScrollView>

@@ -31,6 +31,7 @@ When building or editing screens **or adding any feature with UI**:
 | `StatusBanner` | Inline alert / feedback |
 | `KeyboardAwareScrollView` | Form scrolling with keyboard |
 | `ProgressBar` | Animated progress track |
+| `CardActionFooter` | Card footer with optional progress + primary action; wrapper-owned spacing (not Button margins) |
 | `ChoiceRow` / `ChoiceChip` | Single-select chip or card row (replaces ad-hoc chips + old `QuickChoiceRow`) |
 | `WeekdayPicker` | Multi-select weekday chips with an optional card treatment (`WEEKDAY_OPTIONS`) |
 | `EmptyState` | Icon + title + body + optional CTA |

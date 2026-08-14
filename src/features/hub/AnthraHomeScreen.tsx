@@ -26,8 +26,7 @@ import {
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import { useAnthraTheme } from "../../design-system";
 import type { ActiveWorkoutSnapshot, DashboardStats } from "../../types";
-import { AnimatedPressable, Button, Card, InteractiveCard, MetricCard } from "../../components/ui";
-import { ProgressBar } from "../../components/ProgressBar";
+import { AnimatedPressable, Button, Card, CardActionFooter, InteractiveCard, MetricCard } from "../../components/ui";
 import { useAccount } from "../account/AccountProvider";
 import { ProfileAvatar } from "../account/ProfileAvatar";
 import { useSocial } from "../social/SocialProvider";
@@ -164,11 +163,6 @@ function Section({ title, actions, startIndex, animateCards }: { title: string; 
       </View>
     </View>
   );
-}
-
-function PrimaryAction({ label, onPress }: { label: string; onPress: () => void }) {
-  const theme = useAnthraTheme();
-  return <Button label={label} icon={ArrowRight} iconPosition="end" onPress={onPress} fullWidth size="large" style={{ marginTop: theme.spacing.xl }} />;
 }
 
 function formatLeaderboardValue(position: HomeLeaderboardPosition): string {
@@ -341,7 +335,14 @@ function FriendsLeaderboardCard({
         })}
       </View>
 
-      <PrimaryAction label="Go to leaderboard" onPress={onPress} />
+      <CardActionFooter
+        action={{
+          label: "Go to leaderboard",
+          onPress,
+          icon: ArrowRight,
+          iconPosition: "end"
+        }}
+      />
     </Card>
   );
 }
@@ -510,15 +511,18 @@ export function AnthraHomeScreen({
             <MetricCard title="Current streak" value={stats.currentStreak} unit={stats.currentStreak === 1 ? "day" : "days"} style={{ flex: shouldStackCompactRows ? undefined : 1 }} />
             <MetricCard title="This week" value={`${stats.weekCompleted}/${stats.weekGoal}`} unit="workouts" style={{ flex: shouldStackCompactRows ? undefined : 1 }} />
           </View>
-          <ProgressBar
-            value={weeklyPercent}
-            max={100}
-            accessibilityLabel="Weekly workout goal progress"
-            style={{ marginTop: theme.spacing.xl }}
-          />
-          <PrimaryAction
-            label={todayWorkoutCount > 0 ? "Choose today’s workout" : "Open Move"}
-            onPress={todayWorkoutCount > 0 ? onChooseTodayWorkout : onOpenWorkout}
+          <CardActionFooter
+            progress={{
+              value: weeklyPercent,
+              max: 100,
+              accessibilityLabel: "Weekly workout goal progress"
+            }}
+            action={{
+              label: todayWorkoutCount > 0 ? "Choose today’s workout" : "Open Move",
+              onPress: todayWorkoutCount > 0 ? onChooseTodayWorkout : onOpenWorkout,
+              icon: ArrowRight,
+              iconPosition: "end"
+            }}
           />
         </Card>
         </Animated.View>

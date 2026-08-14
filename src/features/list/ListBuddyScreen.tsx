@@ -27,6 +27,7 @@ import {
   AnimatedPressable,
   Button,
   Card,
+  CardActionFooter,
   EmptyState,
   InteractiveCard,
   FormDialog,
@@ -628,24 +629,26 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                   onPress={() => openCategoryModal(selectedCategory)}
                 />
               </View>
-              <View style={{ marginTop: spacing.lg }}>
-                <ProgressBar
-                  value={selectedCategory.completedItems}
-                  max={selectedCategory.totalItems}
-                  accessibilityLabel={`${selectedCategory.name} progress`}
-                  accessibilityValueText={`${selectedCategory.completedItems} of ${selectedCategory.totalItems} complete`}
-                  style={{ width: "100%" }}
-                />
-              </View>
-              {selectedCategory.completedItems > 0 && (
-                <Button
-                  label="Clear completed"
-                  variant="outline"
-                  size="small"
-                  onPress={handleClearCompleted}
-                  style={{ marginTop: spacing.lg }}
-                />
-              )}
+              <CardActionFooter
+                insetTop="lg"
+                gap="lg"
+                progress={{
+                  value: selectedCategory.completedItems,
+                  max: selectedCategory.totalItems,
+                  accessibilityLabel: `${selectedCategory.name} progress`,
+                  accessibilityValueText: `${selectedCategory.completedItems} of ${selectedCategory.totalItems} complete`
+                }}
+                action={
+                  selectedCategory.completedItems > 0
+                    ? {
+                        label: "Clear completed",
+                        variant: "outline",
+                        size: "small",
+                        onPress: handleClearCompleted
+                      }
+                    : undefined
+                }
+              />
             </Card>
 
             {recentlyClearedItems.length > 0 && (

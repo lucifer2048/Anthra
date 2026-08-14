@@ -70,12 +70,9 @@ export function EmptyState({
         </Text>
       ) : null}
       {action ? (
-        <Button
-          label={action.label}
-          icon={action.icon}
-          onPress={action.onPress}
-          style={{ marginTop: theme.spacing.xl }}
-        />
+        <View style={{ marginTop: theme.spacing.xl, width: "100%" }}>
+          <Button label={action.label} icon={action.icon} onPress={action.onPress} fullWidth />
+        </View>
       ) : null}
       {children}
     </View>

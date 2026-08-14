@@ -19,7 +19,7 @@ import { TimePickerField } from "../../components/TimePickerField";
 import { AppearanceControl } from "../../components/AppearanceControl";
 import { WorkoutTabBar, type WorkoutTab } from "../../components/WorkoutTabBar";
 import { useScreenBackgrounds } from "../../components/layout";
-import { AnimatedPressable, Button, Card, ChoiceRow, DisclosureCard, EmptyState, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
+import { AnimatedPressable, Button, Card, CardActionFooter, ChoiceRow, DisclosureCard, EmptyState, MetricCard, ScreenShell, SectionHeader, StatusBanner, SwitchRow, TextField, WeekdayPicker } from "../../components/ui";
 import { formatDays, matchesDay } from "../../constants/schedule";
 import { useAnthraTheme } from "../../design-system";
 import type {
@@ -788,13 +788,12 @@ export function WorkoutBuddyScreen({
                   />
                 </Card>
 
-                <Button
-                  label="Save body details"
-                  onPress={onSaveProfile}
-                  loading={profileSaving}
-                  fullWidth
-                  size="large"
-                  style={{ marginTop: theme.spacing.xl }}
+                <CardActionFooter
+                  action={{
+                    label: "Save body details",
+                    onPress: onSaveProfile,
+                    loading: profileSaving
+                  }}
                 />
 
                 {profileNotice && (
@@ -959,13 +958,12 @@ export function WorkoutBuddyScreen({
                   </Text>
                 </Card>
 
-                <Button
-                  label="Save workout settings"
-                  onPress={onSaveSettings}
-                  loading={settingsSaving}
-                  fullWidth
-                  size="large"
-                  style={{ marginTop: theme.spacing.xl }}
+                <CardActionFooter
+                  action={{
+                    label: "Save workout settings",
+                    onPress: onSaveSettings,
+                    loading: settingsSaving
+                  }}
                 />
 
                 {settingsNotice && (

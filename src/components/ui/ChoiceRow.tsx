@@ -1,4 +1,4 @@
-import { Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
 import { AnimatedPressable } from "./AnimatedPressable";
@@ -32,7 +32,8 @@ export function ChoiceChip<T extends string = string>({
   equal = false,
   accessibilityLabelPrefix,
   accessibilityRole = "radio",
-  disabled = false
+  disabled = false,
+  fullWidth = false
 }: {
   option: ChoiceOption<T>;
   selected: boolean;
@@ -43,6 +44,7 @@ export function ChoiceChip<T extends string = string>({
   accessibilityLabelPrefix?: string;
   accessibilityRole?: "radio" | "checkbox" | "button";
   disabled?: boolean;
+  fullWidth?: boolean;
 }) {
   const theme = useAnthraTheme();
   const Icon = option.icon;
@@ -61,30 +63,31 @@ export function ChoiceChip<T extends string = string>({
         accessibilityLabelPrefix ? `${accessibilityLabelPrefix}, ${option.label}` : option.label
       }
       accessibilityState={{ checked: selected, selected, disabled: disabled || option.disabled }}
-      className={`items-center justify-center ${equal ? "flex-1" : ""}`}
       style={({ pressed }) => ({
+        alignItems: "center",
+        justifyContent: "center",
         minHeight,
-        minWidth: equal ? 0 : 58,
+        minWidth: equal || fullWidth ? 0 : 58,
+        width: fullWidth ? "100%" : undefined,
         flexGrow: equal ? 1 : 0,
-        flexShrink: equal ? 1 : 0,
+        flexShrink: equal || fullWidth ? 1 : 0,
         flexBasis: equal ? 0 : "auto",
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.sm,
+        paddingHorizontal: size === "compact" ? theme.spacing.sm : theme.spacing.lg,
+        paddingVertical: size === "compact" ? theme.spacing.xs : theme.spacing.sm,
         gap: theme.spacing.xs,
         flexDirection: Icon ? "row" : "column",
-        borderRadius: theme.radii.md,
-        borderWidth: 1,
+        borderRadius: theme.radii.lg,
+        borderWidth: 1.5,
         borderColor: selected
-          ? theme.colors.brand
+          ? theme.colors.brandBorder
           : theme.colors.borderStrong,
         backgroundColor: selected
           ? theme.colors.brandSoft
           : pressed
             ? theme.colors.surfacePressed
-            : card
-              ? theme.colors.surfaceSubtle
-              : theme.colors.surface,
-        opacity: disabled || option.disabled ? theme.motion.disabledOpacity : 1
+            : theme.colors.surfaceElevated,
+        opacity: disabled || option.disabled ? theme.motion.disabledOpacity : 1,
+        ...(selected ? theme.shadows.low : {})
       })}
     >
       {Icon ? (
@@ -92,6 +95,8 @@ export function ChoiceChip<T extends string = string>({
       ) : null}
       <Text
         numberOfLines={card ? 2 : 1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
         maxFontSizeMultiplier={1.4}
         style={[
           card
@@ -131,6 +136,10 @@ export function ChoiceRow<T extends string = string>({
   style
 }: ChoiceRowProps<T>) {
   const theme = useAnthraTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const shouldStackEqualOptions = layout === "equal"
+    && options.length > 2
+    && (fontScale >= 1.25 || (width < 440 && options.some((option) => option.label.length > 7)));
 
   return (
     <View style={[{ marginTop: label ? theme.spacing.md : 0 }, style]}>
@@ -145,8 +154,11 @@ export function ChoiceRow<T extends string = string>({
         </Text>
       ) : null}
       <View
-        className={layout === "equal" ? "flex-row" : "flex-row flex-wrap"}
-        style={{ gap: theme.spacing.sm }}
+        style={{
+          gap: theme.spacing.sm,
+          flexDirection: shouldStackEqualOptions ? "column" : "row",
+          flexWrap: (!shouldStackEqualOptions && layout !== "equal") ? "wrap" : undefined
+        }}
       >
         {options.map((option) => (
           <ChoiceChip
@@ -156,7 +168,8 @@ export function ChoiceRow<T extends string = string>({
             onPress={() => onChange(option.value)}
             size={size}
             variant={variant}
-            equal={layout === "equal"}
+            equal={layout === "equal" && !shouldStackEqualOptions}
+            fullWidth={shouldStackEqualOptions}
             accessibilityLabelPrefix={label}
             disabled={disabled}
           />

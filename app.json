@@ -3,7 +3,7 @@
     "name": "Anthra",
     "slug": "anthra",
     "scheme": "anthra",
-    "version": "1.0.29",
+    "version": "1.0.37",
     "icon": "./assets/icons/icon-red.png",
     "notification": {
       "icon": "./assets/icons/notification-icon-white.png",
@@ -49,7 +49,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "package": "com.anthra.timer",
-      "versionCode": 29,
+      "versionCode": 37,
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false,
       "blockedPermissions": [

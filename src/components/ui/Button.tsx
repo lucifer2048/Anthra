@@ -32,7 +32,6 @@ export function Button({
   loadingAccessibilityLabel,
   accessibilityLabel,
   accessibilityState,
-  className,
   style,
   onPressIn,
   onPressOut,
@@ -43,48 +42,46 @@ export function Button({
   const isDisabled = disabled || loading;
   const isVisuallyDisabled = disabled && !loading;
 
-  const variants = {
-    primary: {
-      background: theme.colors.brandSolid,
-      pressed: theme.colors.brandSolidPressed,
-      border: theme.colors.brandSolid,
-      foreground: theme.colors.textOnBrandSolid
-    },
-    secondary: {
-      background: theme.colors.brandSoft,
-      pressed: theme.colors.surfacePressed,
-      border: theme.colors.brandBorder,
-      foreground: theme.colors.brand
-    },
-    outline: {
-      background: theme.colors.surface,
-      pressed: theme.colors.surfacePressed,
-      border: theme.colors.borderStrong,
-      foreground: theme.colors.textPrimary
-    },
-    ghost: {
-      background: "transparent",
-      pressed: theme.colors.brandSoft,
-      border: "transparent",
-      foreground: theme.colors.brand
-    },
-    danger: {
-      background: theme.colors.dangerSolid,
-      pressed: theme.colors.dangerSolidPressed,
-      border: theme.colors.dangerSolid,
-      foreground: theme.colors.textOnDangerSolid
-    }
-  } as const;
+  const bgColors = {
+    primary: theme.colors.brandSolid,
+    secondary: theme.colors.surfaceSubtle,
+    outline: "transparent",
+    ghost: "transparent",
+    danger: theme.colors.dangerSolid
+  };
+
+  const pressedBgColors = {
+    primary: theme.colors.brandSolidPressed,
+    secondary: theme.colors.surfacePressed,
+    outline: theme.colors.surfacePressed,
+    ghost: theme.colors.brandSoft,
+    danger: theme.colors.dangerSolidPressed
+  };
+
+  const borderColors = {
+    primary: theme.isDark ? "#FA2C49" : "#B80A22",
+    secondary: theme.colors.brandBorder,
+    outline: theme.colors.borderStrong,
+    ghost: theme.colors.border,
+    danger: theme.colors.dangerSolid
+  };
+
+  const fgColors = {
+    primary: "#FFFFFF",
+    secondary: theme.colors.brand,
+    outline: theme.colors.textPrimary,
+    ghost: theme.colors.brand,
+    danger: theme.colors.textOnDangerSolid
+  };
 
   const sizes = {
-    small: { minHeight: theme.sizes.control.compact, paddingHorizontal: theme.spacing.md, iconSize: theme.sizes.icon.sm },
-    medium: { minHeight: theme.sizes.control.regular, paddingHorizontal: theme.spacing.lg, iconSize: theme.sizes.icon.md },
-    large: { minHeight: theme.sizes.control.large, paddingHorizontal: theme.spacing.xl, iconSize: theme.sizes.icon.lg }
-  } as const;
+    small: { minHeight: 40, paddingHorizontal: theme.spacing.md, iconSize: theme.sizes.icon.sm, fontSize: 13 },
+    medium: { minHeight: theme.sizes.control.regular, paddingHorizontal: theme.spacing.lg, iconSize: theme.sizes.icon.md, fontSize: 15 },
+    large: { minHeight: 52, paddingHorizontal: theme.spacing.xl, iconSize: theme.sizes.icon.lg, fontSize: 16 }
+  };
 
-  const palette = variants[variant];
   const metrics = sizes[size];
-  const contentColor = isVisuallyDisabled ? theme.colors.disabledText : palette.foreground;
+  const contentColor = isVisuallyDisabled ? theme.colors.disabledText : fgColors[variant];
 
   return (
     <AnimatedPressable
@@ -101,44 +98,57 @@ export function Button({
       onPressOut={onPressOut}
       haptic={loading || disabled ? "none" : haptic}
       android_ripple={android_ripple === undefined && Platform.OS === "android"
-        ? { color: variant === "primary" || variant === "danger" ? "rgba(255,255,255,0.18)" : theme.colors.surfacePressed }
+        ? { color: variant === "primary" || variant === "danger" ? "rgba(255,255,255,0.25)" : theme.colors.surfacePressed }
         : android_ripple}
-      className={`flex-row items-center justify-center ${fullWidth ? "w-full" : ""} ${className ?? ""}`}
-      style={({ pressed }) => [
-        {
-          minHeight: metrics.minHeight,
-          paddingHorizontal: metrics.paddingHorizontal,
-          paddingVertical: theme.spacing.sm,
-          gap: theme.spacing.sm,
-          borderRadius: size === "small" ? theme.radii.md : theme.radii.lg,
-          borderWidth: variant === "ghost" ? 0 : 1,
-          borderColor: isVisuallyDisabled ? theme.colors.border : palette.border,
-          backgroundColor: isVisuallyDisabled
-            ? theme.colors.disabledSurface
-            : pressed
-              ? palette.pressed
-              : palette.background,
-          opacity: isVisuallyDisabled ? theme.motion.disabledOpacity : 1,
-          alignSelf: fullWidth ? "stretch" : "flex-start"
-        },
-        typeof style === "function" ? style({ pressed }) : style
-      ]}
+      style={({ pressed }) => {
+        const userStyle = typeof style === "function" ? style({ pressed }) : style;
+        const flatUser = Array.isArray(userStyle) ? userStyle : [userStyle];
+        const isFlatVariant = variant === "outline" || variant === "ghost";
+        return [
+          {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            width: fullWidth ? "100%" : undefined,
+            alignSelf: fullWidth ? "stretch" : "flex-start",
+            minHeight: metrics.minHeight,
+            paddingHorizontal: metrics.paddingHorizontal,
+            paddingVertical: theme.spacing.xs + 4,
+            gap: theme.spacing.sm,
+            borderRadius: variant === "ghost" ? theme.radii.full : size === "small" ? theme.radii.md : 16,
+            borderWidth: 1.5,
+            borderColor: isVisuallyDisabled ? theme.colors.border : borderColors[variant],
+            backgroundColor: isVisuallyDisabled
+              ? theme.colors.disabledSurface
+              : pressed
+                ? pressedBgColors[variant]
+                : bgColors[variant],
+            opacity: isVisuallyDisabled ? 0.6 : 1,
+            shadowColor: variant === "primary" ? (theme.isDark ? "#E61937" : "#C40E28") : (theme.isDark ? "#000000" : "#3B141B"),
+            shadowOffset: { width: 0, height: variant === "primary" ? 3 : 2 },
+            shadowOpacity: isVisuallyDisabled || isFlatVariant ? 0 : variant === "primary" ? (theme.isDark ? 0.35 : 0.20) : 0.1,
+            shadowRadius: variant === "primary" ? 10 : 4,
+            elevation: isVisuallyDisabled || isFlatVariant ? 0 : variant === "primary" ? 4 : 2
+          },
+          ...flatUser
+        ];
+      }}
     >
       {(loading || (Icon && iconPosition === "start")) ? (
         <View style={{ width: metrics.iconSize, height: metrics.iconSize, alignItems: "center", justifyContent: "center" }}>
-          {loading ? <ActivityIndicator color={palette.foreground} size="small" /> : Icon ? <Icon accessible={false} color={contentColor} size={metrics.iconSize} /> : null}
+          {loading ? <ActivityIndicator color={contentColor} size="small" /> : Icon ? <Icon accessible={false} color={contentColor} size={metrics.iconSize} /> : null}
         </View>
       ) : null}
       <Text
         numberOfLines={1}
         maxFontSizeMultiplier={1.4}
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
         style={[
           theme.typography.labelLarge,
           {
             color: contentColor,
-            flexShrink: 1,
+            fontSize: metrics.fontSize,
+            fontWeight: "700",
+            letterSpacing: 0.3,
             textAlign: "center"
           }
         ]}
@@ -146,7 +156,21 @@ export function Button({
         {label}
       </Text>
       {!loading && Icon && iconPosition === "end" && (
-        <Icon accessible={false} color={contentColor} size={metrics.iconSize} />
+        <View
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 13,
+            backgroundColor: variant === "primary" || variant === "danger"
+              ? "rgba(255, 255, 255, 0.25)"
+              : theme.colors.brandSoft,
+            alignItems: "center",
+            justifyContent: "center",
+            marginLeft: 4
+          }}
+        >
+          <Icon accessible={false} color={contentColor} size={15} strokeWidth={2.5} />
+        </View>
       )}
     </AnimatedPressable>
   );

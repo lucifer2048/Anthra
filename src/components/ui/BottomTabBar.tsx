@@ -38,12 +38,13 @@ export function BottomTabBar<T extends string = string>({
         paddingTop: theme.spacing.sm,
         borderTopWidth: 1,
         borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surface
+        backgroundColor: theme.colors.surfaceElevated,
+        ...theme.shadows.medium
       }}
     >
       <View
-        className="flex-row"
         style={{
+          flexDirection: "row",
           width: "100%",
           maxWidth: theme.layout.contentMaxWidth,
           alignSelf: "center",
@@ -63,17 +64,28 @@ export function BottomTabBar<T extends string = string>({
               accessibilityLabel={`${label} tab`}
               accessibilityState={{ selected: active }}
               accessibilityHint={`${accessibilityHintPrefix} ${label.toLowerCase()}`}
-              className="flex-1 items-center justify-center"
               style={({ pressed }) => ({
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
                 minHeight: compact ? 50 : 58,
                 paddingVertical: theme.spacing.xs,
-                borderRadius: theme.radii.md,
+                borderRadius: theme.radii.xl,
+                borderWidth: 1,
+                borderColor: active
+                  ? theme.isDark
+                    ? theme.colors.brandBorder
+                    : "rgba(0,0,0,0.08)"
+                  : "transparent",
                 backgroundColor: active
-                  ? theme.colors.brandSoft
+                  ? theme.isDark
+                    ? theme.colors.brandSoft
+                    : theme.colors.surface
                   : pressed
                     ? theme.colors.surfacePressed
                     : "transparent",
-                opacity: pressed ? 0.82 : 1
+                opacity: pressed ? 0.82 : 1,
+                ...(active && !theme.isDark ? { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 } : {})
               })}
             >
               <Icon accessible={false} size={20} color={color} strokeWidth={active ? 2.5 : 2} />
@@ -83,7 +95,7 @@ export function BottomTabBar<T extends string = string>({
                   adjustsFontSizeToFit
                   minimumFontScale={0.78}
                   maxFontSizeMultiplier={1.2}
-                  style={[theme.typography.caption, { color, fontWeight: active ? "600" : "400", marginTop: 3 }]}
+                  style={[theme.typography.caption, { color, fontWeight: active ? "700" : "600", marginTop: 3, letterSpacing: 0.1 }]}
                 >
                   {label}
                 </Text>

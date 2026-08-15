@@ -21,7 +21,6 @@ export type TextFieldProps = Omit<TextInputProps, "editable"> & {
   leadingIcon?: LucideIcon;
   trailing?: ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
-  containerClassName?: string;
   reserveMessageSpace?: boolean;
   showCharacterCount?: boolean;
 };
@@ -36,12 +35,10 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
     leadingIcon: LeadingIcon,
     trailing,
     containerStyle,
-    containerClassName,
     reserveMessageSpace = false,
     showCharacterCount = false,
     accessibilityLabel,
     accessibilityState,
-    className,
     multiline = false,
     onFocus,
     onBlur,
@@ -59,28 +56,30 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   const borderColor = error
     ? theme.colors.danger
     : focused
-      ? theme.colors.focusRing
+      ? theme.colors.brand
       : theme.colors.borderStrong;
 
   return (
-    <View className={containerClassName} style={containerStyle}>
-      <Text style={[theme.typography.label, { color: error ? theme.colors.danger : theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>
+    <View style={containerStyle}>
+      <Text style={[theme.typography.label, { color: error ? theme.colors.danger : theme.colors.textPrimary, fontWeight: "700", marginBottom: theme.spacing.sm, letterSpacing: 0.2 }]}>
         {label}
         {required ? <Text style={{ color: theme.colors.danger }}> *</Text> : null}
       </Text>
 
       <View
-        className="w-full flex-row items-center"
         style={{
+          width: "100%",
+          flexDirection: "row",
           minHeight: multiline ? theme.layout.multilineFieldHeight : theme.sizes.control.large,
           alignItems: multiline ? "flex-start" : "center",
           gap: theme.spacing.sm,
           paddingHorizontal: theme.spacing.lg,
           paddingVertical: multiline ? theme.spacing.md : theme.spacing.sm,
-          borderRadius: theme.radii.lg,
-          borderWidth: theme.borderWidths.standard,
+          borderRadius: theme.radii.xl,
+          borderWidth: 1.5,
           borderColor,
-          backgroundColor: disabled ? theme.colors.disabledSurface : theme.colors.surfaceSubtle
+          backgroundColor: disabled ? theme.colors.disabledSurface : theme.colors.surfaceSubtle,
+          ...theme.shadows.low
         }}
       >
         {LeadingIcon && (
@@ -97,7 +96,6 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           multiline={multiline}
           accessibilityLabel={accessibilityLabel ?? `${label}${required ? ", required" : ""}`}
           accessibilityState={{ ...accessibilityState, disabled }}
-          className={`min-w-0 flex-1 ${className ?? ""}`}
           placeholderTextColor={placeholderTextColor ?? theme.colors.textTertiary}
           selectionColor={selectionColor ?? theme.colors.brand}
           onFocus={(event) => {
@@ -112,6 +110,8 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           style={[
             theme.typography.bodyLarge,
             {
+              minWidth: 0,
+              flex: 1,
               color: disabled ? theme.colors.disabledText : theme.colors.textPrimary,
               padding: 0,
               textAlignVertical: multiline ? "top" : "center"

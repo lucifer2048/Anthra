@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Image,
   RefreshControl,
-  ScrollView,
   Text,
   useWindowDimensions,
   View
@@ -28,11 +27,12 @@ import {
 
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import {
-  AnimatedPressable,
+  BottomTabBar,
   Button,
   Card,
   EmptyState,
-  PersonRow,
+  IconButton,
+  KeyboardAwareScrollView,
   ScreenHeader,
   SegmentedControl,
   SkeletonRow,
@@ -134,6 +134,35 @@ function PersonIdentity({ person }: { person: SocialPerson }) {
   );
 }
 
+/** A friend card that deliberately stacks its action below the identity on phones. */
+function SocialPersonCard({ person, action }: { person: SocialPerson; action?: ReactNode }) {
+  const theme = useAnthraTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const stackAction = width < 430 || fontScale >= 1.2;
+
+  return (
+    <Card padding="medium" radius="xlarge" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceElevated }}>
+      <View
+        style={{
+          flexDirection: stackAction ? "column" : "row",
+          alignItems: stackAction ? "stretch" : "center",
+          gap: theme.spacing.md
+        }}
+      >
+        <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+          <PersonAvatar person={person} />
+          <PersonIdentity person={person} />
+        </View>
+        {action ? (
+          <View style={{ alignSelf: stackAction ? "stretch" : "center", flexShrink: 0 }}>
+            {action}
+          </View>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
 export function FriendsScreen({
   onBack,
   onOpenAccount,
@@ -151,6 +180,10 @@ export function FriendsScreen({
   const compact = width < 360 || fontScale >= 1.25;
   const [tab, setTab] = useState<SocialTab>(initialTab);
   const [privacy, setPrivacy] = useState<SocialPrivacy>(PRIVATE_DEFAULTS);
+  const privacyRef = useRef<SocialPrivacy>(PRIVATE_DEFAULTS);
+  const privacyDirtyRef = useRef(false);
+  const [privacyDirty, setPrivacyDirty] = useState(false);
+  const [privacySaveFailed, setPrivacySaveFailed] = useState(false);
   const [metric, setMetric] = useState<LeaderboardMetric>("steps");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SocialPerson[]>([]);
@@ -165,18 +198,24 @@ export function FriendsScreen({
     try {
       setNotice(null);
       const next = await social.refresh({ force: showSpinner });
-      if (next) setPrivacy(next.privacy);
+      // Never replace a setting the user has just changed locally with a
+      // slower snapshot response.
+      if (next && !privacyDirtyRef.current) setPrivacy(next.privacy);
     } catch (error) {
       setNotice({ type: "error", message: messageOf(error) });
     }
   }, [social.refresh]);
 
   useEffect(() => {
+    privacyRef.current = privacy;
+  }, [privacy]);
+
+  useEffect(() => {
     refresh().catch(() => undefined);
   }, [refresh]);
 
   useEffect(() => {
-    if (social.snapshot) setPrivacy(social.snapshot.privacy);
+    if (social.snapshot && !privacyDirtyRef.current) setPrivacy(social.snapshot.privacy);
   }, [social.snapshot?.fetchedAt]);
 
   const run = async (id: string, task: () => Promise<void>, successMessage?: string) => {
@@ -195,6 +234,52 @@ export function FriendsScreen({
       setBusyId(null);
     }
   };
+
+  const persistPrivacy = useCallback(async (target: SocialPrivacy, announceSuccess = false) => {
+    if (!supabase || !account.user) return;
+    setBusyId("privacy");
+    setNotice(null);
+    setPrivacySaveFailed(false);
+    try {
+      if (target.receiveActivityNotifications) {
+        const registered = await registerFriendActivityPushToken(supabase!, true);
+        if (!registered) throw new Error("Allow notifications to receive friend activity alerts.");
+      }
+      await saveSocialPrivacy(supabase!, account.user.id, target);
+      await publishTodaySocialStats(supabase!);
+      if (privacyRef.current === target) {
+        privacyDirtyRef.current = false;
+        setPrivacyDirty(false);
+        await refresh(true);
+        if (announceSuccess) setNotice({ type: "success", message: "Sharing choices saved." });
+      }
+    } catch (error) {
+      setPrivacySaveFailed(true);
+      setNotice({ type: "error", message: messageOf(error) });
+    } finally {
+      setBusyId(null);
+    }
+  }, [account.user, refresh]);
+
+  const updatePrivacy = useCallback((updater: (current: SocialPrivacy) => SocialPrivacy) => {
+    const next = updater(privacyRef.current);
+    privacyRef.current = next;
+    privacyDirtyRef.current = true;
+    setPrivacy(next);
+    setPrivacyDirty(true);
+    setPrivacySaveFailed(false);
+  }, []);
+
+  // Sharing controls are settings, not a temporary form. Persist them shortly
+  // after each interaction so an app update or accidental navigation cannot
+  // silently discard a choice before the user reaches the old footer action.
+  useEffect(() => {
+    if (!privacyDirty || privacySaveFailed || busyId === "privacy") return undefined;
+    const timer = setTimeout(() => {
+      persistPrivacy(privacyRef.current).catch(() => undefined);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [busyId, persistPrivacy, privacy, privacyDirty, privacySaveFailed]);
 
   const search = async () => {
     if (!supabase || !account.user || query.trim().length < 2) return;
@@ -273,9 +358,7 @@ export function FriendsScreen({
   };
 
   const personRow = (person: SocialPerson, action: ReactNode) => (
-    <Card key={person.userId} padding="small" radius="large">
-      <PersonRow name={person.displayName} subtitle={`@${person.handle}`} avatar={person.avatarUrl ? { uri: person.avatarUrl } : undefined} trailing={action} />
-    </Card>
+    <SocialPersonCard key={person.userId} person={person} action={action} />
   );
 
   if (!account.user) {
@@ -297,36 +380,47 @@ export function FriendsScreen({
   return (
     <ScreenLayout {...backgrounds.brandWash} safeAreaEdges={["top", "left", "right"]}>
       <View style={{ flex: 1 }}>
-        <ScrollView
+        <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.divider, paddingHorizontal: theme.layout.screenPadding }}>
+          <ScreenHeader
+            eyebrow="ANTHRA SOCIAL"
+            title={
+              tab === "friends" ? "Friends" :
+              tab === "requests" ? "Requests" :
+              tab === "leaderboard" ? "Leaderboard" : "Sharing"
+            }
+            subtitle={
+              tab === "friends" ? "Connect privately and share only the progress you choose." :
+              tab === "requests" ? "Manage incoming and outgoing requests." :
+              tab === "leaderboard" ? "Private standings updated from opted-in friends." :
+              "Choose what milestones and rankings you share."
+            }
+            onBack={onBack}
+            action={
+              <IconButton
+                icon={RefreshCw}
+                accessibilityLabel="Refresh friends"
+                onPress={() => refresh(true)}
+                variant="outline"
+                haptic="selection"
+              />
+            }
+            style={{ width: "100%", maxWidth: theme.layout.contentMaxWidth, alignSelf: "center" }}
+          />
+        </View>
+
+        <KeyboardAwareScrollView
           keyboardShouldPersistTaps="handled"
+          extraKeyboardSpace={theme.spacing["3xl"]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => refresh(true)} />}
           contentContainerStyle={{
             width: "100%",
             maxWidth: theme.layout.contentMaxWidth,
             alignSelf: "center",
             paddingHorizontal: theme.layout.screenPadding,
-            paddingBottom: theme.spacing["3xl"]
+            paddingTop: theme.spacing.lg,
+            paddingBottom: theme.spacing["4xl"]
           }}
         >
-          <ScreenHeader
-            eyebrow="ANTHRA SOCIAL"
-            title="Friends"
-            subtitle="Connect privately and share only the progress you choose."
-            onBack={onBack}
-            action={
-              <AnimatedPressable
-                accessibilityRole="button"
-                accessibilityLabel="Refresh friends"
-                onPress={() => refresh(true)}
-                style={{ padding: theme.spacing.sm }}
-              >
-                <RefreshCw accessible={false} color={theme.colors.brand} size={21} />
-              </AnimatedPressable>
-            }
-          />
-
-          <SegmentedControl options={tabs.map(({ id, label, icon, badge }) => ({ value: id, label: badge ? `${label} (${badge})` : label, icon }))} value={tab} onChange={setTab} style={{ marginBottom: theme.spacing.xl }} />
-
           {notice && (
             <StatusBanner
               variant={notice.type === "success" ? "success" : "danger"}
@@ -340,6 +434,50 @@ export function FriendsScreen({
             <Card><View style={{ gap: theme.spacing.lg }}><SkeletonRow /><SkeletonRow /><SkeletonRow /></View></Card>
           ) : tab === "friends" ? (
             <FriendsListView>
+              <Card variant="brand" padding="large" radius="xlarge" style={{ borderColor: theme.colors.brandBorder }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      flexShrink: 0,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: theme.radii.lg,
+                      borderWidth: 1,
+                      borderColor: theme.colors.brandBorder,
+                      backgroundColor: theme.colors.surfaceElevated
+                    }}
+                  >
+                    <UsersRound accessible={false} color={theme.colors.brand} size={23} strokeWidth={2.2} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>Your circle</Text>
+                    <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>A private space for the people you choose to add.</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: "row", marginTop: theme.spacing.xl }}>
+                  {[
+                    { label: "Friends", value: overview.friends.length },
+                    { label: "Requests", value: overview.incoming.length }
+                  ].map((stat, index) => (
+                    <View
+                      key={stat.label}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        paddingHorizontal: theme.spacing.md,
+                        borderLeftWidth: index === 0 ? 0 : theme.borderWidths.standard,
+                        borderLeftColor: theme.colors.brandBorder
+                      }}
+                    >
+                      <Text style={[theme.typography.metric, { color: theme.colors.brand, fontSize: 28, lineHeight: 34 }]}>{stat.value}</Text>
+                      <Text numberOfLines={1} style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xxs }]}>{stat.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+
               <Card padding="large">
                 <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Find people</Text>
                 <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Search using a name or Anthra username. Email addresses are never exposed.</Text>
@@ -357,15 +495,28 @@ export function FriendsScreen({
                   onSubmitEditing={() => search()}
                   placeholder="Search @username"
                   containerStyle={{ marginTop: theme.spacing.lg }}
-                />
-                <Button
-                  label="Search"
-                  icon={Search}
-                  fullWidth
-                  loading={busyId === "search"}
-                  disabled={query.trim().length < 2}
-                  onPress={search}
-                  style={{ marginTop: theme.spacing.md }}
+                  trailing={
+                    query.trim().length >= 2 ? (
+                      <Button
+                        label="Search"
+                        size="small"
+                        variant="primary"
+                        loading={busyId === "search"}
+                        onPress={search}
+                      />
+                    ) : query.length > 0 ? (
+                      <IconButton
+                        icon={X}
+                        size="small"
+                        accessibilityLabel="Clear search"
+                        onPress={() => {
+                          setQuery("");
+                          setResults([]);
+                        }}
+                        variant="ghost"
+                      />
+                    ) : null
+                  }
                 />
               </Card>
 
@@ -461,13 +612,13 @@ export function FriendsScreen({
                     <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
                       Friends Leaderboard
                     </Text>
-                    <Text
+                    {/* <Text
                       numberOfLines={1}
                       maxFontSizeMultiplier={1.25}
                       style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: 1 }]}
                     >
                       Private standings updated today from opted-in friends
-                    </Text>
+                    </Text> */}
                   </View>
                   <View
                     style={{
@@ -657,7 +808,7 @@ export function FriendsScreen({
                     label="Share milestones"
                     description="Workout starts and verified step-goal wins."
                     value={privacy.shareActivityNotifications}
-                    onValueChange={(value) => setPrivacy((current) => ({ ...current, shareActivityNotifications: value }))}
+                    onValueChange={(value) => updatePrivacy((current) => ({ ...current, shareActivityNotifications: value }))}
                   />
                   <View style={{ height: 1, backgroundColor: theme.colors.divider }} />
                   <SwitchRow
@@ -665,7 +816,7 @@ export function FriendsScreen({
                     label="Friend alerts"
                     description="Milestones your friends choose to share."
                     value={privacy.receiveActivityNotifications}
-                    onValueChange={(value) => setPrivacy((current) => ({ ...current, receiveActivityNotifications: value }))}
+                    onValueChange={(value) => updatePrivacy((current) => ({ ...current, receiveActivityNotifications: value }))}
                   />
                 </View>
               </Card>
@@ -721,7 +872,7 @@ export function FriendsScreen({
                       ? "On — choose visible metrics below."
                       : "Off — none of your progress is ranked."}
                     value={privacy.appearInLeaderboards}
-                    onValueChange={(value) => setPrivacy((current) => ({ ...current, appearInLeaderboards: value }))}
+                    onValueChange={(value) => updatePrivacy((current) => ({ ...current, appearInLeaderboards: value }))}
                   />
 
                   {privacy.appearInLeaderboards && (
@@ -732,7 +883,7 @@ export function FriendsScreen({
                         label="Verified steps"
                         description="Sensor-recorded steps only. Manual entries stay private."
                         value={privacy.shareSteps}
-                        onValueChange={(value) => setPrivacy((current) => ({ ...current, shareSteps: value }))}
+                        onValueChange={(value) => updatePrivacy((current) => ({ ...current, shareSteps: value }))}
                       />
                       <View style={{ height: 1, backgroundColor: theme.colors.divider }} />
                       <SwitchRow
@@ -740,7 +891,7 @@ export function FriendsScreen({
                         label="Daily workouts"
                         description="Completed Anthra workouts from today."
                         value={privacy.shareWorkoutCount}
-                        onValueChange={(value) => setPrivacy((current) => ({ ...current, shareWorkoutCount: value }))}
+                        onValueChange={(value) => updatePrivacy((current) => ({ ...current, shareWorkoutCount: value }))}
                       />
                       <View style={{ height: 1, backgroundColor: theme.colors.divider }} />
                       <SwitchRow
@@ -748,7 +899,7 @@ export function FriendsScreen({
                         label="Workout streak"
                         description="Your current completed-workout streak."
                         value={privacy.shareWorkoutStreak}
-                        onValueChange={(value) => setPrivacy((current) => ({ ...current, shareWorkoutStreak: value }))}
+                        onValueChange={(value) => updatePrivacy((current) => ({ ...current, shareWorkoutStreak: value }))}
                       />
                     </View>
                   )}
@@ -757,25 +908,32 @@ export function FriendsScreen({
 
               {/* Permission Save Action Card */}
               <Card padding="medium" radius="xlarge" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceElevated }}>
+                <Text style={[theme.typography.caption, { color: privacySaveFailed ? theme.colors.danger : theme.colors.textSecondary, marginBottom: theme.spacing.sm, textAlign: "center" }]}>
+                  {privacySaveFailed
+                    ? "Could not save automatically. Try again when you are connected."
+                    : busyId === "privacy"
+                      ? "Saving your sharing choices…"
+                      : "Sharing choices save automatically."}
+                </Text>
                 <Button
-                  label="Save sharing choices"
+                  label={privacySaveFailed ? "Retry saving choices" : "Save now"}
                   icon={ShieldCheck}
                   size="large"
                   fullWidth
                   loading={busyId === "privacy"}
-                  onPress={() => run("privacy", async () => {
-                    if (privacy.receiveActivityNotifications) {
-                      const registered = await registerFriendActivityPushToken(supabase!, true);
-                      if (!registered) throw new Error("Allow notifications to receive friend activity alerts.");
-                    }
-                    await saveSocialPrivacy(supabase!, account.user!.id, privacy);
-                    await publishTodaySocialStats(supabase!);
-                  }, "Sharing choices saved.")}
+                  onPress={() => persistPrivacy(privacyRef.current, true)}
                 />
               </Card>
             </SocialPrivacyView>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
+        <BottomTabBar
+          tabs={tabs}
+          activeTab={tab}
+          onChange={setTab}
+          safeArea
+          accessibilityHintPrefix="Opens social"
+        />
       </View>
     </ScreenLayout>
   );

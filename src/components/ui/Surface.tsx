@@ -19,7 +19,6 @@ export function Surface({
   radius = "none",
   bordered = false,
   elevation,
-  className,
   style,
   ...props
 }: SurfaceProps) {
@@ -48,20 +47,21 @@ export function Surface({
   return (
     <View
       {...props}
-      className={className}
       style={[
         {
           padding: paddings[padding],
           borderRadius: radiuses[radius],
-          borderWidth: bordered ? theme.borderWidths.standard : 0,
+          borderWidth: bordered ? 1.5 : 0,
           borderColor: variant === "brand"
             ? theme.colors.brandBorder
             : variant === "danger"
               ? theme.colors.danger
-              : theme.colors.border,
+              : variant === "subtle"
+                ? theme.colors.border
+                : theme.colors.borderStrong,
           backgroundColor: backgrounds[variant]
         },
-        theme.shadows[elevation ?? (variant === "elevated" ? "medium" : "none")],
+        theme.shadows[elevation ?? (variant === "elevated" || variant === "default" ? "medium" : "none")],
         style
       ]}
     />
@@ -76,7 +76,9 @@ export function Card({
   padding = "medium",
   radius = "xlarge",
   bordered = true,
+  variant = "elevated",
+  elevation = "medium",
   ...props
 }: CardProps) {
-  return <Surface {...props} padding={padding} radius={radius} bordered={bordered} />;
+  return <Surface {...props} variant={variant} elevation={elevation} padding={padding} radius={radius} bordered={bordered} />;
 }

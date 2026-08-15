@@ -18,9 +18,8 @@ import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Clipboard from "expo-clipboard";
-import Reanimated, { FadeIn, useReducedMotion } from "react-native-reanimated";
+import Reanimated, { FadeIn, FadeInLeft, FadeInRight, useReducedMotion } from "react-native-reanimated";
 
-import "./global.css";
 import "./src/utils/reminderNotificationTask";
 import { TimerScreen } from "./src/components/TimerScreen";
 import { AlarmBuddyScreen } from "./src/components/AlarmBuddyScreen";
@@ -147,7 +146,8 @@ const INITIAL_SETTINGS: UserSettings = {
   timezone: getDeviceTimeZone()
 };
 
-const SCREEN_ENTERING = FadeIn.duration(160);
+const SCREEN_FORWARD_ENTERING = FadeInRight.duration(220);
+const SCREEN_BACKWARD_ENTERING = FadeInLeft.duration(220);
 
 
 function resolveModuleTheme(isDarkMode: boolean): ModuleTheme {
@@ -213,8 +213,14 @@ export default function App() {
   const [workoutCompletionTransition, setWorkoutCompletionTransition] = useState(false);
   const [showSplashOverlay, setShowSplashOverlay] = useState(true);
   const [activeModule, setActiveModule] = useState<AppModule>("hub");
+  const [navDirection, setNavDirection] = useState<"forward" | "backward">("forward");
   const [enabledReminderCount, setEnabledReminderCount] = useState(0);
   const [reminderInitialTab, setReminderInitialTab] = useState<ReminderTab | undefined>(undefined);
+
+  const openModule = useCallback((module: AppModule) => {
+    setNavDirection(module === "hub" ? "backward" : "forward");
+    setActiveModule(module);
+  }, []);
   const completionLoggedRef = useRef(false);
   const lastBackPressRef = useRef(0);
   const notificationSyncInProgressRef = useRef(false);
@@ -816,6 +822,7 @@ export default function App() {
     setActiveSessionId(recoverableWorkout.sessionId);
     setActivePlan(recoverableWorkout.plan);
     setRecoverableWorkout(null);
+    setNavDirection("forward");
     setActiveModule("workout");
   }, [recoverableWorkout]);
 
@@ -847,7 +854,7 @@ export default function App() {
       Alert.alert(
         "Workout waiting to resume",
         `Resume or end “${recoverableWorkout.plan.name}” from the Anthra hub before starting another workout.`,
-        [{ text: "Go to Hub", onPress: () => setActiveModule("hub") }]
+        [{ text: "Go to Hub", onPress: () => openModule("hub") }]
       );
       return;
     }
@@ -873,6 +880,7 @@ export default function App() {
       completionLoggedRef.current = false;
       setActiveTimerInitialState(null);
       setActiveSessionId(sessionId);
+      setNavDirection("forward");
       setActivePlan(plan);
       if (supabase) {
         publishFriendActivityEvent(supabase, "workout_started").catch(() => undefined);
@@ -1227,6 +1235,7 @@ export default function App() {
     } finally {
       try {
         await clearWorkoutRecovery();
+        setNavDirection("backward");
         setActivePlan(null);
         setActiveSessionId(null);
         setActiveTimerInitialState(null);
@@ -1270,7 +1279,7 @@ export default function App() {
         return true;
       }
       if (activeModule !== "hub") {
-        setActiveModule("hub");
+        openModule("hub");
         return true;
       }
 
@@ -1368,36 +1377,36 @@ export default function App() {
         enabledReminderCount={enabledReminderCount}
         recoverableWorkout={recoverableWorkout}
         onOpenWorkout={() => {
-          setActiveModule("workout");
+          openModule("workout");
           setPlanListMode("all");
           setActiveTab("home");
         }}
         onChooseTodayWorkout={() => {
-          setActiveModule("workout");
+          openModule("workout");
           setPlanListMode("today");
           setActiveTab("plans");
         }}
-        onOpenActivity={() => setActiveModule("activity")}
-        onOpenNutrition={() => setActiveModule("nutrition")}
-        onOpenReminders={() => setActiveModule("reminder")}
-        onOpenTracker={() => setActiveModule("tracker")}
-        onOpenLists={() => setActiveModule("list")}
-        onOpenAlarms={() => setActiveModule("alarm")}
-        onOpenVault={() => setActiveModule("password")}
+        onOpenActivity={() => openModule("activity")}
+        onOpenNutrition={() => openModule("nutrition")}
+        onOpenReminders={() => openModule("reminder")}
+        onOpenTracker={() => openModule("tracker")}
+        onOpenLists={() => openModule("list")}
+        onOpenAlarms={() => openModule("alarm")}
+        onOpenVault={() => openModule("password")}
         onOpenProfile={() => {
-          setActiveModule("profile");
+          openModule("profile");
         }}
         onOpenSettings={() => {
-          setActiveModule("settings");
+          openModule("settings");
         }}
-        onOpenAccount={() => setActiveModule("account")}
+        onOpenAccount={() => openModule("account")}
         onOpenFriends={() => {
           setFriendsInitialTab("friends");
-          setActiveModule("friends");
+          openModule("friends");
         }}
         onOpenFriendsLeaderboard={() => {
           setFriendsInitialTab("leaderboard");
-          setActiveModule("friends");
+          openModule("friends");
         }}
         onResumeWorkout={resumeInterruptedWorkout}
         onEndWorkout={endInterruptedWorkout}
@@ -1412,31 +1421,31 @@ export default function App() {
   } else if (!activePlan && activeModule === "activity") {
     content = (
       <ActivityBuddyScreen
-        onBack={() => setActiveModule("hub")}
+        onBack={() => openModule("hub")}
       />
     );
   } else if (!activePlan && activeModule === "nutrition") {
-    content = <NutritionBuddyScreen onBack={() => setActiveModule("hub")} />;
+    content = <NutritionBuddyScreen onBack={() => openModule("hub")} />;
   } else if (!activePlan && activeModule === "account") {
-    content = <AccountScreen onBack={() => setActiveModule("hub")} />;
+    content = <AccountScreen onBack={() => openModule("hub")} />;
   } else if (!activePlan && activeModule === "friends") {
     content = (
       <FriendsScreen
-        onBack={() => setActiveModule("hub")}
-        onOpenAccount={() => setActiveModule("account")}
+        onBack={() => openModule("hub")}
+        onOpenAccount={() => openModule("account")}
         initialTab={friendsInitialTab}
       />
     );
   } else if (!activePlan && activeModule === "tracker") {
     content = (
       <TrackerBuddyScreen
-        onBack={() => setActiveModule("hub")}
+        onBack={() => openModule("hub")}
       />
     );
   } else if (!activePlan && activeModule === "alarm") {
     content = (
       <AlarmBuddyScreen
-        onBack={() => setActiveModule("hub")}
+        onBack={() => openModule("hub")}
       />
     );
   } else if (!activePlan && activeModule === "reminder") {
@@ -1444,18 +1453,18 @@ export default function App() {
       <ReminderBuddyScreen
         onBack={() => {
           setReminderInitialTab(undefined);
-          setActiveModule("hub");
+          openModule("hub");
         }}
         initialTab={reminderInitialTab}
       />
     );
   } else if (!activePlan && activeModule === "password") {
-    content = <VaultBuddyScreen onBack={() => setActiveModule("hub")} />;
+    content = <VaultBuddyScreen onBack={() => openModule("hub")} />;
   } else if (!activePlan && activeModule === "list") {
     content = (
       <ListBuddyScreen
         onBack={() => {
-          setActiveModule("hub");
+          openModule("hub");
         }}
       />
     );
@@ -1474,7 +1483,7 @@ export default function App() {
   } else if (!activePlan && (activeModule === "workout" || activeModule === "profile" || activeModule === "settings")) {
     content = (
       <WorkoutBuddyScreen
-        onBack={() => setActiveModule("hub")}
+        onBack={() => openModule("hub")}
         section={activeModule}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -1549,36 +1558,36 @@ export default function App() {
         enabledReminderCount={enabledReminderCount}
         recoverableWorkout={recoverableWorkout}
         onOpenWorkout={() => {
-          setActiveModule("workout");
+          openModule("workout");
           setPlanListMode("all");
           setActiveTab("home");
         }}
         onChooseTodayWorkout={() => {
-          setActiveModule("workout");
+          openModule("workout");
           setPlanListMode("today");
           setActiveTab("plans");
         }}
-        onOpenActivity={() => setActiveModule("activity")}
-        onOpenNutrition={() => setActiveModule("nutrition")}
-        onOpenReminders={() => setActiveModule("reminder")}
-        onOpenTracker={() => setActiveModule("tracker")}
-        onOpenLists={() => setActiveModule("list")}
-        onOpenAlarms={() => setActiveModule("alarm")}
-        onOpenVault={() => setActiveModule("password")}
+        onOpenActivity={() => openModule("activity")}
+        onOpenNutrition={() => openModule("nutrition")}
+        onOpenReminders={() => openModule("reminder")}
+        onOpenTracker={() => openModule("tracker")}
+        onOpenLists={() => openModule("list")}
+        onOpenAlarms={() => openModule("alarm")}
+        onOpenVault={() => openModule("password")}
         onOpenProfile={() => {
-          setActiveModule("profile");
+          openModule("profile");
         }}
         onOpenSettings={() => {
-          setActiveModule("settings");
+          openModule("settings");
         }}
-        onOpenAccount={() => setActiveModule("account")}
+        onOpenAccount={() => openModule("account")}
         onOpenFriends={() => {
           setFriendsInitialTab("friends");
-          setActiveModule("friends");
+          openModule("friends");
         }}
         onOpenFriendsLeaderboard={() => {
           setFriendsInitialTab("leaderboard");
-          setActiveModule("friends");
+          openModule("friends");
         }}
         onResumeWorkout={resumeInterruptedWorkout}
         onEndWorkout={endInterruptedWorkout}
@@ -1599,10 +1608,10 @@ export default function App() {
       localDataReady={ready}
     >
       <AccountOnboardingGate>
-        <View className="flex-1" style={{ flex: 1, backgroundColor: appBackground }}>
+        <View style={{ flex: 1, backgroundColor: appBackground }}>
           <Reanimated.View
             key={!ready ? "startup" : activePlan ? `timer-${activeSessionId ?? activePlan.id}` : activeModule}
-            entering={reduceMotion ? undefined : SCREEN_ENTERING}
+            entering={reduceMotion ? undefined : navDirection === "forward" ? SCREEN_FORWARD_ENTERING : SCREEN_BACKWARD_ENTERING}
             style={{ flex: 1, backgroundColor: appBackground }}
           >
             {content}

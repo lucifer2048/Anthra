@@ -21,7 +21,6 @@ export function StatusBanner({
   onDismiss,
   dismissLabel = "Dismiss message",
   accessibilityLabel,
-  className,
   style,
   ...props
 }: StatusBannerProps) {
@@ -42,9 +41,10 @@ export function StatusBanner({
       accessibilityRole="alert"
       accessibilityLiveRegion={variant === "danger" ? "assertive" : "polite"}
       accessibilityLabel={accessibilityLabel ?? [title, message].filter(Boolean).join(". ")}
-      className={`w-full flex-row ${className ?? ""}`}
       style={[
         {
+          width: "100%",
+          flexDirection: "row",
           gap: theme.spacing.md,
           padding: theme.spacing.lg,
           borderRadius: theme.radii.lg,
@@ -56,7 +56,7 @@ export function StatusBanner({
       ]}
     >
       <Icon accessible={false} color={palette.foreground} size={21} />
-      <View className="min-w-0 flex-1">
+      <View style={{ minWidth: 0, flex: 1 }}>
         <Text style={[theme.typography.bodyStrong, { color: palette.foreground }]}>{title}</Text>
         {message && (
           <Text style={[theme.typography.body, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>

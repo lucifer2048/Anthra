@@ -574,9 +574,8 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
     <>
       <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <View
-          className="border-b px-5"
+          style={{ borderBottomWidth: 1, paddingHorizontal: 20, borderColor: colors.border }}
           onLayout={(event) => setReminderHeaderBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
-          style={{ borderColor: colors.border }}
         >
           <ScreenHeader
             eyebrow="ORGANIZE"
@@ -589,7 +588,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
           />
         </View>
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           contentContainerStyle={{
             width: "100%",
             maxWidth: theme.layout.contentMaxWidth,
@@ -600,22 +599,22 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="rounded-2xl border p-4" style={{ borderColor: colors.brandBorder, backgroundColor: colors.brandSoft }}>
-            <Text className="text-base font-semibold" style={{ color: colors.textSecondary }}>
+          <View style={{ borderRadius: 16, borderWidth: 1, padding: 16, borderColor: colors.brandBorder, backgroundColor: colors.brandSoft }}>
+            <Text style={{ fontSize: 16, fontWeight: "600", color: colors.textSecondary }}>
               Build one-time events, repeating reminders, multiple daily times, or interval nudges in your device timezone.
             </Text>
           </View>
 
           {reminderTrackerView === "reminders" && (
             <DisclosureCard title="Notification status" summary={notificationHealthLoading ? "Checking device status…" : notificationStatusLabel} expanded={notificationPanelExpanded} onExpandedChange={setNotificationPanelExpanded} style={{ marginTop: theme.spacing.lg }}>
-                  <Text className="text-sm font-bold" style={{ color: colors.textPrimary }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary }}>
                     {notificationHealthLoading
                       ? "Checking device status…"
                       : notificationHealth?.permission === "granted"
                         ? `${notificationHealth.reminderCount} scheduled`
                         : `Permission: ${notificationHealth?.permission ?? "unknown"}`}
                   </Text>
-                  <Text className="mt-2 text-sm font-semibold" style={{ color: colors.textSecondary }}>
+                  <Text style={{ marginTop: 8, fontSize: 14, fontWeight: "600", color: colors.textSecondary }}>
                     {notificationHealth?.nextReminderTriggerAt
                       ? `Next: ${formatTimestampInTimeZone(notificationHealth.nextReminderTriggerAt, deviceTimeZone)}`
                       : notificationHealth?.supported === false
@@ -623,8 +622,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                         : "No upcoming reminder notification detected."}
                   </Text>
                   <View
-                    className="mt-4"
-                    style={{ flexDirection: shouldStackActions ? "column" : "row", gap: theme.spacing.sm }}
+                    style={{ marginTop: 16, flexDirection: shouldStackActions ? "column" : "row", gap: theme.spacing.sm }}
                   >
                     <Button
                       label="Send test"
@@ -642,7 +640,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                     />
                   </View>
                   {notificationTestNotice && (
-                    <Text className="mt-3 text-sm font-semibold" style={{ color: colors.brand }}>
+                    <Text style={{ marginTop: 12, fontSize: 14, fontWeight: "600", color: colors.brand }}>
                       {notificationTestNotice}
                     </Text>
                   )}
@@ -675,15 +673,14 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
               {reminderItems.length > 0 && filteredReminderItems.length === 0 && (
                 <Card variant="subtle" padding="large" style={{ alignItems: "center", marginTop: theme.spacing.lg }}>
                   <View
-                    className="items-center justify-center"
-                    style={{ width: 48, height: 48, borderRadius: theme.radii.full, backgroundColor: colors.brandSoft }}
+                    style={{ alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: theme.radii.full, backgroundColor: colors.brandSoft }}
                   >
                     <Search accessible={false} color={colors.brand} size={22} />
                   </View>
-                  <Text className="mt-3 text-base font-bold" style={{ color: colors.textPrimary }}>
+                  <Text style={{ marginTop: 12, fontSize: 16, fontWeight: "700", color: colors.textPrimary }}>
                     No reminders found
                   </Text>
-                  <Text className="mt-1 text-center text-sm" style={{ color: colors.textSecondary }}>
+                  <Text style={{ marginTop: 4, textAlign: "center", fontSize: 14, color: colors.textSecondary }}>
                     Try a different title, note, or schedule.
                   </Text>
                   <Button
@@ -696,19 +693,19 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                 </Card>
               )}
               {filteredReminderItems.map((item) => (
-                <View key={item.id} className="mt-4 rounded-2xl border p-4" style={{ borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
-                  <View className="flex-row items-start justify-between">
-                    <View className="min-w-0 flex-1 pr-3">
-                      <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{item.title}</Text>
+                <View key={item.id} style={{ marginTop: 16, borderRadius: 16, borderWidth: 1, padding: 16, borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <View style={{ minWidth: 0, flex: 1, paddingRight: 12 }}>
+                      <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textPrimary }}>{item.title}</Text>
                       <Text style={[theme.typography.eyebrow, { color: colors.brand, marginTop: theme.spacing.xs }]}>
                         {formatReminderModeLabel(item.mode)}
                       </Text>
                       <Text style={[theme.typography.label, { color: colors.textSecondary, marginTop: theme.spacing.xs }]}>
                         {formatReminderSchedule(item)}
                       </Text>
-                      {item.note.trim().length > 0 && <Text className="mt-2 text-base" style={{ color: colors.textSecondary }}>{item.note}</Text>}
+                      {item.note.trim().length > 0 && <Text style={{ marginTop: 8, fontSize: 16, color: colors.textSecondary }}>{item.note}</Text>}
                     </View>
-                    <View className="items-end" style={{ gap: theme.spacing.xs }}>
+                    <View style={{ alignItems: "flex-end", gap: theme.spacing.xs }}>
                       <IconButton
                         icon={Trash2}
                         onPress={() => handleDeleteReminder(item)}
@@ -901,7 +898,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                 }}
                 style={{ marginTop: theme.spacing.md }}
               />
-              <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
+              <Text style={{ marginTop: 8, fontSize: 12, color: colors.textSecondary }}>
                 {reminderForm.mode === "interval"
                   ? "Best for things like drink water every hour."
                   : reminderForm.mode === "multi"
@@ -913,7 +910,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
 
               {(reminderForm.mode === "time" || reminderForm.mode === "once") && (
                 <>
-                  <View className="mt-3">
+                  <View style={{ marginTop: 12 }}>
                     <TimePickerField
                       label="Reminder time"
                       hour={parseStrictWholeNumber(reminderForm.hour) ?? 9}
@@ -938,13 +935,12 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                     />
                   </View>
                   {reminderForm.mode === "once" && (
-                    <View className="mt-3">
-                      <Text className="mb-2 text-sm font-semibold" style={{ color: colors.textSecondary }}>Date</Text>
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={{ marginBottom: 8, fontSize: 14, fontWeight: "600", color: colors.textSecondary }}>Date</Text>
                       <View
-                        className="rounded-2xl border p-3"
-                        style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}
+                        style={{ borderRadius: 16, borderWidth: 1, padding: 12, borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}
                       >
-                        <View className="flex-row items-center justify-between">
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                           <Button label="Previous" size="small" variant="outline" onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, -1))} />
                           <Text
                             style={[theme.typography.bodyStrong, { minWidth: 0, flex: 1, color: colors.textPrimary, textAlign: "center" }]}
@@ -953,16 +949,16 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                           </Text>
                           <Button label="Next" size="small" variant="outline" onPress={() => setReminderCalendarMonth((prev) => shiftReminderCalendarMonth(prev, 1))} />
                         </View>
-                        <View className="mt-3 flex-row">
+                        <View style={{ marginTop: 12, flexDirection: "row" }}>
                           {WEEKDAY_OPTIONS.map((day) => (
-                            <View key={`calendar-head-${day.value}`} className="flex-1 items-center">
+                            <View key={`calendar-head-${day.value}`} style={{ flex: 1, alignItems: "center" }}>
                               <Text style={[theme.typography.eyebrow, { color: colors.textSecondary }]}>
                                 {day.short}
                               </Text>
                             </View>
                           ))}
                         </View>
-                        <View className="mt-2 flex-row flex-wrap">
+                        <View style={{ marginTop: 8, flexDirection: "row", flexWrap: "wrap" }}>
                           {reminderCalendarDays.map((day) => {
                             const selected = reminderForm.dateLabel === day.dateLabel;
                             const disabled = day.isPast;
@@ -973,15 +969,18 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                                   if (disabled) return;
                                   setReminderForm((prev) => ({ ...prev, dateLabel: day.dateLabel }));
                                 }}
-                                className="mb-2 w-[14.2857%] items-center"
+                                style={{ marginBottom: 8, width: "14.2857%", alignItems: "center" }}
                                 disabled={disabled}
                                 accessibilityRole="button"
                                 accessibilityLabel={day.dateLabel}
                                 accessibilityState={{ disabled, selected }}
                               >
                                 <View
-                                  className="items-center justify-center rounded-full border"
                                   style={{
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    borderRadius: 999,
+                                    borderWidth: 1,
                                     width: reminderCalendarDaySize,
                                     height: reminderCalendarDaySize,
                                     borderColor: selected
@@ -998,8 +997,9 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                                   }}
                                 >
                                   <Text
-                                    className="text-sm font-semibold"
                                     style={{
+                                      fontSize: 14,
+                                      fontWeight: "600",
                                       color: selected
                                         ? colors.textOnBrandSolid
                                         : day.inMonth
@@ -1015,7 +1015,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                           })}
                         </View>
                       </View>
-                      <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
+                      <Text style={{ marginTop: 8, fontSize: 12, color: colors.textSecondary }}>
                         Selected: {reminderForm.dateLabel || getDeviceTodayLabel()} in {getDeviceTimeZone()}.
                       </Text>
                     </View>
@@ -1024,14 +1024,14 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
               )}
 
               {reminderForm.mode === "multi" && (
-                <View className="mt-3">
-                  <Text className="mb-2 text-sm font-semibold" style={{ color: colors.textSecondary }}>Times</Text>
-                  <View className="gap-3">
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ marginBottom: 8, fontSize: 14, fontWeight: "600", color: colors.textSecondary }}>Times</Text>
+                  <View style={{ gap: 12 }}>
                     {reminderForm.timeSlots.map((slot, index) => {
                       if (!slot.trim()) return null;
                       const parsed = parseReminderTimeSlotInput(slot) ?? { hour: 8, minute: 0 };
                       return (
-                        <View key={`slot-${index}`} className="rounded-2xl border p-3" style={{ borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}>
+                        <View key={`slot-${index}`} style={{ borderRadius: 16, borderWidth: 1, padding: 12, borderColor: colors.brandBorder, backgroundColor: colors.surfaceSubtle }}>
                           <TimePickerField
                             label={`Time ${index + 1}`}
                             hour={parsed.hour}
@@ -1081,7 +1081,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                       style={{ marginTop: theme.spacing.md }}
                     />
                   )}
-                  <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
+                  <Text style={{ marginTop: 8, fontSize: 12, color: colors.textSecondary }}>
                     Add up to 4 daily times. Anthra handles the time format for you.
                   </Text>
                 </View>
@@ -1089,7 +1089,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
 
               {reminderForm.mode === "interval" && (
                 <>
-                  <View className="mt-3">
+                  <View style={{ marginTop: 12 }}>
                     <TextField
                       label="Repeat every"
                       value={reminderForm.intervalMinutes}
@@ -1100,7 +1100,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                       maxLength={3}
                     />
                   </View>
-                  <View className="mt-3">
+                  <View style={{ marginTop: 12 }}>
                     <TimePickerField
                       label="Start time"
                       hour={parseStrictWholeNumber(reminderForm.intervalStartHour) ?? 8}
@@ -1119,7 +1119,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                       mutedColor={colors.textSecondary}
                     />
                   </View>
-                  <View className="mt-3">
+                  <View style={{ marginTop: 12 }}>
                     <TimePickerField
                       label="End time"
                       hour={parseStrictWholeNumber(reminderForm.intervalEndHour) ?? 22}
@@ -1156,7 +1156,7 @@ export function ReminderBuddyScreen({ onBack, initialTab }: ReminderBuddyScreenP
                     onChange={(days) => setReminderForm((prev) => ({ ...prev, days }))}
                     style={{ marginTop: theme.spacing.md }}
                   />
-                  <Text className="mt-2 text-xs" style={{ color: colors.textSecondary }}>
+                  <Text style={{ marginTop: 8, fontSize: 12, color: colors.textSecondary }}>
                     Leave all days off to repeat every day.
                   </Text>
                 </>

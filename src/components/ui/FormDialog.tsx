@@ -122,8 +122,8 @@ export function FormDialog({
       accessibilityViewIsModal
       style={[{ width: "100%", maxWidth, alignSelf: "center" }, contentStyle]}
     >
-      <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
-        <View className="min-w-0 flex-1">
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.md }}>
+        <View style={{ minWidth: 0, flex: 1 }}>
           <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
             {title}
           </Text>
@@ -155,8 +155,7 @@ export function FormDialog({
     <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={backdropDismissEnabled ? onClose : undefined}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-        style={{ backgroundColor: theme.colors.scrim }}
+        style={{ flex: 1, backgroundColor: theme.colors.scrim }}
       >
         {keyboardAware ? (
           <KeyboardAwareScrollView
@@ -175,8 +174,7 @@ export function FormDialog({
           </KeyboardAwareScrollView>
         ) : (
           <Pressable
-            className="flex-1 justify-center"
-            style={{ paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.xl }}
+            style={{ flex: 1, justifyContent: "center", paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.xl }}
             onPress={backdropDismissEnabled ? onClose : undefined}
           >
             <Pressable onPress={(event) => event.stopPropagation()}>{body}</Pressable>
@@ -226,10 +224,9 @@ export function SheetDialog({
     <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "slide"} onRequestClose={backdropDismissEnabled ? onClose : undefined}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        className="flex-1 justify-end"
-        style={{ backgroundColor: theme.colors.scrim }}
+        style={{ flex: 1, justifyContent: "flex-end", backgroundColor: theme.colors.scrim }}
       >
-        <Pressable className="flex-1" onPress={backdropDismissEnabled ? onClose : undefined} accessibilityLabel={backdropDismissEnabled ? "Dismiss" : undefined} />
+        <Pressable style={{ flex: 1 }} onPress={backdropDismissEnabled ? onClose : undefined} accessibilityLabel={backdropDismissEnabled ? "Dismiss" : undefined} />
         <View
           style={[{
             width: "100%",
@@ -239,7 +236,7 @@ export function SheetDialog({
             borderTopRightRadius: theme.radii["2xl"],
             backgroundColor: theme.colors.surfaceElevated,
             borderTopWidth: 1,
-            borderColor: theme.colors.border,
+            borderColor: theme.colors.borderStrong,
             maxHeight: "92%",
             paddingHorizontal: theme.layout.screenPadding,
             paddingTop: theme.spacing.lg,
@@ -247,8 +244,8 @@ export function SheetDialog({
           }, theme.shadows.overlay]}
         >
           {showDragHandle ? <View accessible={false} style={{ width: theme.spacing["4xl"], height: theme.spacing.xs, borderRadius: theme.radii.full, backgroundColor: theme.colors.borderStrong, alignSelf: "center", marginBottom: theme.spacing.md }} /> : null}
-          <View className="flex-row items-start" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
-            <View className="min-w-0 flex-1">
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.md, marginBottom: theme.spacing.md }}>
+            <View style={{ minWidth: 0, flex: 1 }}>
               <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>
                 {title}
               </Text>

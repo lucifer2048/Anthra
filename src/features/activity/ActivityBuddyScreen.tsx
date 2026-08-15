@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   Modal,
   RefreshControl,
@@ -27,7 +28,6 @@ import {
   type LucideIcon
 } from "lucide-react-native";
 
-import { ProgressBar } from "../../components/ProgressBar";
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import {
   AnimatedPressable,
@@ -35,6 +35,7 @@ import {
   Card,
   ChoiceRow,
   IconButton,
+  ProgressBar,
   ScreenHeader,
   SheetDialog,
   SkeletonCard,
@@ -59,8 +60,10 @@ import {
   requestHealthConnectPermissions
 } from "./activityNative";
 import {
-  currentActivityTimezone,
+  addDevDemoSteps,
+  clearAllActivitySteps,
   clearHealthConnectDailyTotals,
+  currentActivityTimezone,
   getActivityDailySummary,
   getActivityDailySummaries,
   getActivitySettings,
@@ -75,7 +78,8 @@ import {
   saveActivitySettings,
   saveHealthDailyTotals,
   savePhoneStepDaySnapshots,
-  savePhoneStepReading
+  savePhoneStepReading,
+  seedDevSampleWeek
 } from "./activityRepository";
 import {
   activeDaysThisWeek,
@@ -202,11 +206,11 @@ function SourceCard({
 
   return (
     <Card>
-      <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.md }}>
         <View
-          accessible={false}
-          className="items-center justify-center"
           style={{
+            alignItems: "center",
+            justifyContent: "center",
             width: 44,
             height: 44,
             borderRadius: theme.radii.md,
@@ -216,15 +220,17 @@ function SourceCard({
           <Icon accessible={false} color={theme.colors.brand} size={22} />
         </View>
 
-        <View className="min-w-0 flex-1">
+        <View style={{ minWidth: 0, flex: 1 }}>
           <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
             {title}
           </Text>
           <View
             accessible
-            accessibilityLabel={`${title} status: ${status}`}
-            className="mt-2 flex-row items-center self-start"
             style={{
+              marginTop: 8,
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "flex-start",
               maxWidth: "100%",
               gap: theme.spacing.xs,
               paddingHorizontal: theme.spacing.sm,
@@ -676,6 +682,12 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
 
   const togglePhoneTracking = async () => {
     if (sourceAction) return;
+    if (!phoneAvailable || capabilities?.platform === "unsupported") {
+      const msg = "The hardware step counter uses Android background services compiled into standalone builds (npx expo run:android). In Expo Go, hardware sensors are not bundled.\n\nUse the 'Testing in Expo Go / Simulator' buttons below to test streaks and leaderboards.";
+      setNotice(msg);
+      Alert.alert("Phone Step Counter", msg);
+      return;
+    }
     setSourceAction("phone");
     setNotice(null);
     try {
@@ -687,24 +699,32 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
       }
       const enabled = await enablePhoneStepTracking();
       if (!enabled) {
-        setNotice(
-          capabilities?.stepCounterAvailable
-            ? "Physical activity permission was denied. Phone steps remain off."
-            : "This device has no hardware step-counter sensor."
-        );
+        const msg = capabilities?.stepCounterAvailable
+          ? "Physical activity permission was denied. Phone steps remain off."
+          : "This device has no hardware step-counter sensor.";
+        setNotice(msg);
+        Alert.alert("Permission Required", msg);
         return;
       }
       await updateSettings((current) => ({ ...current, phoneTrackingEnabled: true }));
       await refresh(false);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Phone step tracking could not be changed.");
+      const msg = error instanceof Error ? error.message : "Phone step tracking could not be changed.";
+      setNotice(msg);
+      Alert.alert("Step Counter Error", msg);
     } finally {
       setSourceAction(null);
     }
   };
 
   const handleHealthAction = async () => {
-    if (sourceAction || healthUnavailable) return;
+    if (sourceAction) return;
+    if (healthUnavailable || capabilities?.platform === "unsupported") {
+      const msg = "Health Connect is an Android OS framework compiled into standalone builds (npx expo run:android). It cannot be called through Expo Go.\n\nUse the 'Testing in Expo Go / Simulator' buttons below to simulate activity and test charts & leaderboards.";
+      setNotice(msg);
+      Alert.alert("Health Connect", msg);
+      return;
+    }
     setSourceAction("health");
     setNotice(null);
     try {
@@ -715,11 +735,41 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         await refresh(false);
       }
     } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : "Health Connect access could not be changed."
-      );
+      const msg = error instanceof Error ? error.message : "Health Connect access could not be changed.";
+      setNotice(msg);
+      Alert.alert("Health Connect Error", msg);
     } finally {
       setSourceAction(null);
+    }
+  };
+
+  const handleAddDemoSteps = async (delta = 2500) => {
+    try {
+      await addDevDemoSteps(delta);
+      await refresh(false);
+      setNotice(`Added ${delta.toLocaleString()} test steps for today.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not add demo steps.");
+    }
+  };
+
+  const handleSeedSampleWeek = async () => {
+    try {
+      await seedDevSampleWeek();
+      await refresh(false);
+      setNotice("Seeded 7 days of sample step history!");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not seed sample week.");
+    }
+  };
+
+  const handleClearSteps = async () => {
+    try {
+      await clearAllActivitySteps();
+      await refresh(false);
+      setNotice("Reset activity steps.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not reset steps.");
     }
   };
 
@@ -804,8 +854,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
         </View>
 
         <View
-          className="flex-1 items-center justify-center"
-          style={{ paddingHorizontal: theme.spacing["3xl"] }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: theme.spacing["3xl"] }}
         >
           {initialLoadTimedOut ? (
             <View style={{ width: "100%", maxWidth: 420 }}>
@@ -880,7 +929,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
       </View>
 
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{
           width: "100%",
           maxWidth: theme.layout.contentMaxWidth,
@@ -919,9 +968,9 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             <View
               accessible
               accessibilityLabel={`${compactSteps(todaySteps)} steps today. ${sourceLabel}.`}
-              className="min-w-0 flex-1"
+              style={{ minWidth: 0, flex: 1 }}
             >
-              <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
                 <Footprints accessible={false} color={theme.colors.brand} size={20} />
                 <Text style={[theme.typography.label, { color: theme.colors.textSecondary }]}>
                   TODAY’S STEPS
@@ -952,8 +1001,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               padding="small"
               radius="large"
               bordered
-              className="items-end"
-              style={{ minWidth: 92, alignSelf: shouldStackSummary ? "stretch" : "auto" }}
+              style={{ alignItems: "flex-end", gap: theme.spacing.xs, minWidth: 92, alignSelf: shouldStackSummary ? "stretch" : "auto" }}
             >
               <Text style={[theme.typography.headline, { color: theme.colors.brand }]}>
                 {activityStreak}
@@ -974,10 +1022,9 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
           />
 
           <View
-            className="mt-3 flex-row items-center justify-between"
-            style={{ gap: theme.spacing.md }}
+            style={{ marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md }}
           >
-            <View className="min-w-0 flex-1">
+            <View style={{ minWidth: 0, flex: 1 }}>
               <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>
                 {Math.round(progress)}% of your goal
               </Text>
@@ -985,7 +1032,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
                 Goal · {compactSteps(settings.dailyGoal)} steps
               </Text>
             </View>
-            <View className="flex-row" style={{ gap: theme.spacing.sm }}>
+            <View style={{ flexDirection: "row", gap: theme.spacing.sm }}>
               <IconButton
                 icon={Minus}
                 size="small"
@@ -1015,7 +1062,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               gap: theme.spacing.lg
             }}
           >
-            <View className="min-w-0 flex-1">
+            <View style={{ minWidth: 0, flex: 1 }}>
               <Text style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}>
                 Seven-day rhythm
               </Text>
@@ -1053,12 +1100,12 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               <View
                 accessible
                 accessibilityLabel="No step history yet. Enable a source below, then refresh after moving."
-                className="items-center"
-                style={{ paddingVertical: theme.spacing.xl }}
+                style={{ alignItems: "center", paddingVertical: theme.spacing.xl }}
               >
                 <View
-                  className="items-center justify-center"
                   style={{
+                    alignItems: "center",
+                    justifyContent: "center",
                     width: 56,
                     height: 56,
                     borderRadius: theme.radii.lg,
@@ -1125,7 +1172,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               actionLabel={settings.phoneTrackingEnabled ? "Turn Off Phone Steps" : "Enable Phone Steps"}
               actionHint="Changes access to this phone’s hardware step sensor"
               actionVariant={settings.phoneTrackingEnabled ? "outline" : "primary"}
-              actionDisabled={!phoneAvailable || sourceAction === "health"}
+              actionDisabled={sourceAction === "health"}
               actionLoading={sourceAction === "phone"}
               onAction={() => togglePhoneTracking()}
             />
@@ -1156,11 +1203,60 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
               actionLabel={healthActionLabel}
               actionHint="Opens Android Health Connect permission controls"
               actionVariant={healthHasPermission ? "outline" : "primary"}
-              actionDisabled={healthUnavailable || sourceAction === "phone"}
+              actionDisabled={sourceAction === "phone"}
               actionLoading={sourceAction === "health"}
               onAction={() => handleHealthAction()}
             />
           </View>
+
+          {(!capabilities || capabilities.platform === "unsupported" || !phoneAvailable) && (
+            <Card
+              variant="elevated"
+              padding="large"
+              radius="large"
+              style={{
+                marginTop: theme.spacing.lg,
+                borderColor: theme.colors.brandBorder,
+                backgroundColor: theme.colors.surfaceElevated
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
+                <Footprints color={theme.colors.brand} size={20} />
+                <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
+                  Expo Go / Development Simulator
+                </Text>
+              </View>
+              <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
+                Health Connect and real-time step counter services are native Android modules built into standalone APKs (run: <Text style={{ fontWeight: "700", color: theme.colors.textPrimary }}>npx expo run:android</Text>). In Expo Go, use the simulator buttons below to test streaks, charts, and leaderboards:
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
+                <Button
+                  label="+2,500 Steps"
+                  size="small"
+                  variant="primary"
+                  onPress={() => handleAddDemoSteps(2500)}
+                />
+                <Button
+                  label="+10,000 Steps"
+                  size="small"
+                  variant="secondary"
+                  onPress={() => handleAddDemoSteps(10000)}
+                />
+                <Button
+                  label="Seed 7-Day History"
+                  size="small"
+                  variant="outline"
+                  onPress={handleSeedSampleWeek}
+                />
+                <Button
+                  label="Reset"
+                  size="small"
+                  variant="ghost"
+                  onPress={handleClearSteps}
+                />
+              </View>
+            </Card>
+          )}
         </View>
 
         <View style={{ marginTop: theme.spacing["3xl"] }}>
@@ -1180,9 +1276,9 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             radius="large"
             style={{ marginTop: theme.spacing.md }}
           >
-            <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.md }}>
               <LockKeyhole accessible={false} color={theme.colors.brand} size={21} />
-              <View className="min-w-0 flex-1">
+              <View style={{ minWidth: 0, flex: 1 }}>
                 <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>
                   Private by design
                 </Text>
@@ -1204,10 +1300,11 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
           variant="brand"
           style={{ marginTop: theme.spacing["3xl"], borderColor: theme.colors.brandBorder }}
         >
-          <View className="flex-row items-start" style={{ gap: theme.spacing.md }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: theme.spacing.md }}>
             <View
-              className="items-center justify-center"
               style={{
+                alignItems: "center",
+                justifyContent: "center",
                 width: 44,
                 height: 44,
                 borderRadius: theme.radii.md,
@@ -1216,7 +1313,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
             >
               <Share2 accessible={false} color={theme.colors.brand} size={21} />
             </View>
-            <View className="min-w-0 flex-1">
+            <View style={{ minWidth: 0, flex: 1 }}>
               <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>
                 Share your momentum
               </Text>
@@ -1257,7 +1354,7 @@ export function ActivityBuddyScreen({ onBack }: ActivityBuddyScreenProps) {
       </ScrollView>
 
       <SheetDialog visible={sharePreviewOpen} title="Share preview" subtitle="Nothing is shared until you confirm." onClose={closeSharePreview} backdropDismissEnabled={!sharing} error={shareError} primaryAction={{ label: "Share now", icon: Share2, onPress: shareConfirmed, loading: sharing }} secondaryAction={{ label: "Cancel", onPress: closeSharePreview, disabled: sharing }}>
-            <View className="items-center" style={{ width: "100%" }}>
+            <View style={{ alignItems: "center", width: "100%" }}>
               <View
                 style={{
                   width: previewCardWidth,

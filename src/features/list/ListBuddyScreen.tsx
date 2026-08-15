@@ -371,8 +371,8 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
           })}
         >
           <View style={{ minHeight: 132, padding: spacing.lg }}>
-            <View className="flex-row items-start justify-between" style={{ gap: spacing.md }}>
-              <View className="min-w-0 flex-1">
+            <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md }}>
+              <View style={{ minWidth: 0, flex: 1 }}>
                 <Text numberOfLines={2} style={[typography.titleSmall, { color: colors.textPrimary }]}>
                   {category.name}
                 </Text>
@@ -471,7 +471,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
       </View>
 
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           width: "100%",
@@ -498,14 +498,15 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
         {!selectedCategory && (
           <>
             <Card variant="brand" style={{ marginBottom: spacing.xl }}>
-              <View className="flex-row items-start" style={{ gap: spacing.md }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
                 <View
-                  className="items-center justify-center"
-                  style={{ width: 44, height: 44, borderRadius: radii.md, backgroundColor: colors.surface }}
+                  style={{
+                    alignItems: "center",
+                    justifyContent: "center", width: 44, height: 44, borderRadius: radii.md, backgroundColor: colors.surface }}
                 >
                   <ListTodo accessible={false} size={23} color={colors.brand} />
                 </View>
-                <View className="min-w-0 flex-1">
+                <View style={{ minWidth: 0, flex: 1 }}>
                   <Text style={[typography.titleSmall, { color: colors.textPrimary }]}>Everything in its place</Text>
                   <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
                     Capture an item, tap it when complete, and keep each list focused.
@@ -558,8 +559,9 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                 ) : (
                   <Card variant="subtle" padding="large" style={{ alignItems: "center" }}>
                     <View
-                      className="items-center justify-center"
-                      style={{
+                    style={{
+                      alignItems: "center",
+                      justifyContent: "center",
                         width: 48,
                         height: 48,
                         borderRadius: radii.full,
@@ -600,7 +602,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
 
         {selectedCategory && (
           <>
-            <View className="flex-row items-end" style={{ gap: spacing.md, marginBottom: spacing.lg }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.md, marginBottom: spacing.lg }}>
               <TextField
                 label="Quick add"
                 value={quickItemText}
@@ -627,8 +629,8 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
             </View>
 
             <Card style={{ marginBottom: spacing.lg }}>
-              <View className="flex-row items-center justify-between" style={{ gap: spacing.md }}>
-                <View className="min-w-0 flex-1">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
+                <View style={{ minWidth: 0, flex: 1 }}>
                   <Text style={[typography.label, { color: colors.textSecondary }]}>PROGRESS</Text>
                   <Text style={[typography.titleMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>
                     {selectedCategory.completedItems} of {selectedCategory.totalItems} complete
@@ -692,7 +694,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
 
             {recentlyClearedItems.length > 0 && (
               <Card variant="brand" style={{ marginBottom: spacing.lg }}>
-                <View className="flex-row items-center" style={{ gap: spacing.md }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
                   <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>
                     {recentlyClearedItems.length} completed {recentlyClearedItems.length === 1 ? "item" : "items"} cleared
                   </Text>
@@ -718,8 +720,9 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                 items.map((item, index) => (
                   <View
                     key={item.id}
-                    className="flex-row items-center"
                     style={{
+                      flexDirection: "row",
+                      alignItems: "center",
                       minHeight: 68,
                       paddingLeft: spacing.lg,
                       paddingRight: spacing.sm,
@@ -733,16 +736,21 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                       accessibilityState={{ checked: item.completed }}
                       accessibilityLabel={item.text}
                       accessibilityHint={item.completed ? "Marks this item incomplete" : "Marks this item complete"}
-                      className="min-w-0 flex-1 flex-row items-center self-stretch"
                       style={({ pressed }) => ({
+                        minWidth: 0,
+                        flex: 1,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        alignSelf: "stretch",
                         paddingVertical: spacing.md,
                         paddingRight: spacing.md,
                         opacity: pressed ? 0.72 : 1
                       })}
                     >
                       <View
-                        className="items-center justify-center"
                         style={{
+                          alignItems: "center",
+                          justifyContent: "center",
                           width: 24,
                           height: 24,
                           borderRadius: radii.full,
@@ -769,7 +777,7 @@ export function ListBuddyScreen({ onBack }: ListBuddyScreenProps) {
                       </Text>
                     </AnimatedPressable>
 
-                    <View className="flex-row" style={{ gap: spacing.xs }}>
+                    <View style={{ flexDirection: "row", gap: spacing.xs }}>
                       <IconButton
                         icon={Pencil}
                         size="small"

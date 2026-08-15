@@ -475,12 +475,10 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
             accessibilityLabel={`Alarm readiness, ${setupStatusLabel}`}
             accessibilityHint={setupGuideExpanded ? "Collapses alarm setup and camera test" : "Shows alarm setup and camera test"}
             onPress={() => setSetupGuideExpanded((expanded) => !expanded)}
-            className="min-h-[58px] flex-row items-center px-4 py-3"
-            style={({ pressed }) => ({ backgroundColor: pressed ? colors.surfacePressed : colors.surfaceElevated })}
+            style={({ pressed }) => ({ minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: pressed ? colors.surfacePressed : colors.surfaceElevated })}
           >
             <View
-              className="items-center justify-center"
-              style={{ width: 38, height: 38, flexShrink: 0, borderRadius: radii.md, backgroundColor: setupStatusBackground }}
+              style={{ alignItems: "center", justifyContent: "center", width: 38, height: 38, flexShrink: 0, borderRadius: radii.md, backgroundColor: setupStatusBackground }}
             >
               {permissionStatus == null ? (
                 <AlarmClock accessible={false} color={setupStatusColor} size={20} />
@@ -490,7 +488,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                 <ShieldCheck accessible={false} color={setupStatusColor} size={20} />
               )}
             </View>
-            <View className="min-w-0 flex-1" style={{ marginLeft: spacing.md }}>
+            <View style={{ minWidth: 0, flex: 1, marginLeft: spacing.md }}>
               <Text style={[typography.bodyStrong, { color: colors.textPrimary }]}>Alarm readiness</Text>
               <Text style={[typography.caption, { color: setupStatusColor, marginTop: spacing.xs }]}>{setupStatusLabel}</Text>
             </View>
@@ -592,8 +590,8 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
           const next = alarm.enabled ? nextAlarmTimestamp(alarm, currentTime) : null;
           return (
             <Card key={alarm.id} style={{ marginTop: spacing.md }}>
-              <View className="flex-row items-start" style={{ gap: spacing.md }}>
-                <View className="min-w-0 flex-1">
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
+                <View style={{ minWidth: 0, flex: 1 }}>
                   <Text style={[typography.headline, { color: colors.textPrimary }]}>{alarmTimeLabel(alarm.hour, alarm.minute)}</Text>
                   <Text style={[typography.bodyStrong, { color: colors.textPrimary, marginTop: spacing.xs }]}>{alarm.label}</Text>
                   <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
@@ -625,7 +623,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                 </View>
               )}
 
-              <View className="flex-row items-center" style={{ gap: spacing.sm, marginTop: spacing.lg }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.lg }}>
                 <Button label="Edit" icon={Pencil} fullWidth onPress={() => openEditor(alarm)} style={{ flex: 1 }} />
                 <IconButton icon={Trash2} variant="danger" accessibilityLabel={`Delete ${alarm.label}`} onPress={() => handleDelete(alarm)} />
               </View>
@@ -640,8 +638,9 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
               {history.slice(0, 8).map((entry, index) => (
                 <View
                   key={entry.eventId}
-                  className="flex-row items-center"
                   style={{
+                    flexDirection: "row",
+                    alignItems: "center",
                     minHeight: 70,
                     gap: spacing.md,
                     padding: spacing.lg,
@@ -649,7 +648,7 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                     borderBottomColor: colors.divider
                   }}
                 >
-                  <View className="min-w-0 flex-1">
+                  <View style={{ minWidth: 0, flex: 1 }}>
                     <Text style={[typography.bodyStrong, { color: colors.textPrimary }]}>{entry.label}</Text>
                     <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>{formatIstTimestamp(entry.completedAt)}</Text>
                   </View>
@@ -766,8 +765,9 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                     accessibilityLabel={`Alarm sound, ${form.soundName}`}
                     accessibilityHint="Opens sounds installed on this device"
                     accessibilityState={{ disabled: soundPicking, busy: soundPicking }}
-                    className="flex-row items-center"
                     style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
                       minHeight: 64,
                       gap: spacing.md,
                       padding: spacing.md,
@@ -778,10 +778,10 @@ export function AlarmBuddyScreen({ onBack }: AlarmBuddyScreenProps) {
                       opacity: soundPicking ? anthraTheme.motion.disabledOpacity : 1
                     })}
                   >
-                    <View className="items-center justify-center" style={{ width: 40, height: 40, borderRadius: radii.full, backgroundColor: colors.brandSoft }}>
+                    <View style={{ alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: radii.full, backgroundColor: colors.brandSoft }}>
                       <Music2 accessible={false} color={colors.brand} size={21} />
                     </View>
-                    <View className="min-w-0 flex-1">
+                    <View style={{ minWidth: 0, flex: 1 }}>
                       <Text style={[typography.bodyStrong, { color: colors.textPrimary }]}>{form.soundName}</Text>
                       <Text style={[typography.caption, { color: colors.textSecondary, marginTop: spacing.xs }]}>{soundPicking ? "Opening device sounds…" : "Tap to choose a device alarm sound"}</Text>
                     </View>

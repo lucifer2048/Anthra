@@ -16,10 +16,9 @@ export function SectionHeader({ title, meta, icon: Icon, action, style }: Sectio
 
   return (
     <View
-      className="flex-row items-end justify-between"
-      style={[{ gap: theme.spacing.md }, style]}
+      style={[{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md }, style]}
     >
-      <View className="min-w-0 flex-1 flex-row items-center" style={{ gap: theme.spacing.sm }}>
+      <View style={{ minWidth: 0, flex: 1, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
         {Icon ? <Icon accessible={false} color={theme.colors.brand} size={20} /> : null}
         <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, flexShrink: 1 }]}>
           {title}

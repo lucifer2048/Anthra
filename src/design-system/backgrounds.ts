@@ -27,6 +27,7 @@ export function createScreenBackgrounds(colors: SemanticColors): {
   surface: ScreenBackgroundToken;
   brandWash: ScreenBackgroundToken;
 } {
+  const isLight = colors.canvas === "#F8F9FA";
   return {
     /** Default app canvas — use on almost every screen. */
     canvas: {
@@ -39,14 +40,21 @@ export function createScreenBackgrounds(colors: SemanticColors): {
     /** Canvas with a soft brand radial wash (hub / marketing-feel screens). */
     brandWash: {
       color: colors.canvas,
-      gradient: {
-        colors: [colors.brandSoft, colors.canvas, colors.canvas],
-        start: { x: 0.5, y: 0 },
-        end: { x: 0.5, y: 0.55 },
-        locations: [0, 0.45, 1]
-      },
-      withBgCircle: true,
-      circleColor: colors.brandSoft
+      gradient: isLight
+        ? {
+            colors: [colors.surfaceSubtle, colors.canvas, colors.canvas],
+            start: { x: 0.5, y: 0 },
+            end: { x: 0.5, y: 0.55 },
+            locations: [0, 0.45, 1]
+          }
+        : {
+            colors: [colors.brandSoft, colors.canvas, colors.canvas],
+            start: { x: 0.5, y: 0 },
+            end: { x: 0.5, y: 0.55 },
+            locations: [0, 0.45, 1]
+          },
+      withBgCircle: !isLight,
+      circleColor: isLight ? "transparent" : colors.brandSoft
     }
   };
 }

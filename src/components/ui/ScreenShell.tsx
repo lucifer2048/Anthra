@@ -53,6 +53,8 @@ export function ScreenShell({
           maxWidth: theme.layout.contentMaxWidth,
           alignSelf: "center",
           paddingHorizontal: theme.layout.screenPadding,
+          paddingTop: theme.spacing.lg,
+          paddingBottom: theme.spacing["3xl"],
           flexGrow: 1
         },
         contentStyle
@@ -89,12 +91,20 @@ export function ScreenShell({
       <View
         style={{
           width: "100%",
-          maxWidth: theme.layout.contentMaxWidth,
-          alignSelf: "center",
-          paddingHorizontal: theme.layout.screenPadding
+          borderBottomWidth: header.divider ? theme.borderWidths.standard : 0,
+          borderBottomColor: theme.colors.divider
         }}
       >
-        <ScreenHeader {...header} />
+        <View
+          style={{
+            width: "100%",
+            maxWidth: theme.layout.contentMaxWidth,
+            alignSelf: "center",
+            paddingHorizontal: theme.layout.screenPadding
+          }}
+        >
+          <ScreenHeader {...header} divider={false} />
+        </View>
       </View>
       {body}
       {stickyFooter ?? footer}

@@ -116,7 +116,7 @@ export function PasswordManagerScreen({
       </View>
 
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           width: "100%",
@@ -133,8 +133,9 @@ export function PasswordManagerScreen({
         {!hasPin && (
           <Card variant="brand" padding="large">
             <View
-              className="items-center justify-center"
               style={{
+                alignItems: "center",
+                justifyContent: "center",
                 width: 52,
                 height: 52,
                 borderRadius: anthraTheme.radii.lg,
@@ -216,8 +217,10 @@ export function PasswordManagerScreen({
         {hasPin && !unlocked && (
           <Card variant="elevated" padding="large">
             <View
-              className="items-center justify-center self-center"
               style={{
+                alignItems: "center",
+                justifyContent: "center",
+                alignSelf: "center",
                 width: 64,
                 height: 64,
                 borderRadius: anthraTheme.radii.full,
@@ -265,8 +268,8 @@ export function PasswordManagerScreen({
 
         {hasPin && unlocked && (
           <>
-            <View className="flex-row items-center" style={{ gap: anthraTheme.spacing.md }}>
-              <View className="min-w-0 flex-1">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: anthraTheme.spacing.md }}>
+              <View style={{ minWidth: 0, flex: 1 }}>
                 <Text
                   accessibilityRole="header"
                   style={[anthraTheme.typography.titleLarge, { color: anthraTheme.colors.textPrimary }]}
@@ -321,8 +324,10 @@ export function PasswordManagerScreen({
             {entries.length === 0 && (
               <Card variant="subtle" padding="large" style={{ marginTop: anthraTheme.spacing.xl }}>
                 <View
-                  className="items-center justify-center self-center"
                   style={{
+                    alignItems: "center",
+                    justifyContent: "center",
+                    alignSelf: "center",
                     width: 56,
                     height: 56,
                     borderRadius: anthraTheme.radii.full,
@@ -385,10 +390,11 @@ export function PasswordManagerScreen({
                 const visible = revealedEntryIds.includes(entry.id);
                 return (
                   <Card key={entry.id} variant="elevated" padding="large">
-                    <View className="flex-row items-start" style={{ gap: anthraTheme.spacing.md }}>
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: anthraTheme.spacing.md }}>
                       <View
-                        className="items-center justify-center"
                         style={{
+                          alignItems: "center",
+                          justifyContent: "center",
                           width: 44,
                           height: 44,
                           borderRadius: anthraTheme.radii.md,
@@ -397,14 +403,14 @@ export function PasswordManagerScreen({
                       >
                         <KeyRound accessible={false} color={anthraTheme.colors.brand} size={21} />
                       </View>
-                      <View className="min-w-0 flex-1">
+                      <View style={{ minWidth: 0, flex: 1 }}>
                         <Text
                           numberOfLines={2}
                           style={[anthraTheme.typography.titleMedium, { color: anthraTheme.colors.textPrimary }]}
                         >
                           {entry.appName}
                         </Text>
-                        <View className="flex-row items-center" style={{ gap: 5, marginTop: anthraTheme.spacing.xs }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: anthraTheme.spacing.xs }}>
                           <UserRound accessible={false} color={anthraTheme.colors.textTertiary} size={14} />
                           <Text
                             numberOfLines={1}

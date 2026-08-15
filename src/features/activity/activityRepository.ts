@@ -476,3 +476,47 @@ export async function getActivitySyncState(): Promise<ActivitySyncState> {
 export function currentActivityTimezone(): string {
   return getDeviceTimeZone();
 }
+
+export async function addDevDemoSteps(stepsDelta: number = 2500): Promise<void> {
+  const timezone = currentActivityTimezone();
+  const todayKey = dateKeyInTimeZone(Date.now(), timezone);
+  const now = Date.now();
+  await getActivityDb().withTransactionAsync(async () => {
+    const current = await readDailyRow(todayKey);
+    const newSteps = (current?.phoneSteps ?? 0) + stepsDelta;
+    await writeDailyRow(
+      todayKey,
+      timezone,
+      newSteps,
+      current?.healthConnectSteps ?? null,
+      current?.sourcePackages ?? [PHONE_SOURCE_PACKAGE],
+      now
+    );
+  });
+}
+
+export async function seedDevSampleWeek(): Promise<void> {
+  const timezone = currentActivityTimezone();
+  const now = Date.now();
+  const sampleSteps = [7800, 10200, 11500, 9400, 12800, 10600, 8900];
+  await getActivityDb().withTransactionAsync(async () => {
+    for (let i = 0; i < 7; i++) {
+      const dayOffset = -(6 - i);
+      const parts = dateKeyInTimeZone(now + dayOffset * 86_400_000, timezone);
+      const steps = sampleSteps[i];
+      await writeDailyRow(
+        parts,
+        timezone,
+        steps,
+        null,
+        [PHONE_SOURCE_PACKAGE],
+        now
+      );
+    }
+  });
+}
+
+export async function clearAllActivitySteps(): Promise<void> {
+  await run("DELETE FROM activity_daily_summary;");
+  await run("DELETE FROM step_sensor_checkpoints;");
+}

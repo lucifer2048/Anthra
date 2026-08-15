@@ -12,6 +12,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   disabled = false,
+  variant = "luxury",
   style
 }: {
   label?: string;
@@ -19,12 +20,14 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  variant?: "luxury" | "solid";
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useAnthraTheme();
   const reduceMotion = useReducedMotion();
   const { width, fontScale } = useWindowDimensions();
-  const stacked = fontScale >= 1.6 || (width < 360 && options.length > 3);
+  const stacked = fontScale >= 1.75 || (width < 320 && options.length > 3);
+  const isSolid = variant === "solid";
 
   return (
     <View accessibilityRole="tablist" accessibilityLabel={label} style={style}>
@@ -32,17 +35,30 @@ export function SegmentedControl<T extends string>({
       <View
         style={{
           flexDirection: stacked ? "column" : "row",
-          gap: theme.spacing.xs,
-          padding: theme.spacing.xs,
-          borderRadius: theme.radii.lg,
-          borderWidth: theme.borderWidths.standard,
+          gap: 4,
+          padding: 3,
+          borderRadius: theme.radii.xl,
+          borderWidth: 1,
           borderColor: theme.colors.border,
-          backgroundColor: theme.colors.surfaceSubtle
+          backgroundColor: theme.isDark ? theme.colors.surfaceElevated : theme.colors.surfaceSubtle,
+          ...theme.shadows.low
         }}
       >
         {options.map((option) => {
           const selected = option.value === value;
           const Icon = option.icon;
+          const selectedBg = isSolid
+            ? theme.colors.brandSolid
+            : theme.isDark
+              ? theme.colors.brandSoft
+              : theme.colors.surface;
+          const selectedText = isSolid ? theme.colors.textOnBrandSolid : theme.colors.brand;
+          const selectedBorder = isSolid
+            ? "rgba(255,255,255,0.15)"
+            : theme.isDark
+              ? theme.colors.brandBorder
+              : "rgba(0,0,0,0.06)";
+
           return (
             <AnimatedPressable
               key={option.value}
@@ -53,29 +69,51 @@ export function SegmentedControl<T extends string>({
               accessibilityRole="tab"
               accessibilityLabel={option.label}
               accessibilityState={{ selected, disabled }}
-              style={{ flex: stacked ? undefined : 1, minHeight: theme.sizes.control.compact }}
+              style={{
+                flex: stacked ? undefined : 1,
+                minWidth: 0,
+                minHeight: 36
+              }}
             >
               <View
                 style={{
                   flex: 1,
-                  minHeight: theme.sizes.control.compact,
-                  paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.sm,
+                  minHeight: 36,
+                  paddingHorizontal: 4,
+                  paddingVertical: 7,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: theme.spacing.sm,
-                  borderRadius: theme.radii.md,
-                  backgroundColor: selected ? theme.colors.brandSolid : theme.colors.surface,
-                  borderWidth: selected ? theme.borderWidths.standard : 0,
-                  borderColor: selected ? theme.colors.brandBorder : "transparent"
+                  gap: 4,
+                  borderRadius: theme.radii.lg,
+                  backgroundColor: selected ? selectedBg : "transparent",
+                  borderWidth: 1,
+                  borderColor: selected ? selectedBorder : "transparent",
+                  ...(selected ? (theme.isDark ? theme.shadows.low : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 1 }) : {})
                 }}
               >
-                {selected ? (
-                  <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(theme.motion.duration.fast)} exiting={reduceMotion ? undefined : FadeOut.duration(theme.motion.duration.fast)} style={[theme.shadows.low, { position: "absolute", inset: 0, borderRadius: theme.radii.md }]} />
+                {Icon ? (
+                  <Icon
+                    accessible={false}
+                    size={13}
+                    strokeWidth={selected ? 2.3 : 1.8}
+                    color={selected ? selectedText : theme.colors.textSecondary}
+                  />
                 ) : null}
-                {Icon ? <Icon accessible={false} size={theme.sizes.icon.sm} color={selected ? theme.colors.textOnBrandSolid : theme.colors.textSecondary} /> : null}
-                <Text style={[theme.typography.labelLarge, { flexShrink: 1, textAlign: "center", color: selected ? theme.colors.textOnBrandSolid : theme.colors.textSecondary }]}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
+                  style={[
+                    theme.typography.label,
+                    {
+                      flexShrink: 1,
+                      textAlign: "center",
+                      fontWeight: selected ? "700" : "600",
+                      color: selected ? selectedText : theme.colors.textSecondary
+                    }
+                  ]}
+                >
                   {option.label}
                 </Text>
               </View>

@@ -1,10 +1,9 @@
-import { Switch, Text, View, type PressableProps } from "react-native";
+import { Switch, Text, View, type StyleProp, type ViewProps, type ViewStyle } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 
 import { useAnthraTheme } from "../../design-system";
-import { AnimatedPressable } from "./AnimatedPressable";
 
-export type SwitchRowProps = Omit<PressableProps, "children" | "onPress"> & {
+export type SwitchRowProps = ViewProps & {
   label: string;
   description?: string;
   value: boolean;
@@ -13,6 +12,9 @@ export type SwitchRowProps = Omit<PressableProps, "children" | "onPress"> & {
   emphasized?: boolean;
   showStateLabel?: boolean;
   appearance?: "card" | "embedded";
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function SwitchRow({
@@ -26,7 +28,6 @@ export function SwitchRow({
   appearance = "card",
   disabled = false,
   accessibilityLabel,
-  accessibilityState,
   style,
   ...props
 }: SwitchRowProps) {
@@ -35,16 +36,9 @@ export function SwitchRow({
   const embedded = appearance === "embedded";
 
   return (
-    <AnimatedPressable
+    <View
       {...props}
-      disabled={isDisabled}
-      onPress={() => onValueChange(!value)}
-      haptic="selection"
-      pressScale="subtle"
-      accessibilityRole="switch"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ ...accessibilityState, checked: value, disabled: isDisabled }}
-      style={(state) => [
+      style={[
         {
           width: "100%",
           minHeight: LeadingIcon ? 88 : embedded ? 64 : 72,
@@ -53,29 +47,23 @@ export function SwitchRow({
           gap: theme.spacing.md,
           paddingHorizontal: embedded ? 0 : theme.spacing.lg,
           paddingVertical: emphasized ? theme.spacing.lg : theme.spacing.md,
-          borderRadius: embedded ? theme.radii.md : emphasized ? theme.radii.xl : theme.radii.lg,
-          borderWidth: embedded ? 0 : theme.borderWidths.standard,
+          borderRadius: embedded ? theme.radii.md : theme.radii.xl,
+          borderWidth: embedded ? 0 : 1.5,
           borderColor: isDisabled
             ? theme.colors.border
             : value
-              ? theme.colors.brand
-              : emphasized
-                ? theme.colors.brandBorder
-                : theme.colors.borderStrong,
-          backgroundColor: embedded && !state.pressed
+              ? theme.colors.brandBorder
+              : theme.colors.borderStrong,
+          backgroundColor: embedded
             ? "transparent"
             : isDisabled
             ? theme.colors.disabledSurface
-            : state.pressed
-              ? theme.colors.surfacePressed
-              : value
-                ? theme.colors.brandSoft
-                : emphasized
-                  ? theme.colors.surfaceElevated
-                  : theme.colors.surfaceSubtle,
-          ...(emphasized && !embedded ? theme.shadows.medium : theme.shadows.none)
+            : value
+              ? theme.colors.brandSoft
+              : theme.colors.surfaceElevated,
+          ...(!embedded ? theme.shadows.low : theme.shadows.none)
         },
-        typeof style === "function" ? style(state) : style
+        style
       ]}
     >
       {LeadingIcon && (
@@ -109,22 +97,24 @@ export function SwitchRow({
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm }}>
           <Text style={[theme.typography.bodyStrong, { flex: 1, color: isDisabled ? theme.colors.disabledText : theme.colors.textPrimary }]}>{label}</Text>
-          {showStateLabel ? <View
-            style={{
-              paddingHorizontal: theme.spacing.sm,
-              paddingVertical: theme.spacing.xs,
-              borderRadius: theme.radii.full,
-              backgroundColor: isDisabled
-                ? theme.colors.surfaceSubtle
-                : value
-                  ? theme.colors.surfaceElevated
-                  : theme.colors.surfaceSubtle
-            }}
-          >
-            <Text style={[theme.typography.caption, { color: isDisabled ? theme.colors.disabledText : value ? theme.colors.brand : theme.colors.textTertiary }]}>
-              {isDisabled ? "LOCKED" : value ? "ON" : "OFF"}
-            </Text>
-          </View> : null}
+          {showStateLabel ? (
+            <View
+              style={{
+                paddingHorizontal: theme.spacing.sm,
+                paddingVertical: theme.spacing.xs,
+                borderRadius: theme.radii.full,
+                backgroundColor: isDisabled
+                  ? theme.colors.surfaceSubtle
+                  : value
+                    ? theme.colors.surfaceElevated
+                    : theme.colors.surfaceSubtle
+              }}
+            >
+              <Text style={[theme.typography.caption, { color: isDisabled ? theme.colors.disabledText : value ? theme.colors.brand : theme.colors.textTertiary }]}>
+                {isDisabled ? "LOCKED" : value ? "ON" : "OFF"}
+              </Text>
+            </View>
+          ) : null}
         </View>
         {description && (
           <Text style={[theme.typography.caption, { color: isDisabled ? theme.colors.disabledText : theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>
@@ -133,7 +123,6 @@ export function SwitchRow({
         )}
       </View>
       <View
-        pointerEvents="none"
         style={{
           flexGrow: 0,
           flexShrink: 0,
@@ -143,14 +132,15 @@ export function SwitchRow({
         }}
       >
         <Switch
-          accessible={false}
+          accessibilityLabel={accessibilityLabel ?? label}
           value={value}
+          onValueChange={onValueChange}
           disabled={isDisabled}
           trackColor={{ false: theme.colors.borderStrong, true: theme.colors.brandBorder }}
           thumbColor={value ? theme.colors.brandSolid : theme.colors.textTertiary}
           ios_backgroundColor={theme.colors.borderStrong}
         />
       </View>
-    </AnimatedPressable>
+    </View>
   );
 }

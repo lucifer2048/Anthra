@@ -2,13 +2,11 @@ import {
   createContext,
   useCallback,
   useContext,
-  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode
 } from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
-import { useColorScheme as useNativeWindColorScheme } from "nativewind";
 import {
   darkColors,
   borderWidths,
@@ -121,23 +119,15 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [uncontrolledMode, setUncontrolledMode] = useState<ThemeMode>(defaultMode);
   const systemMode = useSystemColorScheme();
-  const { setColorScheme } = useNativeWindColorScheme();
   const activeMode = controlledMode ?? uncontrolledMode;
   const theme = resolveTheme(activeMode, systemMode);
 
-  useLayoutEffect(() => {
-    setColorScheme(activeMode);
-  }, [activeMode, setColorScheme]);
-
   const setMode = useCallback(
     (nextMode: ThemeMode) => {
-      // Reset/apply the native appearance override before the controlled mode
-      // changes so returning to Auto does not render against a stale override.
-      setColorScheme(nextMode);
-      if (controlledMode === undefined) setUncontrolledMode(nextMode);
+      setUncontrolledMode(nextMode);
       onModeChange?.(nextMode);
     },
-    [controlledMode, onModeChange, setColorScheme]
+    [onModeChange]
   );
 
   const value = useMemo<ThemeContextValue>(

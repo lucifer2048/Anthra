@@ -68,13 +68,11 @@ export function ProgressBar({
         text: accessibilityValueText
       }}
       testID={testID}
-      className="w-full overflow-hidden rounded-full"
-      style={[{ height, backgroundColor: resolvedTrack }, style]}
+      style={[{ width: "100%", overflow: "hidden", borderRadius: theme.radii.full, height, backgroundColor: resolvedTrack }, style]}
     >
       <Animated.View
         accessible={false}
-        className="rounded-full"
-        style={[{ height, backgroundColor: resolvedFill }, animatedFillStyle]}
+        style={[{ borderRadius: theme.radii.full, height, backgroundColor: resolvedFill }, animatedFillStyle]}
       />
     </View>
   );

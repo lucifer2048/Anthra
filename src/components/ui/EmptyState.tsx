@@ -28,8 +28,9 @@ export function EmptyState({
   const content = (
     <View style={{ alignItems: "center" }}>
       <View
-        className="items-center justify-center"
         style={{
+          alignItems: "center",
+          justifyContent: "center",
           width: variant === "inline" ? 52 : 64,
           height: variant === "inline" ? 52 : 64,
           borderRadius: theme.radii.full,

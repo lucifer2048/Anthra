@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react-native";
 import { useAnthraTheme } from "../../design-system";
 import { AnimatedPressable, type HapticMode } from "./AnimatedPressable";
 
-export type IconButtonVariant = "standard" | "ghost" | "primary" | "danger";
+export type IconButtonVariant = "standard" | "outline" | "ghost" | "primary" | "danger";
 export type IconButtonSize = "small" | "medium" | "large";
 
 export type IconButtonProps = Omit<PressableProps, "children" | "disabled"> & {
@@ -25,7 +25,6 @@ export function IconButton({
   disabled = false,
   haptic = "none",
   accessibilityState,
-  className,
   style,
   onPressIn,
   onPressOut,
@@ -35,32 +34,39 @@ export function IconButton({
   const theme = useAnthraTheme();
   const variants = {
     standard: {
-      background: theme.colors.surface,
+      background: theme.colors.surfaceElevated,
       pressed: theme.colors.surfacePressed,
-      border: theme.colors.border,
+      border: theme.colors.borderStrong,
       foreground: theme.colors.textPrimary,
-      borderWidth: 1
+      borderWidth: 1.5
     },
-    ghost: {
+    outline: {
       background: "transparent",
       pressed: theme.colors.surfacePressed,
-      border: "transparent",
+      border: theme.colors.borderStrong,
       foreground: theme.colors.textPrimary,
-      borderWidth: 0
+      borderWidth: 1.5
+    },
+    ghost: {
+      background: theme.colors.surfaceSubtle,
+      pressed: theme.colors.brandSoft,
+      border: theme.colors.border,
+      foreground: theme.colors.brand,
+      borderWidth: 1.5
     },
     primary: {
       background: theme.colors.brandSolid,
       pressed: theme.colors.brandSolidPressed,
-      border: theme.colors.brandSolid,
+      border: theme.colors.brandBorder,
       foreground: theme.colors.textOnBrandSolid,
-      borderWidth: 1
+      borderWidth: 1.5
     },
     danger: {
       background: theme.colors.dangerSoft,
       pressed: theme.colors.surfacePressed,
       border: theme.colors.danger,
       foreground: theme.colors.danger,
-      borderWidth: 1
+      borderWidth: 1.5
     }
   } as const;
   const sizes = {
@@ -86,9 +92,10 @@ export function IconButton({
       android_ripple={android_ripple === undefined && Platform.OS === "android"
         ? { color: variant === "primary" ? "rgba(255,255,255,0.18)" : theme.colors.surfacePressed, borderless: true }
         : android_ripple}
-      className={`items-center justify-center rounded-full ${className ?? ""}`}
       style={({ pressed }) => [
         {
+          alignItems: "center",
+          justifyContent: "center",
           width: metrics.target,
           height: metrics.target,
           borderRadius: theme.radii.full,

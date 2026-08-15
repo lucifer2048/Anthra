@@ -42,10 +42,11 @@ export function AuthForm({ legacy = false }: { legacy?: boolean }) {
 
       <Button
         label="Continue with Google"
+        variant="primary"
         size="large"
         fullWidth
-        loading={busy === "google"}
-        disabled={busy !== null || account.loading || !account.cloudAvailable}
+        loading={busy === "google" || account.loading}
+        disabled={busy !== null}
         onPress={() => run("google", account.signInWithGoogle)}
       />
 
@@ -53,10 +54,10 @@ export function AuthForm({ legacy = false }: { legacy?: boolean }) {
         <Button
           label="Continue with email"
           icon={Mail}
-          variant="outline"
+          variant="secondary"
           size="large"
           fullWidth
-          disabled={busy !== null || account.loading || !account.cloudAvailable}
+          disabled={busy !== null}
           onPress={() => setEmailExpanded(true)}
         />
       ) : (

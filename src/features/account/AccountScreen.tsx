@@ -51,7 +51,9 @@ export function AccountScreen({ onBack }: { onBack: () => void }) {
               message="Your existing Anthra data remains available on this device."
             />
           ) : !account.user ? (
-            <AuthForm legacy={account.installation?.installKind === "legacy"} />
+            <Card padding="large" radius="xlarge">
+              <AuthForm legacy={account.installation?.installKind === "legacy"} />
+            </Card>
           ) : (
             <View style={{ gap: theme.spacing.lg }}>
               <Card padding="large">
@@ -102,7 +104,11 @@ export function AccountScreen({ onBack }: { onBack: () => void }) {
                       <Camera accessible={false} color={theme.colors.textOnBrandSolid} size={17} />
                     </View>
                   </AnimatedPressable>
-                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.md }]}>
+                  <Text
+                    numberOfLines={2}
+                    ellipsizeMode="middle"
+                    style={[theme.typography.caption, { alignSelf: "stretch", color: theme.colors.textSecondary, marginTop: theme.spacing.md, textAlign: "center" }]}
+                  >
                     {account.user.email}
                   </Text>
                 </View>
@@ -154,7 +160,7 @@ export function AccountScreen({ onBack }: { onBack: () => void }) {
               <Card padding="large">
                 <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
                   <Cloud accessible={false} color={theme.colors.brand} size={24} />
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Cloud protection</Text>
                     <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}> 
                       {account.legacyImportPrepared

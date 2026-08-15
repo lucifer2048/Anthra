@@ -36,7 +36,7 @@ export function DatePickerField({ label, value, onChange, minimumDate, maximumDa
         accessibilityLabel={`${label}, ${value.toLocaleDateString()}`}
         accessibilityState={{ disabled, expanded: open }}
       >
-        <View style={{ minHeight: theme.sizes.control.large, paddingHorizontal: theme.spacing.lg, flexDirection: "row", alignItems: "center", gap: theme.spacing.md, borderRadius: theme.radii.lg, borderWidth: theme.borderWidths.standard, borderColor: error ? theme.colors.danger : theme.colors.borderStrong, backgroundColor: disabled ? theme.colors.disabledSurface : theme.colors.surfaceSubtle, opacity: disabled ? theme.motion.disabledOpacity : 1 }}>
+        <View style={{ minHeight: theme.sizes.control.large, paddingHorizontal: theme.spacing.lg, flexDirection: "row", alignItems: "center", gap: theme.spacing.md, borderRadius: theme.radii.xl, borderWidth: 1, borderColor: error ? theme.colors.danger : theme.colors.borderStrong, backgroundColor: disabled ? theme.colors.disabledSurface : theme.colors.surfaceElevated, opacity: disabled ? theme.motion.disabledOpacity : 1, ...theme.shadows.low }}>
           <CalendarDays accessible={false} size={theme.sizes.icon.md} color={disabled ? theme.colors.disabledText : theme.colors.textSecondary} />
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.3} style={[theme.typography.bodyLarge, { flex: 1, color: disabled ? theme.colors.disabledText : theme.colors.textPrimary }]}>{value.toLocaleDateString()}</Text>
         </View>

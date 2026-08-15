@@ -65,25 +65,24 @@ export function TimePickerField({
         accessibilityLabel={`${label}, ${formatTime(hour, minute)}`}
         accessibilityHint="Opens the time picker"
         accessibilityState={{ expanded: open }}
-        className="flex-row items-center"
         style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
           minHeight: theme.sizes.control.large,
           gap: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
           paddingVertical: theme.spacing.sm,
-          borderRadius: theme.radii.md,
-          borderWidth: open || emphasized ? theme.borderWidths.focused : theme.borderWidths.standard,
+          borderRadius: theme.radii.xl,
+          borderWidth: 1,
           borderColor: open ? theme.colors.focusRing : theme.colors.borderStrong,
           backgroundColor: pressed
             ? theme.colors.surfacePressed
-            : emphasized
-              ? theme.colors.surfaceElevated
-              : theme.colors.surface
+            : theme.colors.surfaceElevated,
+          ...theme.shadows.low
         })}
       >
         <View
-          className="items-center justify-center"
-          style={{ width: 36, height: 36, borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}
+          style={{ alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: theme.radii.full, backgroundColor: theme.colors.brandSoft }}
         >
           <Clock3 accessible={false} color={theme.colors.brand} size={19} />
         </View>

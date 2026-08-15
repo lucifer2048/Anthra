@@ -63,8 +63,9 @@ function AppearanceOptionCard({
         })}
       >
         <View
-          className="items-center justify-center"
           style={{
+            alignItems: "center",
+            justifyContent: "center",
             width: 40,
             height: 40,
             borderRadius: theme.radii.full,
@@ -74,8 +75,7 @@ function AppearanceOptionCard({
           <Icon accessible={false} color={selected ? theme.colors.brand : theme.colors.textSecondary} size={21} />
           {selected && (
             <View
-              className="absolute -right-1 -top-1 items-center justify-center"
-              style={{ width: 17, height: 17, borderRadius: 9, backgroundColor: theme.colors.brandSolid }}
+              style={{ position: "absolute", right: -4, top: -4, alignItems: "center", justifyContent: "center", width: 17, height: 17, borderRadius: 9, backgroundColor: theme.colors.brandSolid }}
             >
               <Check accessible={false} color={theme.colors.textOnBrandSolid} size={11} strokeWidth={3} />
             </View>

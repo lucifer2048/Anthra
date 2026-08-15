@@ -504,7 +504,7 @@ export function TimerScreen({
   return (
     <ScreenLayout {...phaseBackground} safeAreaEdges={["top", "bottom"]}>
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
           width: "100%",
@@ -517,14 +517,14 @@ export function TimerScreen({
         alwaysBounceVertical={false}
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
-          <View className="min-w-0 flex-1">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md }}>
+          <View style={{ minWidth: 0, flex: 1 }}>
             <Text style={[theme.typography.label, { color: phaseAccent }]}>WORKOUT</Text>
             <Text numberOfLines={1} style={[theme.typography.titleSmall, { color: textPrimaryColor, marginTop: theme.spacing.xs }]}>
               {plan.name}
             </Text>
           </View>
-          <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+          <View style={{ flexDirection: "row", gap: theme.spacing.xs }}>
             <IconButton
               icon={focusMode ? Eye : EyeOff}
               onPress={() => setFocusMode((enabled) => !enabled)}
@@ -543,15 +543,16 @@ export function TimerScreen({
         </View>
 
         {!focusMode && (
-          <View className="flex-row items-center" style={{ gap: theme.spacing.md, marginTop: theme.spacing.md }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md, marginTop: theme.spacing.md }}>
             <ProgressBar value={progressPercent} max={100} fillColor={phaseAccent} height={theme.spacing.xs} style={{ flex: 1 }} accessibilityLabel="Workout progress" />
             <Text style={[theme.typography.caption, { color: textMutedColor }]}>{Math.round(progressPercent)}%</Text>
           </View>
         )}
 
         <View
-          className="items-center justify-center"
           style={{
+            alignItems: "center",
+            justifyContent: "center",
             flexGrow: 1,
             minHeight: isCompactHeight ? 320 : 430,
             paddingTop: isCompactHeight ? theme.spacing.lg : theme.spacing["2xl"],
@@ -598,8 +599,10 @@ export function TimerScreen({
           )}
 
           <View
-            className="w-full items-center justify-center"
             style={{
+              width: "100%",
+              alignItems: "center",
+              justifyContent: "center",
               minHeight: isCompactHeight ? 146 : 202,
               marginTop: isCompactHeight ? theme.spacing.xs : theme.spacing.sm
             }}
@@ -678,7 +681,7 @@ export function TimerScreen({
             padding="small"
             radius="medium"
             bordered
-            className="mt-3 flex-row items-center"
+            style={{ marginTop: 12, flexDirection: "row", alignItems: "center" }}
           >
             <Text style={[theme.typography.bodyStrong, { color: textPrimaryColor, flex: 1 }]}>
               Skipped {skippedState.phase === "rest" ? "rest" : "exercise"}
@@ -690,8 +693,9 @@ export function TimerScreen({
         {phase !== "complete" && !focusMode && (
           <View style={{ alignItems: "center", marginTop: theme.spacing.sm }}>
             <View
-              className="flex-row items-center"
               style={{
+                flexDirection: "row",
+                alignItems: "center",
                 gap: theme.spacing.md
               }}
             >
@@ -703,10 +707,9 @@ export function TimerScreen({
 
         {phase === "complete" && (
           <View>
-            <View className="items-center" style={{ marginBottom: theme.spacing.md }}>
+            <View style={{ alignItems: "center", marginBottom: theme.spacing.md }}>
               <View
-                className="items-center justify-center rounded-full"
-                style={{ width: 48, height: 48, backgroundColor: phaseAccentSurface }}
+                style={{ alignItems: "center", justifyContent: "center", borderRadius: 999, width: 48, height: 48, backgroundColor: phaseAccentSurface }}
               >
                 <Check accessible={false} color={phaseAccent} size={26} strokeWidth={2.5} />
               </View>
@@ -719,16 +722,16 @@ export function TimerScreen({
               padding="medium"
               radius="medium"
               bordered
-              className="flex-row"
+              style={{ flexDirection: "row" }}
             >
-              <View className="flex-1 items-center">
+              <View style={{ flex: 1, alignItems: "center" }}>
                 <Text style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>
                   {formatWorkoutDuration(getRunSummary(true).elapsedSeconds)}
                 </Text>
                 <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Time invested</Text>
               </View>
-              <View className="w-px" style={{ backgroundColor: theme.colors.divider }} />
-              <View className="flex-1 items-center">
+              <View style={{ width: 1, backgroundColor: theme.colors.divider }} />
+              <View style={{ flex: 1, alignItems: "center" }}>
                 <Text style={[theme.typography.titleLarge, { color: textPrimaryColor }]}>{timeline.workSegmentCount}</Text>
                 <Text style={[theme.typography.caption, { color: textMutedColor, marginTop: theme.spacing.xs }]}>Work rounds</Text>
               </View>

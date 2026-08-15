@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { Cloud, ShieldCheck } from "lucide-react-native";
 
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
-import { Button, Card, StatusBanner } from "../../components/ui";
+import { Button, Card, KeyboardAwareScrollView, StatusBanner } from "../../components/ui";
 import { useAnthraTheme } from "../../design-system";
 import { AuthForm } from "./AuthForm";
 import { useAccount } from "./AccountProvider";
@@ -47,8 +47,9 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
 
   return (
     <ScreenLayout {...backgrounds.brandWash} safeAreaEdges={["top", "bottom", "left", "right"]}>
-      <ScrollView
+      <KeyboardAwareScrollView
         keyboardShouldPersistTaps="handled"
+        extraKeyboardSpace={theme.spacing["3xl"]}
         contentContainerStyle={{
           flexGrow: 1,
           width: "100%",
@@ -62,10 +63,17 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
         {!account.session && (
           <Text style={[theme.typography.label, { color: theme.colors.brand }]}>ANTHRA</Text>
         )}
-        <Text style={[theme.typography.display, { color: theme.colors.textPrimary, marginTop: account.session ? 0 : theme.spacing.sm }]}> 
+        <Text
+          accessibilityRole="header"
+          maxFontSizeMultiplier={1.25}
+          style={[theme.typography.display, { color: theme.colors.textPrimary, marginTop: account.session ? 0 : theme.spacing.sm }]}
+        >
           {account.session ? "Protecting your data" : installation.installKind === "legacy" ? "Welcome back" : "Welcome to Anthra"}
         </Text>
-        <Text style={[theme.typography.bodyLarge, { color: theme.colors.textSecondary, marginTop: theme.spacing.md, marginBottom: theme.spacing.xl }]}> 
+        <Text
+          maxFontSizeMultiplier={1.35}
+          style={[theme.typography.bodyLarge, { color: theme.colors.textSecondary, marginTop: theme.spacing.md, marginBottom: theme.spacing.xl }]}
+        >
           {account.session
             ? "Anthra is creating and verifying your private cloud copy. Nothing is removed from this phone."
             : "Sign in to continue."}
@@ -129,7 +137,9 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
             )}
           </View>
         ) : (
-          <AuthForm legacy={installation.installKind === "legacy"} />
+          <Card padding="large" radius="xlarge" style={{ marginTop: theme.spacing.sm }}>
+            <AuthForm legacy={installation.installKind === "legacy"} />
+          </Card>
         )}
 
         {canContinueOffline && decision === "authenticate" && (
@@ -152,7 +162,7 @@ export function AccountOnboardingGate({ children }: { children: ReactNode }) {
             }}
           />
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ScreenLayout>
   );
 }

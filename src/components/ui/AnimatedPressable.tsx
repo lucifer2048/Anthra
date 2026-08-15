@@ -57,13 +57,17 @@ export function AnimatedPressable({
       onPressOut={(event) => {
         onPressOut?.(event);
       }}
-      style={(state) => [
-        typeof style === "function" ? style(state) : style,
-        {
-          opacity: disabled ? theme.motion.disabledOpacity : 1,
-          transform: [{ scale: state.pressed && !disabled ? resolvedScale : 1 }]
-        }
-      ]}
+      style={(state) => {
+        const evaluated = typeof style === "function" ? style(state) : style;
+        const flat = Array.isArray(evaluated) ? evaluated : [evaluated];
+        return [
+          ...flat,
+          {
+            opacity: disabled ? theme.motion.disabledOpacity : 1,
+            transform: [{ scale: state.pressed && !disabled ? resolvedScale : 1 }]
+          }
+        ];
+      }}
     >
       {children}
     </Pressable>

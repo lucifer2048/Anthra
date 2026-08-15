@@ -26,8 +26,7 @@ import {
 import { ScreenLayout, useScreenBackgrounds } from "../../components/layout";
 import { useAnthraTheme } from "../../design-system";
 import type { ActiveWorkoutSnapshot, DashboardStats } from "../../types";
-import { AnimatedPressable, Button, Card, InteractiveCard, MetricCard } from "../../components/ui";
-import { ProgressBar } from "../../components/ProgressBar";
+import { AnimatedPressable, Button, Card, InteractiveCard, MetricCard, ProgressBar } from "../../components/ui";
 import { useAccount } from "../account/AccountProvider";
 import { ProfileAvatar } from "../account/ProfileAvatar";
 import { useSocial } from "../social/SocialProvider";
@@ -91,47 +90,63 @@ function ActionCard({ action, index, animateCards }: { action: HomeAction; index
           accessibilityRole="button"
           accessibilityLabel={action.label}
           accessibilityHint={action.accessibilityHint ?? action.description}
-          style={{
+          style={({ pressed }) => ({
             flex: 1,
-            minHeight: 132,
+            minHeight: compact ? 138 : 150,
             padding: compact ? theme.spacing.md : theme.spacing.lg,
-            borderRadius: theme.radii.xl,
-            borderWidth: 1,
-            borderColor: theme.colors.borderStrong,
-            backgroundColor: theme.colors.surfaceElevated,
+            borderRadius: theme.radii["2xl"],
+            borderWidth: 1.5,
+            borderColor: pressed ? theme.colors.brand : theme.colors.borderStrong,
+            backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated,
             ...theme.shadows.medium
-          }}
+          })}
         >
-          <View className="flex-row items-start justify-between">
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View
-              className="items-center justify-center"
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: theme.radii.md,
-                borderWidth: 1,
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: theme.radii.lg,
+                borderWidth: 1.5,
                 borderColor: theme.colors.brandBorder,
-                backgroundColor: theme.colors.brandSoft
+                backgroundColor: theme.colors.brandSoft,
+                shadowColor: theme.isDark ? "#FF2442" : undefined,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4
               }}
             >
-              <Icon accessible={false} color={theme.colors.brand} size={21} strokeWidth={2.2} />
+              <Icon accessible={false} color={theme.colors.brand} size={22} strokeWidth={2.2} />
             </View>
-            <ArrowUpRight accessible={false} color={theme.colors.textTertiary} size={18} />
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: theme.radii.full,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                backgroundColor: theme.colors.surfaceSubtle
+              }}
+            >
+              <ArrowUpRight accessible={false} color={theme.colors.brand} size={16} strokeWidth={2} />
+            </View>
           </View>
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.78}
             maxFontSizeMultiplier={1.3}
-            style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md }]}
+            style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.md, fontWeight: "700", letterSpacing: 0.1 }]}
           >
             {action.label}
           </Text>
           <Text
-            numberOfLines={3}
-            ellipsizeMode="tail"
             maxFontSizeMultiplier={1.3}
-            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
+            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs, lineHeight: 17 }]}
           >
             {action.description}
           </Text>
@@ -149,8 +164,13 @@ function Section({ title, actions, startIndex, animateCards }: { title: string; 
   const rowCount = Math.ceil(actions.length / columns);
 
   return (
-    <View style={{ marginTop: theme.spacing["2xl"] }}>
-      <Text style={[theme.typography.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}>{title.toUpperCase()}</Text>
+    <View style={{ marginTop: theme.spacing["3xl"] }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.brand }} />
+        <Text style={[theme.typography.eyebrow, { color: theme.colors.textPrimary, letterSpacing: 1.4, fontWeight: "800" }]}>
+          {title.toUpperCase()}
+        </Text>
+      </View>
       <View style={{ gap }}>
         {Array.from({ length: rowCount }, (_, rowIndex) => {
           const rowActions = actions.slice(rowIndex * columns, rowIndex * columns + columns);
@@ -176,7 +196,21 @@ function Section({ title, actions, startIndex, animateCards }: { title: string; 
 
 function PrimaryAction({ label, onPress }: { label: string; onPress: () => void }) {
   const theme = useAnthraTheme();
-  return <Button label={label} icon={ArrowRight} iconPosition="end" onPress={onPress} fullWidth size="large" style={{ marginTop: theme.spacing.xl }} />;
+  return (
+    <Button
+      label={label}
+      icon={ArrowRight}
+      iconPosition="end"
+      onPress={onPress}
+      variant="primary"
+      size="large"
+      fullWidth
+      haptic="selection"
+      style={{
+        marginTop: theme.spacing.xl
+      }}
+    />
+  );
 }
 
 function formatLeaderboardValue(position: HomeLeaderboardPosition): string {
@@ -184,6 +218,14 @@ function formatLeaderboardValue(position: HomeLeaderboardPosition): string {
   if (position.metric === "steps") return `${position.value.toLocaleString()} steps`;
   if (position.metric === "workouts") return `${position.value} ${position.value === 1 ? "workout" : "workouts"}`;
   return `${position.value} ${position.value === 1 ? "day" : "days"}`;
+}
+
+function formatRank(rank: number | null): string {
+  if (rank == null) return "Off";
+  if (rank === 1) return "1st";
+  if (rank === 2) return "2nd";
+  if (rank === 3) return "3rd";
+  return `${rank}th`;
 }
 
 function FriendsLeaderboardCard({
@@ -196,170 +238,170 @@ function FriendsLeaderboardCard({
   onPress: () => void;
 }) {
   const theme = useAnthraTheme();
-  const { fontScale, width } = useWindowDimensions();
-  const compact = width < 390 || fontScale >= 1.25;
-  const metrics = positions.map((position) => ({
-    ...position,
-    label: position.metric === "workouts" ? "Workouts" : position.metric === "streak" ? "Streak" : "Steps",
-    icon: position.metric === "workouts" ? Dumbbell : position.metric === "streak" ? Flame : Footprints
-  }));
+  const metrics = positions.map((position) => {
+    let displayVal = "—";
+    if (position.value != null) {
+      if (position.metric === "steps") displayVal = position.value.toLocaleString();
+      else if (position.metric === "workouts") displayVal = `${position.value}`;
+      else if (position.metric === "streak") displayVal = `${position.value}d`;
+    }
+    return {
+      ...position,
+      displayVal,
+      label: position.metric === "workouts" ? "Workouts" : position.metric === "streak" ? "Streak" : "Steps",
+      icon: position.metric === "workouts" ? Dumbbell : position.metric === "streak" ? Flame : Footprints
+    };
+  });
 
   return (
-    <Card
-      padding="large"
-      radius="xlarge"
-      style={{
+    <AnimatedPressable
+      onPress={onPress}
+      haptic="selection"
+      pressScale="subtle"
+      accessibilityRole="button"
+      accessibilityLabel={`Friends Leaderboard. ${friendCount} friends in circle. Tap to view standings.`}
+      style={({ pressed }) => ({
         marginTop: theme.spacing.md,
-        borderColor: theme.colors.border,
-        backgroundColor: theme.colors.surfaceElevated,
-        ...theme.shadows.medium
-      }}
+        borderRadius: theme.radii.xl,
+        borderWidth: 1,
+        borderColor: pressed ? theme.colors.brandBorder : theme.colors.border,
+        backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surfaceElevated,
+        paddingHorizontal: theme.spacing.lg,
+        paddingVertical: theme.spacing.md,
+        ...theme.shadows.low
+      })}
     >
+      {/* Header */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
-          gap: theme.spacing.md
+          justifyContent: "space-between"
         }}
       >
-        <View
-          style={{
-            width: compact ? 42 : 46,
-            height: compact ? 42 : 46,
-            flexShrink: 0,
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: theme.radii.md,
-            borderWidth: 1,
-            borderColor: theme.colors.brandBorder,
-            backgroundColor: theme.colors.brandSoft
-          }}
-        >
-          <Trophy accessible={false} color={theme.colors.brand} size={compact ? 20 : 22} strokeWidth={2.2} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, flex: 1, minWidth: 0 }}>
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: theme.radii.md,
+              backgroundColor: theme.colors.brandSoft
+            }}
+          >
+            <Trophy accessible={false} color={theme.colors.brand} size={16} strokeWidth={2.2} />
+          </View>
           <Text
             numberOfLines={1}
-            style={[theme.typography.titleMedium, { color: theme.colors.textPrimary }]}
+            style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}
           >
             Friends Leaderboard
           </Text>
-          <Text
-            numberOfLines={2}
-            style={[theme.typography.caption, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}
-          >
-            {friendCount} {friendCount === 1 ? "friend" : "friends"} in circle · Opt-in standings
+          <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
+            · {friendCount} in circle
           </Text>
         </View>
+
+        <ArrowRight size={15} color={theme.colors.brand} strokeWidth={2} />
       </View>
 
-      <View style={{ flexDirection: "row", marginTop: theme.spacing.xl }}>
-        {metrics.map(({ icon: MetricIcon, ...position }) => {
-          const isFirst = position.rank === 1;
-          const isRanked = position.rank != null;
+      {/* Minimal Icon-driven 3-column stats */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginTop: theme.spacing.md,
+          paddingTop: theme.spacing.sm,
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.divider
+        }}
+      >
+        {metrics.map((item, index) => {
+          const isRanked = item.rank != null;
+          const isFirst = item.rank === 1;
+          const Icon = item.icon;
+
           return (
             <View
-              key={position.metric}
+              key={item.metric}
               style={{
-                minWidth: 0,
-                minHeight: 88,
                 flex: 1,
                 alignItems: "center",
-                justifyContent: "center",
-                paddingHorizontal: theme.spacing.xs,
-                borderLeftWidth: position.metric === metrics[0]?.metric ? 0 : theme.borderWidths.standard,
+                paddingHorizontal: 4,
+                borderLeftWidth: index === 0 ? 0 : 1,
                 borderLeftColor: theme.colors.divider
               }}
             >
               <View
                 style={{
-                  width: compact ? 28 : 32,
-                  height: compact ? 28 : 32,
-                  flexShrink: 0,
+                  width: 34,
+                  height: 34,
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: theme.radii.full,
-                  backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceElevated
+                  backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceSubtle
                 }}
               >
-                <MetricIcon
+                <Icon
                   accessible={false}
+                  size={20}
                   color={isFirst ? theme.colors.brand : theme.colors.textSecondary}
-                  size={compact ? 14 : 16}
-                  strokeWidth={2}
+                  strokeWidth={2.2}
                 />
               </View>
-              <View style={{ minWidth: 0, alignItems: "center", marginTop: theme.spacing.xs }}>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
-                  style={[theme.typography.caption, { color: theme.colors.textSecondary, textAlign: "center" }]}
-                >
-                  {position.label}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  style={[theme.typography.caption, { color: theme.colors.textPrimary, fontWeight: "600", textAlign: "center", marginTop: theme.spacing.xs }]}
-                >
-                  {formatLeaderboardValue(position)}
-                </Text>
-              </View>
 
-              <View style={{ alignItems: "center", marginTop: theme.spacing.xs }}>
-                {isRanked ? (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: theme.spacing.xs,
-                      paddingHorizontal: theme.spacing.sm,
-                      paddingVertical: theme.spacing.xxs,
-                      borderRadius: theme.radii.full,
-                      backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceElevated
-                    }}
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                style={[
+                  theme.typography.titleMedium,
+                  {
+                    color: theme.colors.textPrimary,
+                    fontWeight: "800",
+                    fontSize: 20,
+                    marginVertical: 4
+                  }
+                ]}
+              >
+                {item.displayVal}
+              </Text>
+
+              {isRanked ? (
+                <View
+                  style={{
+                    paddingHorizontal: 9,
+                    paddingVertical: 2,
+                    borderRadius: theme.radii.full,
+                    backgroundColor: isFirst ? theme.colors.brandSoft : theme.colors.surfaceSubtle,
+                    borderWidth: 1,
+                    borderColor: isFirst ? theme.colors.brandBorder : theme.colors.border
+                  }}
+                >
+                  <Text
+                    style={[
+                      theme.typography.caption,
+                      {
+                        color: isFirst ? theme.colors.brand : theme.colors.textSecondary,
+                        fontWeight: "700",
+                        fontSize: 11
+                      }
+                    ]}
                   >
-                    <Text
-                      style={[
-                        theme.typography.caption,
-                        {
-                          color: isFirst ? theme.colors.brand : theme.colors.textPrimary,
-                          fontWeight: "700",
-                          fontSize: 12,
-                          lineHeight: 14
-                        }
-                      ]}
-                    >
-                      #{position.rank}
-                    </Text>
-                    <Text style={[theme.typography.caption, { color: theme.colors.textTertiary }]}>
-                      /{position.participantCount}
-                    </Text>
-                  </View>
-                ) : (
-                  <View
-                    style={{
-                      paddingHorizontal: theme.spacing.sm,
-                      paddingVertical: theme.spacing.xxs,
-                      borderRadius: theme.radii.full,
-                      backgroundColor: theme.colors.surfaceElevated
-                    }}
-                  >
-                    <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, }]}>
-                      Off
-                    </Text>
-                  </View>
-                )}
-              </View>
+                    {formatRank(item.rank)}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[theme.typography.caption, { color: theme.colors.textTertiary, fontSize: 11 }]}>
+                  Off
+                </Text>
+              )}
             </View>
           );
         })}
       </View>
-
-      <PrimaryAction label="Go to leaderboard" onPress={onPress} />
-    </Card>
+    </AnimatedPressable>
   );
 }
 
@@ -442,7 +484,7 @@ export function AnthraHomeScreen({
     <ScreenLayout {...backgrounds.brandWash} safeAreaEdges={["top", "left", "right"]}>
       <View style={{ flex: 1 }}>
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           contentOffset={{ x: 0, y: initialScrollOffset }}
           onScroll={(event) => onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)}

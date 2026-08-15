@@ -934,21 +934,24 @@ export function PlanEditorModal({
       <ScreenLayout {...backgrounds.canvas} safeAreaEdges={["top", "bottom"]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
-          style={{ backgroundColor: theme.colors.canvas }}
+          style={{ backgroundColor: theme.colors.canvas, flex: 1 }}
         >
           <View
-            className="flex-row items-center px-5 pb-3 pt-2"
             style={{
               width: "100%",
               maxWidth: theme.layout.contentMaxWidth,
               alignSelf: "center",
               gap: theme.spacing.md,
               borderBottomWidth: 1,
-              borderBottomColor: theme.colors.divider
+              borderBottomColor: theme.colors.divider,
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 20,
+              paddingBottom: 12,
+              paddingTop: 8
             }}
           >
-            <View className="min-w-0 flex-1">
+            <View style={{ minWidth: 0, flex: 1 }}>
               <Text style={[theme.typography.label, { color: theme.colors.brand }]}>WORKOUT PLAN</Text>
               <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>
                 {isEditing ? "Edit plan" : "Create a plan"}
@@ -970,7 +973,7 @@ export function PlanEditorModal({
           </View>
 
           <KeyboardAwareScrollView
-            className="flex-1"
+            style={{ flex: 1 }}
             contentContainerStyle={{
               width: "100%",
               maxWidth: theme.layout.contentMaxWidth,
@@ -1030,18 +1033,21 @@ export function PlanEditorModal({
               >
                 <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Start from a proven structure</Text>
                 <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Choose a starter, then adjust every interval to fit your training.</Text>
-                <View className="mt-3 flex-row flex-wrap" style={{ gap: theme.spacing.sm }}>
+                <View style={{ gap: theme.spacing.sm, marginTop: 12, flexDirection: "row", flexWrap: "wrap" }}>
                   {PLAN_TEMPLATES.map((template) => (
                     <AnimatedPressable
                       key={template.name}
                       onPress={() => applyTemplate(template)}
                       accessibilityRole="button"
                       accessibilityLabel={`Use ${template.name} template`}
-                      className="min-h-[44px] justify-center border px-3"
                       style={({ pressed }) => ({
                         borderRadius: theme.radii.full,
                         borderColor: theme.colors.brandBorder,
-                        backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.brandSoft
+                        backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.brandSoft,
+                        minHeight: 44,
+                        justifyContent: "center",
+                        borderWidth: 1,
+                        paddingHorizontal: 12
                       })}
                     >
                       <Text style={[theme.typography.label, { color: theme.colors.brand }]}>{template.name}</Text>
@@ -1058,20 +1064,18 @@ export function PlanEditorModal({
               padding="medium"
               radius="large"
               bordered
-              className="flex-row items-center"
-              style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md }}
+              style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md, flexDirection: "row", alignItems: "center" }}
             >
               <View
-                className="items-center justify-center rounded-full"
-                style={{ width: 44, height: 44, backgroundColor: theme.colors.surface }}
+                style={{ width: 44, height: 44, backgroundColor: theme.colors.surface, alignItems: "center", justifyContent: "center", borderRadius: 999 }}
               >
                 <Clock3 accessible={false} color={theme.colors.brand} size={21} />
               </View>
-              <View className="min-w-0 flex-1">
+              <View style={{ minWidth: 0, flex: 1 }}>
                 <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>Estimated duration</Text>
                 <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{estimatedDurationLabel}</Text>
               </View>
-              <View className="items-end">
+              <View style={{ alignItems: "flex-end" }}>
                 <Text style={[theme.typography.titleMedium, { color: theme.colors.brand }]}>{exerciseCount}</Text>
                 <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>exercises</Text>
               </View>
@@ -1084,7 +1088,7 @@ export function PlanEditorModal({
               bordered
               style={{ marginTop: theme.spacing.lg }}
             >
-              <View className="flex-row items-center" style={{ gap: theme.spacing.sm }}>
+              <View style={{ gap: theme.spacing.sm, flexDirection: "row", alignItems: "center" }}>
                 <CalendarDays accessible={false} color={theme.colors.brand} size={20} />
                 <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary }]}>Training days</Text>
               </View>
@@ -1099,12 +1103,12 @@ export function PlanEditorModal({
             </Surface>
             </PlanScheduleSection>
 
-            <View className="mt-6 flex-row items-end" style={{ gap: theme.spacing.md }}>
-              <View className="min-w-0 flex-1">
+            <View style={{ gap: theme.spacing.md, marginTop: 24, flexDirection: "row", alignItems: "flex-end" }}>
+              <View style={{ minWidth: 0, flex: 1 }}>
                 <Text accessibilityRole="header" style={[theme.typography.titleLarge, { color: theme.colors.textPrimary }]}>Sets</Text>
                 <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>They run from top to bottom, including every loop and rest.</Text>
               </View>
-              <View className="flex-row items-center" style={{ gap: theme.spacing.xs }}>
+              <View style={{ gap: theme.spacing.xs, flexDirection: "row", alignItems: "center" }}>
                 <Layers3 accessible={false} color={theme.colors.brand} size={19} />
                 <Text style={[theme.typography.label, { color: theme.colors.brand }]}>{sections.length}</Text>
               </View>
@@ -1121,14 +1125,13 @@ export function PlanEditorModal({
                 </Text>
 
                 <View
-                  className="mt-3 flex-row items-center justify-between border-t pt-2"
-                  style={{ gap: theme.spacing.md, borderColor: theme.colors.divider }}
+                  style={{ gap: theme.spacing.md, borderColor: theme.colors.divider, marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, paddingTop: 8 }}
                 >
-                  <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                  <View style={{ gap: theme.spacing.xs, flexDirection: "row" }}>
                     <IconButton icon={ArrowUp} onPress={() => moveSection(sectionIndex, -1)} disabled={sectionIndex === 0} accessibilityLabel={`Move ${section.name} up`} variant="ghost" size="small" />
                     <IconButton icon={ArrowDown} onPress={() => moveSection(sectionIndex, 1)} disabled={sectionIndex === sections.length - 1} accessibilityLabel={`Move ${section.name} down`} variant="ghost" size="small" />
                   </View>
-                  <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                  <View style={{ gap: theme.spacing.xs, flexDirection: "row" }}>
                     <IconButton icon={Copy} onPress={() => duplicateSection(sectionIndex)} accessibilityLabel={`Duplicate ${section.name}`} variant="ghost" size="small" />
                     <IconButton icon={Pencil} onPress={() => openSetModal(section)} accessibilityLabel={`Edit ${section.name}`} variant="ghost" size="small" />
                     <IconButton icon={Trash2} onPress={() => removeSection(section.localId)} disabled={sections.length <= 1} accessibilityLabel={`Delete ${section.name}`} variant="danger" size="small" />
@@ -1139,8 +1142,7 @@ export function PlanEditorModal({
 
                 {section.exercises.length === 0 && (
                   <View
-                    className="mt-3 border border-dashed px-3 py-4"
-                    style={{ borderRadius: theme.radii.md, borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.surfaceSubtle }}
+                    style={{ borderRadius: theme.radii.md, borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.surfaceSubtle, marginTop: 12, borderWidth: 1, borderStyle: "dashed", paddingHorizontal: 12, paddingVertical: 16 }}
                   >
                     <Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>No exercises yet. Add one to build this set.</Text>
                   </View>
@@ -1158,12 +1160,12 @@ export function PlanEditorModal({
                     <Text style={[theme.typography.caption, { color: theme.colors.brand }]}>EXERCISE {exerciseIndex + 1}</Text>
                     <Text style={[theme.typography.titleSmall, { color: theme.colors.textPrimary, marginTop: theme.spacing.xs }]}>{exercise.name || "Unnamed"}</Text>
                     <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.xs }]}>Work {exercise.workSecondsText}s · Rest {exercise.restSecondsText}s</Text>
-                    <View className="mt-2 flex-row items-center justify-between" style={{ gap: theme.spacing.md }}>
-                      <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                    <View style={{ gap: theme.spacing.md, marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <View style={{ gap: theme.spacing.xs, flexDirection: "row" }}>
                         <IconButton icon={ArrowUp} onPress={() => moveExercise(section.localId, exerciseIndex, -1)} disabled={exerciseIndex === 0} accessibilityLabel={`Move ${exercise.name} up`} variant="ghost" size="small" />
                         <IconButton icon={ArrowDown} onPress={() => moveExercise(section.localId, exerciseIndex, 1)} disabled={exerciseIndex === section.exercises.length - 1} accessibilityLabel={`Move ${exercise.name} down`} variant="ghost" size="small" />
                       </View>
-                      <View className="flex-row" style={{ gap: theme.spacing.xs }}>
+                      <View style={{ gap: theme.spacing.xs, flexDirection: "row" }}>
                         <IconButton icon={Copy} onPress={() => duplicateExercise(section.localId, exerciseIndex)} accessibilityLabel={`Duplicate ${exercise.name}`} variant="ghost" size="small" />
                         <IconButton icon={Pencil} onPress={() => openExerciseModal(section.localId, exercise)} accessibilityLabel={`Edit ${exercise.name}`} variant="ghost" size="small" />
                         <IconButton icon={Trash2} onPress={() => removeExercise(section.localId, exercise.localId)} accessibilityLabel={`Delete ${exercise.name}`} variant="danger" size="small" />
@@ -1173,8 +1175,7 @@ export function PlanEditorModal({
                 ))}
 
                 <View
-                  className="mt-4"
-                  style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md }}
+                  style={{ flexDirection: shouldStackControls ? "column" : "row", gap: theme.spacing.md, marginTop: 16 }}
                 >
                   <Button label="Add exercise" icon={Plus} onPress={() => openExerciseModal(section.localId)} variant="primary" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />
                   <Button label="Edit set" icon={Pencil} onPress={() => openSetModal(section)} variant="outline" style={{ flex: shouldStackControls ? undefined : 1, alignSelf: "stretch" }} />

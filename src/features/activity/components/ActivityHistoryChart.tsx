@@ -31,8 +31,7 @@ export function ActivityHistoryChart({
 
   return (
     <View
-      className="flex-row items-end justify-between"
-      style={{ height: 156, gap: theme.spacing.xs }}
+      style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 156, gap: theme.spacing.xs }}
     >
       {days.map((dateKey) => {
         const steps = byDate.get(dateKey)?.authoritativeSteps ?? 0;
@@ -57,7 +56,7 @@ export function ActivityHistoryChart({
             key={dateKey}
             accessible
             accessibilityLabel={`${fullLabel}${dateKey === todayKey ? ", today" : ""}: ${steps.toLocaleString()} steps, ${goalPercent} percent of goal`}
-            className="min-w-0 flex-1 items-center"
+            style={{ minWidth: 0, flex: 1, alignItems: "center" }}
           >
             <Text
               accessible={false}
@@ -70,8 +69,11 @@ export function ActivityHistoryChart({
             </Text>
             <View
               accessible={false}
-              className="mt-2 w-full justify-end overflow-hidden"
               style={{
+                marginTop: 8,
+                width: "100%",
+                justifyContent: "flex-end",
+                overflow: "hidden",
                 maxWidth: 28,
                 height: 92,
                 borderRadius: theme.radii.full,
@@ -81,8 +83,8 @@ export function ActivityHistoryChart({
               {height > 0 ? (
                 <View
                   accessible={false}
-                  className="w-full"
                   style={{
+                    width: "100%",
                     height,
                     borderRadius: theme.radii.full,
                     backgroundColor: theme.colors.brand,

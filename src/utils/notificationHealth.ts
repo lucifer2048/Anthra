@@ -19,9 +19,31 @@ type NotificationModule = {
   getPermissionsAsync?: () => Promise<PermissionResponse>;
   requestPermissionsAsync?: () => Promise<PermissionResponse>;
   getAllScheduledNotificationsAsync?: () => Promise<ScheduledRequest[]>;
+  setNotificationHandler?: (handler: {
+    handleNotification: () => Promise<{
+      shouldShowAlert: boolean;
+      shouldPlaySound: boolean;
+      shouldSetBadge: boolean;
+    }>;
+  }) => void;
+  setNotificationChannelAsync?: (
+    channelId: string,
+    channel: {
+      name: string;
+      importance: number;
+      sound?: string;
+      vibrationPattern?: number[];
+    }
+  ) => Promise<unknown>;
   scheduleNotificationAsync?: (request: {
-    content: { title: string; body: string; sound: boolean; data: Record<string, unknown> };
-    trigger: null;
+    content: {
+      title: string;
+      body: string;
+      sound?: boolean | string;
+      channelId?: string;
+      data?: Record<string, unknown>;
+    };
+    trigger: null | { seconds?: number };
   }) => Promise<string>;
 };
 
@@ -127,13 +149,20 @@ export async function getNotificationHealth(): Promise<NotificationHealth> {
 }
 
 export async function sendTestNotification(): Promise<{ ok: boolean; message: string }> {
-  if (Platform.OS === "android" && isExpoGoClient()) {
-    return { ok: false, message: "Test notifications require a development build." };
-  }
-
   const notifications = await loadNotifications();
   if (!notifications?.scheduleNotificationAsync) {
     return { ok: false, message: "Notifications are unavailable in this build." };
+  }
+
+  // Ensure foreground alert presentation is enabled so user sees the test notification immediately
+  if (typeof notifications.setNotificationHandler === "function") {
+    notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false
+      })
+    });
   }
 
   let permission = (await notifications.getPermissionsAsync?.().catch(() => null)) ?? null;
@@ -141,17 +170,35 @@ export async function sendTestNotification(): Promise<{ ok: boolean; message: st
     permission = (await notifications.requestPermissionsAsync?.().catch(() => null)) ?? null;
   }
   if (!(permission?.granted || permission?.status === "granted")) {
-    return { ok: false, message: "Allow notifications to send a test." };
+    return { ok: false, message: "Notification permission was denied in system settings." };
   }
 
-  await notifications.scheduleNotificationAsync({
-    content: {
-      title: "Anthra notifications are ready",
-      body: "This is a test. Your workout and reminder schedules are connected.",
-      sound: true,
-      data: { source: "anthra-test" }
-    },
-    trigger: null
-  });
-  return { ok: true, message: "Test notification sent." };
+  const channelId = "anthra_reminders";
+  if (Platform.OS === "android" && typeof notifications.setNotificationChannelAsync === "function") {
+    await notifications.setNotificationChannelAsync(channelId, {
+      name: "Anthra Reminders",
+      importance: 4,
+      sound: "default",
+      vibrationPattern: [0, 250, 250, 250]
+    }).catch(() => undefined);
+  }
+
+  try {
+    await notifications.scheduleNotificationAsync({
+      content: {
+        title: "Anthra notifications are ready",
+        body: "This is a test. Your workout and reminder schedules are connected.",
+        sound: true,
+        channelId,
+        data: { source: "anthra-test" }
+      },
+      trigger: null
+    });
+    return { ok: true, message: "Test notification sent! Check your notification bar." };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not deliver test notification."
+    };
+  }
 }
